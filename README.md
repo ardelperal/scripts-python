@@ -62,21 +62,62 @@ scripts-python/
 
 El sistema soporta dos entornos configurables mediante el archivo `.env`:
 
+### Configuración inicial
+```bash
+# Copiar plantilla de configuración
+cp .env.example .env
+
+# Editar configuraciones específicas
+nano .env  # o tu editor preferido
+```
+
 ### Entorno Local (`ENVIRONMENT=local`)
-- Bases de datos en `dbs-locales/`
-- Archivos CSS en `herramientas/`
-- Ideal para desarrollo y testing
+- **Bases de datos**: Archivos `.accdb` en `dbs-locales/`
+- **Archivos CSS**: `herramientas/CSS.txt`
+- **Uso**: Desarrollo, testing, trabajo sin red corporativa
+- **Ventajas**: No requiere conexión de red, datos de prueba
 
 ### Entorno Oficina (`ENVIRONMENT=oficina`)
-- Bases de datos en rutas de red `\\datoste\...`
-- Archivos CSS en rutas de red
-- Entorno de producción
+- **Bases de datos**: Rutas de red `\\servidor\aplicaciones\...`
+- **Archivos CSS**: Rutas de red corporativas
+- **Uso**: Producción, datos reales, integración completa
+- **Requisitos**: Acceso a red corporativa, permisos ODBC
+
+### Variables de entorno importantes
+```bash
+ENVIRONMENT=local|oficina          # Seleccionar entorno
+DB_PASSWORD=contraseña_bd          # Contraseña bases datos
+DEFAULT_RECIPIENT=email@empresa.com # Destinatario notificaciones
+LOG_LEVEL=INFO|DEBUG|ERROR         # Nivel de logging
+```
 
 ## Instalación
 
-1. **Instalar dependencias**
+1. **Clonar el repositorio y navegar al directorio**
+   ```bash
+   git clone <repo-url>
+   cd scripts-python
+   ```
+
+2. **Configurar variables de entorno**
+   ```bash
+   # Copiar el archivo de ejemplo
+   cp .env.example .env
+   
+   # Editar .env con tus configuraciones específicas
+   # - Cambiar DB_PASSWORD por la contraseña real
+   # - Ajustar rutas de red para entorno oficina
+   # - Configurar email de destinatario
+   ```
+
+3. **Instalar dependencias**
    ```bash
    pip install -r requirements.txt
+   ```
+
+4. **Ejecutar script de instalación (opcional)**
+   ```bash
+   python setup.py
    ```
 
 2. **Configurar variables de entorno**
