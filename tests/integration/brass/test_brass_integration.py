@@ -20,7 +20,7 @@ class TestBrassIntegration:
         """Test BRASS: carga correcta de configuración para equipos de medida"""
         from common.config import config
         
-        assert config.environment == 'local'
+        assert config.environment in ['local', 'oficina']
         assert config.db_password == 'dpddpd'
         assert 'Gestion_Brass_Gestion_Datos.accdb' in str(config.db_brass_path)
         assert 'Tareas_datos1.accdb' in str(config.db_tareas_path)

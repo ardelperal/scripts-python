@@ -3,36 +3,18 @@ Módulo BRASS - Gestión de equipos de medida y calibraciones
 Adaptación del sistema legacy VBS a Python
 """
 import logging
-import sys
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-# Importación absoluta usando sys.path
-try:
-    from common import (
-        config,
-        AccessDatabase,
-        load_css_content,
-        generate_html_header,
-        generate_html_footer,
-        safe_str
-    )
-except ImportError:
-    # Fallback para importación directa
-    import os
-    current_dir = Path(__file__).parent
-    common_dir = current_dir.parent / "common"
-    sys.path.insert(0, str(common_dir))
-    
-    from config import config
-    from database import AccessDatabase
-    from utils import (
-        load_css_content,
-        generate_html_header,
-        generate_html_footer,
-        safe_str
-    )
+from common import (
+    config,
+    AccessDatabase,
+    load_css_content,
+    generate_html_header,
+    generate_html_footer,
+    safe_str
+)
 
 logger = logging.getLogger(__name__)
 

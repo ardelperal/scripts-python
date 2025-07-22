@@ -90,7 +90,7 @@ def is_night_time(current_time: Optional[datetime] = None) -> bool:
 
 def load_css_content(css_file_path: Path) -> str:
     """
-    Carga el contenido CSS desde un archivo
+    Carga el contenido CSS desde un archivo con soporte para múltiples encodings
     
     Args:
         css_file_path: Ruta al archivo CSS
@@ -98,20 +98,30 @@ def load_css_content(css_file_path: Path) -> str:
     Returns:
         Contenido CSS como string
     """
-    try:
-        with open(css_file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    except Exception as e:
-        logging.error(f"Error cargando archivo CSS {css_file_path}: {e}")
-        # CSS básico por defecto
-        return """
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .centrado { text-align: center; }
-        .ColespanArriba { background-color: #4CAF50; color: white; font-weight: bold; text-align: center; }
-        table { border-collapse: collapse; width: 100%; }
-        td, th { border: 1px solid #ddd; padding: 8px; }
-        strong { font-weight: bold; }
-        """
+    encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1']
+    
+    for encoding in encodings:
+        try:
+            with open(css_file_path, 'r', encoding=encoding) as f:
+                content = f.read()
+                logging.info(f"Archivo CSS cargado exitosamente con encoding {encoding}")
+                return content
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            logging.error(f"Error leyendo archivo CSS {css_file_path}: {e}")
+            break
+    
+    logging.warning(f"No se pudo cargar el archivo CSS {css_file_path} con ningún encoding, usando CSS por defecto")
+    # CSS básico por defecto
+    return """
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .centrado { text-align: center; }
+    .ColespanArriba { background-color: #4CAF50; color: white; font-weight: bold; text-align: center; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ddd; padding: 8px; }
+    strong { font-weight: bold; }
+    """
 
 
 def generate_html_header(title: str, css_content: str) -> str:
