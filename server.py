@@ -67,6 +67,9 @@ class TaskControlHandler(BaseHTTPRequestHandler):
         elif parsed_path.path == '/api/test':
             # Ejecutar tests
             self.execute_tests(data)
+        elif parsed_path.path == '/api/environment':
+            # Cambiar entorno
+            self.change_environment(data)
         else:
             self.send_error(404, "Endpoint no encontrado")
     
@@ -126,6 +129,58 @@ class TaskControlHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error(f"Error obteniendo info entorno: {e}")
             self.send_error(500, f"Error obteniendo info entorno: {e}")
+    
+    def change_environment(self, data: Dict[str, Any]):
+        """Cambiar el entorno de ejecución"""
+        try:
+            new_environment = data.get('environment')
+            if not new_environment:
+                self.send_error(400, "Entorno requerido")
+                return
+            
+            if new_environment not in ['local', 'oficina']:
+                self.send_error(400, "Entorno debe ser 'local' u 'oficina'")
+                return
+            
+            # Leer el archivo .env actual
+            env_file = Path('.env')
+            env_content = {}
+            
+            if env_file.exists():
+                with open(env_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            if '=' in line:
+                                key, value = line.split('=', 1)
+                                env_content[key.strip()] = value.strip()
+            
+            # Actualizar el entorno
+            env_content['ENVIRONMENT'] = new_environment
+            
+            # Escribir el archivo .env actualizado
+            with open(env_file, 'w', encoding='utf-8') as f:
+                for key, value in env_content.items():
+                    f.write(f"{key}={value}\n")
+            
+            # Recargar la configuración
+            from src.common.config import reload_config
+            reload_config()
+            
+            logger.info(f"Entorno cambiado a: {new_environment}")
+            
+            # Enviar respuesta de éxito
+            response = {
+                'success': True,
+                'environment': new_environment,
+                'message': f'Entorno cambiado a {new_environment}'
+            }
+            
+            self.send_json_response(response)
+            
+        except Exception as e:
+            logger.error(f"Error cambiando entorno: {e}")
+            self.send_error(500, f"Error cambiando entorno: {e}")
     
     def execute_module(self, data: Dict[str, Any]):
         """Ejecutar un módulo específico"""
@@ -285,7 +340,7 @@ class TaskControlHandler(BaseHTTPRequestHandler):
 def main():
     """Función principal del servidor"""
     # Configuración del servidor
-    HOST = 'localhost'
+    HOST = '0.0.0.0'  # Escuchar en todas las interfaces para Docker
     PORT = 8888
     
     # Crear servidor

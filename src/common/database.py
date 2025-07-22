@@ -6,6 +6,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 from contextlib import contextmanager
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
@@ -141,3 +142,99 @@ class AccessDatabase:
         except Exception as e:
             logger.error(f"Error actualizando registro en {table}: {e}")
             return False
+
+
+class DemoDatabase:
+    """Clase de demostración que simula una base de datos Access para Docker"""
+    
+    def __init__(self, connection_string: str = None):
+        self.connection_string = connection_string
+        logger.info("Modo DEMO: Simulando base de datos Access")
+        
+        # Datos de demo para BRASS
+        self.demo_brass_data = {
+            'ultima_ejecucion': datetime.now().date(),
+            'equipos_descalibrados': []
+        }
+        
+        # Datos de demo para Tareas
+        self.demo_tareas_data = {
+            'max_id': 1000
+        }
+    
+    def connect(self):
+        """Simula conexión exitosa"""
+        logger.info("DEMO: Conexión simulada establecida")
+        return self
+    
+    def disconnect(self):
+        """Simula desconexión"""
+        logger.info("DEMO: Conexión simulada cerrada")
+    
+    @contextmanager
+    def get_connection(self):
+        """Context manager simulado"""
+        try:
+            yield self
+        except Exception as e:
+            logger.error(f"Error en modo demo: {e}")
+            raise
+    
+    def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+        """Simula ejecución de consultas SELECT"""
+        logger.info(f"DEMO: Ejecutando consulta simulada: {query[:50]}...")
+        
+        # Simular consultas específicas de BRASS
+        if "ultima_ejecucion" in query.lower():
+            return [{'ultima_ejecucion': self.demo_brass_data['ultima_ejecucion']}]
+        
+        if "equipos" in query.lower() and "calibracion" in query.lower():
+            return self.demo_brass_data['equipos_descalibrados']
+        
+        # Simular consultas de Tareas
+        if "max(" in query.lower():
+            return [{'MaxID': self.demo_tareas_data['max_id']}]
+        
+        # Por defecto, retornar lista vacía
+        return []
+    
+    def execute_non_query(self, query: str, params: Optional[tuple] = None) -> int:
+        """Simula ejecución de consultas INSERT, UPDATE, DELETE"""
+        logger.info(f"DEMO: Ejecutando consulta no-SELECT simulada: {query[:50]}...")
+        
+        if "insert" in query.lower():
+            # Simular inserción exitosa
+            if "tareas" in query.lower():
+                self.demo_tareas_data['max_id'] += 1
+            return 1
+        
+        if "update" in query.lower():
+            # Simular actualización exitosa
+            return 1
+        
+        return 0
+    
+    def get_max_id(self, table: str, id_field: str) -> int:
+        """Simula obtención de ID máximo"""
+        logger.info(f"DEMO: Obteniendo ID máximo simulado para {table}.{id_field}")
+        return self.demo_tareas_data['max_id']
+    
+    def insert_record(self, table: str, data: Dict[str, Any]) -> bool:
+        """Simula inserción de registro"""
+        logger.info(f"DEMO: Insertando registro simulado en {table}")
+        if "tareas" in table.lower():
+            self.demo_tareas_data['max_id'] += 1
+        return True
+    
+    def update_record(self, table: str, data: Dict[str, Any], where_condition: str, where_params: Optional[tuple] = None) -> bool:
+        """Simula actualización de registro"""
+        logger.info(f"DEMO: Actualizando registro simulado en {table}")
+        return True
+
+
+def get_database_instance(connection_string: Optional[str]) -> AccessDatabase:
+    """Factory function que retorna la instancia apropiada de base de datos"""
+    if connection_string is None:
+        return DemoDatabase()
+    else:
+        return AccessDatabase(connection_string)

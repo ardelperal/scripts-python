@@ -2,6 +2,7 @@
 Configuración del proyecto para manejo de diferentes entornos
 """
 import os
+import platform
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -15,6 +16,9 @@ class Config:
         
         # Directorio raíz del proyecto (dos niveles arriba desde src/common/)
         self.root_dir = Path(__file__).parent.parent.parent
+        
+        # Detectar si estamos en Docker
+        self.is_docker = self._is_running_in_docker()
         
         # Configuración general
         self.environment = os.getenv('ENVIRONMENT', 'local')
@@ -37,6 +41,18 @@ class Config:
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
         self.log_file = self.root_dir / os.getenv('LOG_FILE', 'logs/brass.log')
         
+    def _is_running_in_docker(self) -> bool:
+        """Detecta si la aplicación está ejecutándose en Docker"""
+        return (
+            os.path.exists('/.dockerenv') or 
+            os.getenv('DOCKER_CONTAINER') == 'true' or
+            os.path.exists('C:\\app')  # Directorio típico en Windows containers
+        )
+        
+    def is_demo_mode(self) -> bool:
+        """Retorna True si estamos en modo demo (Docker)"""
+        return self.environment == 'docker_demo'
+        
     def get_db_brass_connection_string(self) -> str:
         """Retorna la cadena de conexión para la base de datos BRASS"""
         return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_brass_path};PWD={self.db_password};"
@@ -48,3 +64,16 @@ class Config:
 
 # Instancia global de configuración
 config = Config()
+
+def reload_config():
+    """Recargar la configuración desde las variables de entorno"""
+    global config
+    
+    # Recargar variables de entorno desde .env
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    
+    # Crear nueva instancia de configuración
+    config = Config()
+    
+    return config

@@ -1,0 +1,55 @@
+# Dockerfile para Windows con soporte para Microsoft Access
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+# Metadatos
+LABEL maintainer="Sistema de Gestión de Tareas"
+LABEL description="Migración VBS a Python con Panel de Control Web - Windows Container"
+LABEL version="1.0"
+
+# Variables de entorno
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV ENVIRONMENT=local
+ENV FLASK_ENV=production
+
+# Cambiar a PowerShell como shell predeterminado
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Descargar e instalar Python 3.11
+RUN Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" -OutFile "python-installer.exe"; \
+    Start-Process -FilePath "python-installer.exe" -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0" -Wait; \
+    Remove-Item -Path "python-installer.exe"
+
+# Instalar Microsoft Access Database Engine 2016 Redistributable
+RUN Invoke-WebRequest -Uri "https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/accessdatabaseengine_X64.exe" -OutFile "AccessDatabaseEngine.exe"; \
+    Start-Process -FilePath "AccessDatabaseEngine.exe" -ArgumentList "/quiet" -Wait; \
+    Remove-Item -Path "AccessDatabaseEngine.exe"
+
+# Verificar instalación de Python
+RUN python --version; pip --version
+
+# Establecer directorio de trabajo
+WORKDIR C:\\app
+
+# Copiar requirements primero (para aprovechar cache de Docker)
+COPY requirements.txt .
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir --upgrade pip; \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copiar código fuente
+COPY . .
+
+# Crear directorios necesarios
+RUN New-Item -ItemType Directory -Force -Path logs, htmlcov, static
+
+# Exponer puerto del servidor web
+EXPOSE 8888
+
+# Comando por defecto - servidor web
+CMD ["python", "server.py"]
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD powershell -command "try { Invoke-WebRequest -Uri http://localhost:8888/api/status -UseBasicParsing } catch { exit 1 }"

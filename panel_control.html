@@ -264,6 +264,57 @@
             border-radius: 5px;
             margin-top: 10px;
         }
+        
+        .environment-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .env-select {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .env-select:hover {
+            border-color: #3498db;
+        }
+        
+        .env-select:focus {
+            outline: none;
+            border-color: #2980b9;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .env-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .env-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .env-local {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .env-oficina {
+            background: #fff3cd;
+            color: #856404;
+        }
     </style>
 </head>
 <body>
@@ -272,6 +323,14 @@
         <div class="header">
             <h1>🐍 Panel de Control</h1>
             <div class="subtitle">Sistema de Gestión de Tareas - Migración VBS a Python</div>
+            <div class="environment-selector">
+                <span class="env-label">🔧 Entorno:</span>
+                <select id="environment-select" class="env-select" onchange="changeEnvironment()">
+                    <option value="local">Local</option>
+                    <option value="oficina">Oficina</option>
+                </select>
+                <span id="env-status" class="env-status env-local">LOCAL</span>
+            </div>
         </div>
         
         <!-- Status Bar -->
@@ -438,6 +497,77 @@ Módulos disponibles:
             addTimestamp('Sistema inicializado correctamente');
         });
         
+        // Funciones de gestión de entorno
+        async function loadCurrentEnvironment() {
+            try {
+                const response = await fetch(`${API_BASE}/api/environment`);
+                const data = await response.json();
+                
+                // Actualizar selector
+                const envSelect = document.getElementById('environment-select');
+                const envStatus = document.getElementById('env-status');
+                
+                envSelect.value = data.environment;
+                envStatus.textContent = data.environment.toUpperCase();
+                envStatus.className = `env-status env-${data.environment}`;
+                
+                // Actualizar indicador en status bar
+                if (currentEnv) {
+                    currentEnv.textContent = data.environment.toUpperCase();
+                }
+                
+                console.log('Entorno cargado:', data.environment);
+            } catch (error) {
+                console.error('Error cargando entorno:', error);
+                addTimestamp('❌ Error cargando configuración de entorno', 'error');
+            }
+        }
+        
+        async function changeEnvironment() {
+            const envSelect = document.getElementById('environment-select');
+            const newEnv = envSelect.value;
+            
+            try {
+                addTimestamp(`🔄 Cambiando entorno a: ${newEnv.toUpperCase()}...`);
+                
+                const response = await fetch(`${API_BASE}/api/environment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ environment: newEnv })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Actualizar estado visual
+                const envStatus = document.getElementById('env-status');
+                envStatus.textContent = newEnv.toUpperCase();
+                envStatus.className = `env-status env-${newEnv}`;
+                
+                // Actualizar indicador en status bar
+                if (currentEnv) {
+                    currentEnv.textContent = newEnv.toUpperCase();
+                }
+                
+                addTimestamp(`✅ Entorno cambiado a: ${newEnv.toUpperCase()}`);
+                
+                // Recargar estado del sistema
+                await loadSystemStatus();
+                
+            } catch (error) {
+                console.error('Error cambiando entorno:', error);
+                addTimestamp(`❌ Error cambiando entorno: ${error.message}`, 'error');
+                
+                // Revertir selector al valor anterior
+                await loadCurrentEnvironment();
+            }
+        }
+        
         // Funciones utilitarias
         function addTimestamp(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -455,18 +585,6 @@ Módulos disponibles:
             const spinner = document.getElementById(elementId);
             if (spinner) {
                 spinner.classList.toggle('hidden', !loading);
-            }
-        }
-        
-        // Cargar información del entorno desde el servidor
-        async function loadCurrentEnvironment() {
-            try {
-                const response = await fetch('/api/environment');
-                const data = await response.json();
-                currentEnv.textContent = data.environment === 'local' ? 'Local' : 'Oficina';
-            } catch (error) {
-                currentEnv.textContent = 'Error';
-                addTimestamp('Error cargando información del entorno', 'error');
             }
         }
         

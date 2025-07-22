@@ -1,0 +1,88 @@
+# Docker Compose para Sistema de Gestión de Tareas
+services:
+  # Servicio principal de la aplicación
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: gestion-tareas-app
+    ports:
+      - "8888:8888"
+    environment:
+      - ENVIRONMENT=local
+      - DB_PASSWORD=dpddpd
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mapear bases de datos locales
+      - ./dbs-locales:/app/dbs-locales:ro
+      # Mapear archivos de configuración
+      - ./herramientas:/app/herramientas:ro
+      # Mapear logs para persistencia
+      - ./logs:/app/logs
+      # Mapear reportes de cobertura
+      - ./htmlcov:/app/htmlcov
+      # Variables de entorno
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - gestion-tareas-net
+
+  # Servicio de desarrollo (opcional)
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: gestion-tareas-dev
+    ports:
+      - "8889:8888"
+    environment:
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Montar todo el código para desarrollo
+      - .:/app
+      # Excluir venv y cache
+      - /app/venv
+      - /app/__pycache__
+      - /app/.pytest_cache
+    command: ["python", "server.py"]
+    profiles:
+      - dev
+    networks:
+      - gestion-tareas-net
+
+  # Servicio para ejecutar tests (on-demand)
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gestion-tareas-tests
+    environment:
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./dbs-locales:/app/dbs-locales:ro
+      - ./herramientas:/app/herramientas:ro
+      - ./.env:/app/.env:ro
+      - ./htmlcov:/app/htmlcov
+    command: ["python", "-m", "pytest", "tests/", "-v", "--cov=src", "--cov-report=html", "--cov-report=term-missing"]
+    profiles:
+      - tests
+    networks:
+      - gestion-tareas-net
+
+networks:
+  gestion-tareas-net:
+    driver: bridge
+
+volumes:
+  logs-data:
+  coverage-data:

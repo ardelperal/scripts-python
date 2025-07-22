@@ -1,0 +1,47 @@
+# Docker Compose para Sistema de Gestión de Tareas - Windows Containers
+services:
+  # Servicio principal de la aplicación
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.windows
+    container_name: gestion-tareas-app-windows
+    ports:
+      - "8888:8888"
+    environment:
+      - ENVIRONMENT=local
+      - DB_PASSWORD=dpddpd
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mapear bases de datos locales
+      - ./dbs-locales:C:/app/dbs-locales:ro
+      # Mapear archivos de configuración
+      - ./herramientas:C:/app/herramientas:ro
+      # Mapear logs para persistencia
+      - ./logs:C:/app/logs
+      # Mapear reportes de cobertura
+      - ./htmlcov:C:/app/htmlcov
+      # Variables de entorno
+      - ./.env:C:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "powershell", "-command", "Invoke-WebRequest -Uri http://localhost:8888/api/status -UseBasicParsing"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - gestion-tareas-net
+
+  # Red personalizada para el proyecto
+networks:
+  gestion-tareas-net:
+    driver: nat
+    
+# Volúmenes nombrados para persistencia de datos
+volumes:
+  logs_data:
+    driver: local
+  htmlcov_data:
+    driver: local

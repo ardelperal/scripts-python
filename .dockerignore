@@ -1,0 +1,62 @@
+# Docker ignore file
+# Evitar copiar archivos innecesarios al contexto de Docker
+
+# Entornos virtuales Python
+venv/
+env/
+.venv/
+.env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs (se mapean como volumen)
+logs/*.log
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Documentación de desarrollo
+docs/dev/
+*.md.backup
+
+# Archivos de build locales
+build/
+dist/
+*.egg-info/
+
+# Variables de entorno locales (se mapean como archivo)
+.env.local
+.env.*.local
+
+# Bases de datos sensibles (usar volúmenes)
+*.accdb.backup
+*.mdb.backup

@@ -1,0 +1,47 @@
+# Dockerfile para desarrollo
+FROM python:3.11-slim
+
+# Variables de entorno para desarrollo
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV ENVIRONMENT=local
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    unixodbc \
+    unixodbc-dev \
+    gcc \
+    g++ \
+    curl \
+    wget \
+    git \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear usuario de desarrollo
+RUN useradd --create-home --shell /bin/bash --groups sudo dev
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    # Instalar herramientas de desarrollo adicionales
+    pip install --no-cache-dir ipython jupyter
+
+# Crear directorios
+RUN mkdir -p logs htmlcov static
+
+# Cambiar ownership
+RUN chown -R dev:dev /app
+
+# Cambiar a usuario de desarrollo
+USER dev
+
+# Exponer puerto
+EXPOSE 8888
+
+# Comando por defecto
+CMD ["python", "server.py"]
