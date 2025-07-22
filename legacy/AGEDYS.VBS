@@ -1,0 +1,1683 @@
+
+Option Explicit
+Dim m_IDAplicacion
+Const m_Pass = "dpddpd"
+Dim m_URLBBDDTareas
+Dim m_URLBBDDLanzadera
+Dim CnTareas
+Dim CnLanzadera
+Dim CSS
+Dim ColUsuariosTecnicos
+Dim ColUsuariosCalidad
+Dim ColUsuariosEconomia
+Dim ColUsuariosAdministradores
+Dim m_CadenaCorreoAdministradores
+Dim m_CadenaCorreoCalidad
+Dim m_CadenaCorreoEconomia
+
+
+
+Const adStateClosed = 0
+Const adStateOpen = 1
+Const adOpenForwardOnly = 0
+Const adOpenKeyset = 1
+Const adOpenStatic = 3
+
+Const adLockBatchOptimistic = 4
+Const adLockOptimistic = 3
+Const adLockPessimistic = 2
+Const adLockReadOnly = 1
+
+Const ForReading = 1
+Const ForWriting = 2
+Const ForAppending = 8
+
+Const adOpenDynamic = 2
+Const adUseClient = 3
+
+Const adCmdText = 1
+
+
+Public Function GenerarColUsuarios()
+    Set ColUsuariosTecnicos = getColusuariosTareas("Técnico")
+    Set ColUsuariosCalidad = getColusuariosTareas("Calidad")
+    Set ColUsuariosEconomia = getColusuariosEconomia()
+    Set ColUsuariosAdministradores = getColusuariosTareas("Administrador")
+    
+    
+End Function
+
+
+Public Function getCadenaCorreoTipo(p_Tipo)
+    Dim m_Registro
+    Dim dato
+    Dim m_Correo
+    Dim m_Cadena
+    Dim m_Col
+    
+    If p_Tipo = "Administradores" Then
+        Set m_Col = ColUsuariosAdministradores
+    ElseIf p_Tipo = "Calidad" Then
+        Set m_Col = ColUsuariosCalidad
+    ElseIf p_Tipo = "Economía" Then
+        Set m_Col = ColUsuariosEconomia
+    Else
+        Exit Function
+    End If
+    If m_Col.Count < 1 Then
+        Exit Function
+    End If
+    'm_Registro = rcdDatos.Fields("UsuarioRed") & "|" & rcdDatos.Fields("Nombre") & "|" & rcdDatos.Fields("CorreoUsuario")
+    m_Cadena = ""
+    For Each m_Registro In m_Col
+        dato = Split(m_Registro, "|")
+        m_Correo = dato(2)
+        If m_Cadena = "" Then
+            m_Cadena = m_Correo
+        Else
+            m_Cadena = m_Cadena & ";" & m_Correo
+        End If
+    Next
+    getCadenaCorreoTipo = m_Cadena
+    
+    
+End Function
+Public Function getCSS()
+    Dim MiCSS
+    Dim FSO
+    Dim URLCSS
+    
+    URLCSS = "\\DATOSTE\aplicaciones_dys\Aplicaciones PpD\CSS.txt"
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set MiCSS = FSO.OpenTextFile(URLCSS, 1, False)
+    getCSS = Trim(MiCSS.ReadAll)
+    MiCSS.Close
+    Set FSO = Nothing
+   
+    
+    
+End Function
+
+
+Private Function Conn( _
+                        p_URL, _
+                        p_m_Pass _
+                        )
+    
+    Dim m_ConnectionString
+    Dim m_Provider
+    
+    
+    m_Provider = "Microsoft.ACE.OLEDB.12.0"
+    m_ConnectionString = "Data Source=" & p_URL & ";" & "Jet OLEDB:Database Password=" & p_m_Pass & ";"
+    Set Conn = CreateObject("adodb.Connection")
+    
+    With Conn
+        .Provider = m_Provider
+        .ConnectionString = m_ConnectionString
+        .Open
+    End With
+    
+    
+End Function
+Public Function getColUsuariosFacturasPendientesVisadoTecnico()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Usuario
+    Set getColUsuariosFacturasPendientesVisadoTecnico = CreateObject("Scripting.Dictionary")
+    'facturas en la que es responsable es p_usuario y tiene correo="Sí"
+    
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle INNER JOIN TbVisadoFacturas_Nueva " & _
+            "ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FRECHAZOTECNICO]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FVISADOTECNICO]) Is Null) " & _
+            "AND ((TbExpedientes.[AGEDYSGenerico])='Sí') AND ((TbExpedientes.[AGEDYSAplica])='Sí'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosFacturasPendientesVisadoTecnico.Exists(m_Usuario) Then
+                getColUsuariosFacturasPendientesVisadoTecnico.Add m_Usuario, m_Usuario
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IDExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.IDFactura) Is Null) " & _
+            "AND ((TbExpedientes.[AGEDYSGenerico])='Sí') " & _
+            "AND ((TbExpedientes.[AGEDYSAplica])='Sí') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='Sí'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosFacturasPendientesVisadoTecnico.Exists(m_Usuario) Then
+                getColUsuariosFacturasPendientesVisadoTecnico.Add m_Usuario, m_Usuario
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle " & _
+            "INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IDExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FRECHAZOTECNICO]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FVISADOTECNICO]) Is Null) " & _
+            "AND ((TbExpedientes.[AGEDYSGenerico])='No') " & _
+            "AND ((TbExpedientes.[AGEDYSAplica])='Sí') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='Sí'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosFacturasPendientesVisadoTecnico.Exists(m_Usuario) Then
+                getColUsuariosFacturasPendientesVisadoTecnico.Add m_Usuario, m_Usuario
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IDExpediente = TbExpedientesResponsables.IdExpediente) LEFT JOIN TbVisadoFacturas_Nueva " & _
+            "ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbUsuariosAplicaciones " & _
+            "ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.IDFactura) Is Null) AND ((TbExpedientes.[AGEDYSGenerico])='No') " & _
+            "AND ((TbExpedientes.[AGEDYSAplica])='Sí'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosFacturasPendientesVisadoTecnico.Exists(m_Usuario) Then
+                getColUsuariosFacturasPendientesVisadoTecnico.Add m_Usuario, m_Usuario
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+
+Public Function getFacturasPendientesVisadoTecnico(ID, Nombre)
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getFacturasPendientesVisadoTecnico = CreateObject("Scripting.Dictionary")
+    'facturas en la que es responsable es p_usuario y tiene correo="Sí"
+    
+    m_SQL = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, " & _
+            "TbExpedientes.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, " & _
+            "TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO " & _
+            "FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle " & _
+            "INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IDExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FRECHAZOTECNICO]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FVISADOTECNICO]) Is Null) " & _
+            "AND ((TbExpedientes.[AGEDYSGenerico])='No') AND ((TbExpedientes.[AGEDYSAplica])='Sí') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='Sí') AND ((TbExpedientesResponsables.IdUsuario)=" & ID & "));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("CodExp") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTEADJUDICADO") & "|" & _
+                                rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasPendientesVisadoTecnico.Exists(m_Registro) Then
+                getFacturasPendientesVisadoTecnico.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    m_SQL = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, " & _
+            "TbExpedientes.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, " & _
+            "TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO " & _
+            "FROM ((((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IDExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.IDFactura) Is Null) AND ((TbExpedientes.[AGEDYSGenerico])='No') " & _
+            "AND ((TbExpedientes.[AGEDYSAplica])='Sí') AND ((TbExpedientesResponsables.CorreoSiempre)='Sí') " & _
+            "AND ((TbExpedientesResponsables.IdUsuario)=" & ID & "));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("CodExp") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTEADJUDICADO") & "|" & _
+                                rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasPendientesVisadoTecnico.Exists(m_Registro) Then
+                getFacturasPendientesVisadoTecnico.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+    
+    
+    
+    m_SQL = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes.CodExp, " & _
+            "TbProyectos.DESCRIPCION , TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, " & _
+            "TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO " & _
+            "FROM ((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle " & _
+            "INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FRECHAZOTECNICO]) Is Null) " & _
+            "AND ((TbVisadoFacturas_Nueva.[FVISADOTECNICO]) Is Null) AND ((TbExpedientes.[AGEDYSGenerico])='Sí') " & _
+            "AND ((TbExpedientes.[AGEDYSAplica])='Sí') AND ((TbProyectos.[PETICIONARIO])='" & Nombre & "'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("CodExp") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTEADJUDICADO") & "|" & _
+                                rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasPendientesVisadoTecnico.Exists(m_Registro) Then
+                getFacturasPendientesVisadoTecnico.Add m_Registro, m_Registro
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    m_SQL = "SELECT  TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, " & _
+            "TbExpedientes.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, " & _
+            "TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO " & _
+            "FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle " & _
+            "ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IDExpediente) " & _
+            "LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbFacturasDetalle.[FechaAceptacion]) Is Null) AND ((TbVisadoFacturas_Nueva.IDFactura) Is Null) " & _
+            "AND ((TbExpedientes.[AGEDYSGenerico])='Sí') AND ((TbExpedientes.[AGEDYSAplica])='Sí') " & _
+            "AND ((TbProyectos.[PETICIONARIO])='" & Nombre & "'));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("CodExp") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTEADJUDICADO") & "|" & _
+                                rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasPendientesVisadoTecnico.Exists(m_Registro) Then
+                getFacturasPendientesVisadoTecnico.Add m_Registro, m_Registro
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+Public Function getTablaHTMLFacturas(p_Col, p_Titulo)
+    Dim m_Registro
+    Dim dato
+    Dim m_Valor
+    Dim m_Mensaje
+    
+    If p_Col.Count = 0 Then
+        getTablaHTMLFacturas = ""
+        Exit Function
+    End If
+    m_Mensaje = m_Mensaje & "<Table>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""ColespanArriba"" colspan=9>" & p_Titulo & "</td>"
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">NFactura</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">NDOCUMENTO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DPD</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">PETICIONARIO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">EXPEDIENTE</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DESCRIPCIÓN</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">IMPORTE PEDIDO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">SUMINISTRADOR</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">IMPORTE FACTURA</td>" & vbNewLine
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    For Each m_Registro In p_Col
+        dato = Split(m_Registro, "|")
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(0) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(8) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(1) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(2) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(3) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(4) & "</td>" & vbNewLine
+            m_Valor = dato(5)
+            If IsNumeric(m_Valor) Then
+                m_Valor = Replace(m_Valor, "€", ".EUR")
+            End If
+            m_Mensaje = m_Mensaje & "<td> " & m_Valor & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(6) & "</td>" & vbNewLine
+            m_Valor = dato(7)
+            If IsNumeric(m_Valor) Then
+                m_Valor = Replace(m_Valor, "€", ".EUR")
+            End If
+            m_Mensaje = m_Mensaje & "<td> " & m_Valor & "</td>" & vbNewLine
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    Next
+    m_Mensaje = m_Mensaje & "</Table>" & vbNewLine
+    getTablaHTMLFacturas = m_Mensaje
+End Function
+
+Public Function getTablaHTMLFacturasPendientesVisadoTecnico(p_Col)
+    getTablaHTMLFacturasPendientesVisadoTecnico = getTablaHTMLFacturas(p_Col, "Facturas Pendientes de Visado Técnico (AGEDYS)")
+End Function
+
+Public Function getColUsuariosDPDsSinSO()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Usuario
+    
+    Set getColUsuariosDPDsSinSO = CreateObject("Scripting.Dictionary")
+    'Proyectos sin enviar alguna de la Solicitudes de Oferta al Suministrador (AGEDYS)
+    
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones " & _
+            "ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) " & _
+            "AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') AND ((TbExpedientes.AGEDYSAplica)='Sí') " & _
+            "AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsSinSO.Exists(m_Usuario) Then
+                getColUsuariosDPDsSinSO.Add m_Usuario, m_Usuario
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    m_SQL = "SELECT distinct TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) LEFT JOIN TbSuministradoresSAP " & _
+            "ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) " & _
+            "AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') " & _
+            "AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsSinSO.Exists(m_Usuario) Then
+                getColUsuariosDPDsSinSO.Add m_Usuario, m_Usuario
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+
+Public Function getDPDsSinSO(p_Usuario)
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsSinSO = CreateObject("Scripting.Dictionary")
+    'Proyectos sin enviar alguna de la Solicitudes de Oferta al Suministrador (AGEDYS)
+    
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS , TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION , TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION  " & _
+            "FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) INNER JOIN TbExpedientesResponsables " & _
+            "ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones " & _
+            "ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) " & _
+            "AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "') AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') " & _
+            "AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsSinSO.Exists(m_Registro) Then
+                getDPDsSinSO.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    m_SQL = "SELECT distinct TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION , TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION  " & _
+            "FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) LEFT JOIN TbSuministradoresSAP " & _
+            "ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) " & _
+            "AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "') AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') " & _
+            "AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsSinSO.Exists(m_Registro) Then
+                getDPDsSinSO.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+
+Public Function getTablaHTMLDPDsSinSO(p_Col)
+    getTablaHTMLDPDsSinSO = getTablaHTMLDPDsCincoCampos(p_Col, "Proyectos sin enviar alguna de la Solicitudes de Oferta al Suministrador (AGEDYS)")
+End Function
+Public Function getColUsuariosDPDsConSOSinRO()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Usuario
+    Set getColUsuariosDPDsConSOSinRO = CreateObject("Scripting.Dictionary")
+    'Proyectos sin adjuntar la Oferta del Suministrador (AGEDYS)
+    
+    m_SQL = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos INNER JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbExpedientesResponsables ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsConSOSinRO.Exists(m_Usuario) Then
+                getColUsuariosDPDsConSOSinRO.Add m_Usuario, m_Usuario
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+     m_SQL = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM (((TbProyectos INNER JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbExpedientes.AGEDYSGenerico)<>'No') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsConSOSinRO.Exists(m_Usuario) Then
+                getColUsuariosDPDsConSOSinRO.Add m_Usuario, m_Usuario
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+Public Function getDPDsConSOSinRO(p_Usuario)
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsConSOSinRO = CreateObject("Scripting.Dictionary")
+    'Proyectos sin adjuntar la Oferta del Suministrador (AGEDYS)
+    
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION , TbProyectos.EXPEDIENTE, " & _
+            "TbProyectos.DESCRIPCION " & _
+            "FROM ((((TbProyectos INNER JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbExpedientesResponsables ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "') " & _
+            "AND ((TbExpedientes.AGEDYSGenerico)<>'Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsConSOSinRO.Exists(m_Registro) Then
+                getDPDsConSOSinRO.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION , TbProyectos.EXPEDIENTE, " & _
+            "TbProyectos.DESCRIPCION " & _
+            "FROM (((TbProyectos INNER JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) " & _
+            "INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "') " & _
+            "AND ((TbExpedientes.AGEDYSGenerico)<>'No') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsConSOSinRO.Exists(m_Registro) Then
+                getDPDsConSOSinRO.Add m_Registro, m_Registro
+            End If
+            rcdDatos.MoveNext
+        Loop
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+End Function
+
+Public Function getTablaHTMLDPDsConSOSinRO(p_Col)
+    getTablaHTMLDPDsConSOSinRO = getTablaHTMLDPDsCincoCampos(p_Col, "Proyectos sin adjuntar la Oferta del Suministrador (AGEDYS)")
+End Function
+
+Public Function getTablaHTMLDPDsCincoCampos(p_Col, p_Titulo)
+    Dim m_Registro
+    Dim dato
+    Dim m_Valor
+    Dim m_Mensaje
+    
+    If p_Col.Count = 0 Then
+        getTablaHTMLDPDsCincoCampos = ""
+        Exit Function
+    End If
+    m_Mensaje = m_Mensaje & "<Table>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""ColespanArriba"" colspan=5>" & p_Titulo & "</td>"
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DPD</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">PETICIONARIO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">REGISTRADO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">EXPEDIENTE</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DESCRIPCIÓN</td>" & vbNewLine
+            
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    For Each m_Registro In p_Col
+        dato = Split(m_Registro, "|")
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(0) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(1) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(2) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(3) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(4) & "</td>" & vbNewLine
+            
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    Next
+    m_Mensaje = m_Mensaje & "</Table>" & vbNewLine
+    getTablaHTMLDPDsCincoCampos = m_Mensaje
+End Function
+Public Function getTablaHTMLDPDsSeisCampos(p_Col, p_Titulo)
+    Dim m_Registro
+    Dim dato
+    Dim m_Valor
+    Dim m_Mensaje
+    
+    If p_Col.Count = 0 Then
+        getTablaHTMLDPDsSeisCampos = ""
+        Exit Function
+    End If
+    m_Mensaje = m_Mensaje & "<Table>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""ColespanArriba"" colspan=6>" & p_Titulo & "</td>"
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DPD</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">PETICIONARIO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">REGISTRADO</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">EXPEDIENTE</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">DESCRIPCIÓN</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td class=""Cabecera"">Resp.CALIDAD</td>" & vbNewLine
+            
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    For Each m_Registro In p_Col
+        dato = Split(m_Registro, "|")
+        m_Mensaje = m_Mensaje & "<tr>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(0) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(1) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(2) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(3) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(4) & "</td>" & vbNewLine
+            m_Mensaje = m_Mensaje & "<td> " & dato(5) & "</td>" & vbNewLine
+            
+        m_Mensaje = m_Mensaje & "</tr>" & vbNewLine
+    Next
+    m_Mensaje = m_Mensaje & "</Table>" & vbNewLine
+    getTablaHTMLDPDsSeisCampos = m_Mensaje
+End Function
+Public Function DameCabeceraHTML(strTitulo)
+    
+    Dim strMensaje
+    strMensaje = "<!DOCTYPE html>" & vbNewLine
+    strMensaje = strMensaje & "<html lang=""es"">" & vbNewLine
+    strMensaje = strMensaje & "<head>" & vbNewLine
+        strMensaje = strMensaje & "<title>" & strTitulo & "</title>" & vbNewLine
+        strMensaje = strMensaje & "<meta charset=""ISO-8859-1"" />" & vbNewLine
+        'strMensaje = strMensaje & "<meta charset=""UTF-8"">" & vbnewline
+        strMensaje = strMensaje & "<style type=""text/css"">" & vbNewLine
+            strMensaje = strMensaje & CSS & vbNewLine
+        strMensaje = strMensaje & "</style>" & vbNewLine
+    strMensaje = strMensaje & "</head>" & vbNewLine
+    strMensaje = strMensaje & "<body>" & vbNewLine
+    DameCabeceraHTML = strMensaje
+End Function
+
+Public Function getColUsuariosDPDsSinVisadoPorCalidad()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Usuario
+    Set getColUsuariosDPDsSinVisadoPorCalidad = CreateObject("Scripting.Dictionary")
+    'Proyectos sin visado de la Oferta del Suministrador por Calidad (AGEDYS)
+    m_SQL = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbExpedientesResponsables ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id " & _
+            "WHERE (((TbExpedientes.Pecal)<>'No') AND (Not (TbVisadosGenerales.ROFechaRealiza) Is Null) " & _
+            "AND ((TbVisadosGenerales.ROFechaVisado) Is Null) " & _
+            "AND ((TbVisadosGenerales.ROFechaRechazo) Is Null) " & _
+            "AND ((TbProyectos.FechaFinAgendaTecnica) Is Null));"
+    
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsSinVisadoPorCalidad.Exists(m_Usuario) Then
+                getColUsuariosDPDsSinVisadoPorCalidad.Add m_Usuario, m_Usuario
+            End If
+           
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getDPDsSinVisadoPorCalidad(p_Usuario, p_NombreMiembroCalidad)
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsSinVisadoPorCalidad = CreateObject("Scripting.Dictionary")
+    'Proyectos sin visado de la Oferta del Suministrador por Calidad (AGEDYS)
+    If p_Usuario = "" Then
+        If p_NombreMiembroCalidad = "" Then
+            m_SQL = "SELECT TbProyectos.CODPROYECTOS,TbProyectos.DESCRIPCION, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION, " & _
+                    "TbExpedientes.CodExp,TbUsuariosAplicaciones.Nombre AS ResponsableCalidad " & _
+                "FROM (((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+                    "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD) " & _
+                    "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+                    "LEFT JOIN TbUsuariosAplicaciones ON TbExpedientes.IDResponsableCalidad = TbUsuariosAplicaciones.Id " & _
+                "WHERE (((TbExpedientes.Pecal)<>'No') " & _
+                        "AND (Not (TbVisadosGenerales.ROFechaRealiza) Is Null) " & _
+                        "AND ((TbVisadosGenerales.ROFechaVisado) Is Null) " & _
+                        "AND ((TbVisadosGenerales.ROFechaRechazo) Is Null)AND ((TbProyectos.FechaFinAgendaTecnica) Is Null));"
+        Else
+             m_SQL = "SELECT TbProyectos.CODPROYECTOS,TbProyectos.DESCRIPCION, TbProyectos.PETICIONARIO, " & _
+                    "TbProyectos.FECHAPETICION, TbExpedientes.CodExp,TbUsuariosAplicaciones.Nombre AS ResponsableCalidad " & _
+                    "FROM (((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+                    "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD) " & _
+                    "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+                    "LEFT JOIN TbUsuariosAplicaciones ON TbExpedientes.IDResponsableCalidad = TbUsuariosAplicaciones.Id " & _
+                    "WHERE (((TbExpedientes.Pecal)<>'No') " & _
+                        "AND (Not (TbVisadosGenerales.ROFechaRealiza) Is Null) " & _
+                        "AND ((TbUsuariosAplicaciones.Nombre)='" & p_NombreMiembroCalidad & "' Or (TbUsuariosAplicaciones.Nombre) Is Null) " & _
+                        "AND ((TbVisadosGenerales.ROFechaVisado) Is Null) " & _
+                        "AND ((TbVisadosGenerales.ROFechaRechazo) Is Null)AND ((TbProyectos.FechaFinAgendaTecnica) Is Null));"
+        End If
+        
+    Else
+        m_SQL = "SELECT TbProyectos.CODPROYECTOS,TbProyectos.DESCRIPCION,  TbProyectos.PETICIONARIO, " & _
+                "TbProyectos.FECHAPETICION, TbExpedientes.CodExp,TbUsuariosAplicaciones.Nombre AS ResponsableCalidad " & _
+                "FROM (((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+                    "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD) " & _
+                    "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+                    "LEFT JOIN TbUsuariosAplicaciones ON TbExpedientes.IDResponsableCalidad = TbUsuariosAplicaciones.Id " & _
+                "WHERE (((TbExpedientes.Pecal)<>'No') AND (Not (TbVisadosGenerales.ROFechaRealiza) Is Null) " & _
+                "AND ((TbVisadosGenerales.ROFechaVisado) Is Null) AND ((TbVisadosGenerales.ROFechaRechazo) Is Null) " & _
+                "AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "')AND ((TbProyectos.FechaFinAgendaTecnica) Is Null));"
+    End If
+    
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("CodExp") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("ResponsableCalidad")
+            If Not getDPDsSinVisadoPorCalidad.Exists(m_Registro) Then
+                getDPDsSinVisadoPorCalidad.Add m_Registro, m_Registro
+            End If
+           
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getTablaHTMLDPDsSinVisadoPorCalidad(p_Col)
+    getTablaHTMLDPDsSinVisadoPorCalidad = getTablaHTMLDPDsSeisCampos(p_Col, "Proyectos sin visado de la Oferta del Suministrador por Calidad (AGEDYS)")
+End Function
+
+Public Function getColUsuariosDPDsRechazadosPorCalidad()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Usuario
+    Set getColUsuariosDPDsRechazadosPorCalidad = CreateObject("Scripting.Dictionary")
+    'Proyectos con la Oferta del Suministrador RECHAZADA por Calidad (AGEDYS)
+    
+    m_SQL = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed " & _
+            "FROM ((((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbExpedientesResponsables ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) " & _
+            "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND (Not (TbVisadosGenerales.ROFechaRechazo) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Usuario = rcdDatos.Fields("UsuarioRed")
+            If Not getColUsuariosDPDsRechazadosPorCalidad.Exists(m_Usuario) Then
+                getColUsuariosDPDsRechazadosPorCalidad.Add m_Usuario, m_Usuario
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getDPDsRechazadosPorCalidad(p_Usuario)
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsRechazadosPorCalidad = CreateObject("Scripting.Dictionary")
+    'Proyectos con la Oferta del Suministrador RECHAZADA por Calidad (AGEDYS)
+    
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS , TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION , TbProyectos.EXPEDIENTE, " & _
+            "TbProyectos.DESCRIPCION " & _
+            "FROM ((((TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "INNER JOIN TbExpedientesResponsables ON TbExpedientes.IdExpediente = TbExpedientesResponsables.IdExpediente) " & _
+            "INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) " & _
+            "INNER JOIN TbVisadosGenerales ON TbProyectos.CODPROYECTOS = TbVisadosGenerales.NDPD " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "') AND (Not (TbVisadosGenerales.ROFechaRechazo) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsRechazadosPorCalidad.Exists(m_Registro) Then
+                getDPDsRechazadosPorCalidad.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getTablaHTMLDPDsRechazadosPorCalidad(p_Col)
+    getTablaHTMLDPDsRechazadosPorCalidad = getTablaHTMLDPDsCincoCampos(p_Col, "Proyectos con la Oferta del Suministrador RECHAZADA por Calidad (AGEDYS)")
+End Function
+
+Public Function getDPDsConFinAgendaTecnicaPorRecepcionaEconomia()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsConFinAgendaTecnicaPorRecepcionaEconomia = CreateObject("Scripting.Dictionary")
+    'Proyectos cumplimentados por el Técnico Economía aún no ha recepcionado (AGEDYS)
+    
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION, TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION " & _
+            "FROM TbProyectos " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbProyectos.FECHARECEPCIONECONOMICA) Is Null) AND (Not (TbProyectos.FechaFinAgendaTecnica) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsConFinAgendaTecnicaPorRecepcionaEconomia.Exists(m_Registro) Then
+                getDPDsConFinAgendaTecnicaPorRecepcionaEconomia.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+End Function
+Public Function getTablaHTMLDPDsConFinAgendaTecnicaPorRecepcionaEconomia(p_Col)
+    getTablaHTMLDPDsConFinAgendaTecnicaPorRecepcionaEconomia = getTablaHTMLDPDsCincoCampos(p_Col, "Proyectos cumplimentados por el Técnico Economía aún no ha recepcionado (AGEDYS)")
+End Function
+
+Public Function getDPDsSinPedido()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getDPDsSinPedido = CreateObject("Scripting.Dictionary")
+    'Proyectos Sin Pedido (AGEDYS)
+    
+    m_SQL = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION, TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION " & _
+            "FROM TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbNPedido.NPEDIDO) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & rcdDatos.Fields("FECHAPETICION") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION")
+            If Not getDPDsSinPedido.Exists(m_Registro) Then
+                getDPDsSinPedido.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getTablaHTMLDPDsSinPedido(p_Col)
+    getTablaHTMLDPDsSinPedido = getTablaHTMLDPDsCincoCampos(p_Col, "Proyectos Sin Pedido (AGEDYS)")
+End Function
+
+Public Function getFacturasRechazadas()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getFacturasRechazadas = CreateObject("Scripting.Dictionary")
+    'Facturas Rechazadas por el técnico (AGEDYS)
+    
+    m_SQL = "SELECT TbFacturasDetalle.NFactura,TbFacturasDetalle.NDocumento, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION, " & _
+            "TbProyectos.IMPORTESINIVA, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura " & _
+            "FROM (((TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "LEFT JOIN TbVisadoFacturas_Nueva ON (TbFacturasDetalle.NPEDIDO = TbVisadoFacturas_Nueva.NPEDIDO) " & _
+            "AND (TbFacturasDetalle.NFactura = TbVisadoFacturas_Nueva.NFactura) " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND (Not (TbVisadoFacturas_Nueva.FRECHAZOTECNICO) Is Null) AND ((TbFacturasDetalle.FechaAceptacion) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTESINIVA") & _
+                                "|" & rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasRechazadas.Exists(m_Registro) Then
+                getFacturasRechazadas.Add m_Registro, m_Registro
+            End If
+           
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+Public Function getTablaHTMLFacturasRechazadas(p_Col)
+    getTablaHTMLFacturasRechazadas = getTablaHTMLFacturas(p_Col, "'Facturas Rechazadas por el técnico (AGEDYS)")
+End Function
+Public Function getFacturasVisadasPendientesDeOrdenPago()
+
+    Dim m_SQL
+    Dim rcdDatos
+    Dim m_Registro
+    Set getFacturasVisadasPendientesDeOrdenPago = CreateObject("Scripting.Dictionary")
+    'Facturas Visadas sin Orden de Pago por Economía (AGEDYS)
+    
+    m_SQL = "SELECT TbFacturasDetalle.NFactura,TbFacturasDetalle.NDocumento, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION, " & _
+            "TbProyectos.IMPORTESINIVA, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura " & _
+            "FROM (((TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) " & _
+            "INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) " & _
+            "INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) " & _
+            "LEFT JOIN TbVisadoFacturas_Nueva ON (TbFacturasDetalle.NFactura = TbVisadoFacturas_Nueva.NFactura) " & _
+            "AND (TbFacturasDetalle.NPEDIDO = TbVisadoFacturas_Nueva.NPEDIDO) " & _
+            "WHERE (((TbProyectos.ELIMINADO)=False) AND (Not (TbVisadoFacturas_Nueva.FVISADOTECNICO) Is Null) " & _
+            "AND ((TbFacturasDetalle.FechaAceptacion) Is Null));"
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    
+    If Not rcdDatos.EOF Then
+        rcdDatos.MoveFirst
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("NFactura") & "|" & rcdDatos.Fields("CODPROYECTOS") & "|" & rcdDatos.Fields("PETICIONARIO") & "|" & _
+                                rcdDatos.Fields("EXPEDIENTE") & "|" & rcdDatos.Fields("DESCRIPCION") & "|" & rcdDatos.Fields("IMPORTESINIVA") & _
+                                "|" & rcdDatos.Fields("Suministrador") & "|" & rcdDatos.Fields("ImporteFactura") & "|" & rcdDatos.Fields("NDocumento")
+            If Not getFacturasVisadasPendientesDeOrdenPago.Exists(m_Registro) Then
+                getFacturasVisadasPendientesDeOrdenPago.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+    End If
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+   
+End Function
+
+Public Function getTablaHTMLFacturasVisadasPendientesDeOrdenPago(p_Col)
+    getTablaHTMLFacturasVisadasPendientesDeOrdenPago = getTablaHTMLFacturas(p_Col, "'Facturas Visadas sin Orden de Pago por Economía (AGEDYS)")
+End Function
+Public Function getColParaTecnicos( _
+                                    p_ColUsuariosDPDsSinSO, _
+                                    p_ColUsuariosDPDsConSOSinRO, _
+                                    p_ColUsuariosDPDsSinVisadoPorCalidad, _
+                                    p_ColUsuariosDPDsRechazadosPorCalidad, _
+                                    p_ColUsuariosFacturasPendientesVisadoTecnico)
+    Dim m_Usuario
+    
+    
+    Set getColParaTecnicos = CreateObject("Scripting.Dictionary")
+    If p_ColUsuariosDPDsSinSO.Count > 0 Then
+        For Each m_Usuario In p_ColUsuariosDPDsSinSO
+            If Not getColParaTecnicos.Exists(m_Usuario) Then
+                getColParaTecnicos.Add m_Usuario, m_Usuario
+            End If
+        Next
+    End If
+    If p_ColUsuariosDPDsConSOSinRO.Count > 0 Then
+        For Each m_Usuario In p_ColUsuariosDPDsConSOSinRO
+            If Not getColParaTecnicos.Exists(m_Usuario) Then
+                getColParaTecnicos.Add m_Usuario, m_Usuario
+            End If
+            
+        Next
+    End If
+    If p_ColUsuariosDPDsSinVisadoPorCalidad.Count > 0 Then
+        For Each m_Usuario In p_ColUsuariosDPDsSinVisadoPorCalidad
+            If Not getColParaTecnicos.Exists(m_Usuario) Then
+                getColParaTecnicos.Add m_Usuario, m_Usuario
+            End If
+        Next
+    End If
+    If p_ColUsuariosDPDsRechazadosPorCalidad.Count > 0 Then
+        For Each m_Usuario In p_ColUsuariosDPDsRechazadosPorCalidad
+            If Not getColParaTecnicos.Exists(m_Usuario) Then
+                getColParaTecnicos.Add m_Usuario, m_Usuario
+            End If
+        Next
+    End If
+    If p_ColUsuariosFacturasPendientesVisadoTecnico.Count > 0 Then
+        For Each m_Usuario In p_ColUsuariosFacturasPendientesVisadoTecnico
+            If Not getColParaTecnicos.Exists(m_Usuario) Then
+                getColParaTecnicos.Add m_Usuario, m_Usuario
+            End If
+        Next
+    End If
+End Function
+
+Public Function getDatosUsuario(p_Usuario)
+    
+    Dim rcdDatos
+    Dim m_SQL
+    
+     m_SQL = "SELECT TbUsuariosAplicaciones.CorreoUsuario,TbUsuariosAplicaciones.Nombre,TbUsuariosAplicaciones.ID " & _
+            "FROM TbUsuariosAplicaciones " & _
+            "WHERE (((TbUsuariosAplicaciones.UsuarioRed)='" & p_Usuario & "'));"
+    Set rcdDatos = CreateObject("ADODB.RecordSet")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    With rcdDatos
+        If .EOF Then
+            rcdDatos.Close
+            Set rcdDatos = Nothing
+            
+            getDatosUsuario = ""
+            Exit Function
+        End If
+        getDatosUsuario = .Fields("Nombre") & "|" & .Fields("CorreoUsuario") & "|" & .Fields("ID")
+    End With
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+End Function
+Public Function RealizarTareasTecnicas()
+    
+    Dim m_HTMLCabecera
+    Dim m_Titulo
+    Dim m_Mensaje
+    Dim m_FechaAhora
+    Dim m_ColDPDsSinSO
+    Dim m_ColDPDsConSOSinRO
+    Dim m_ColDPDsSinVisadoPorCalidad
+    Dim m_ColDPDsRechazadosPorCalidad
+    Dim m_ColFacturasPendientesVisadoTecnico
+    
+    Dim m_HTMLTablaDPDsSinSO
+    Dim m_HTMLTablaDPDsConSOSinRO
+    Dim m_HTMLTablaDPDsSinVisadoPorCalidad
+    Dim m_HTMLTablaDPDsRechazadosPorCalidad
+    Dim m_HTMLTablaFacturasPendientesVisadoTecnico
+    
+    Dim m_ColUsuariosConAlgunaTarea
+    Dim m_datosTecnico
+    Dim dato
+    Dim m_Tecnico
+    Dim m_Nombre
+    Dim m_CorreoUsuario
+    Dim ID
+    Dim NTareas
+    Dim m_ColUsuariosDPDsSinSO
+    Dim m_ColUsuariosDPDsConSOSinRO
+    Dim m_ColUsuariosDPDsSinVisadoPorCalidad
+    Dim m_ColUsuariosDPDsRechazadosPorCalidad
+    Dim m_ColUsuariosFacturasPendientesVisadoTecnico
+    
+    
+    
+    Set m_ColUsuariosDPDsSinSO = getColUsuariosDPDsSinSO()
+    Set m_ColUsuariosDPDsConSOSinRO = getColUsuariosDPDsConSOSinRO()
+    Set m_ColUsuariosDPDsSinVisadoPorCalidad = getColUsuariosDPDsSinVisadoPorCalidad()
+    Set m_ColUsuariosDPDsRechazadosPorCalidad = getColUsuariosDPDsRechazadosPorCalidad()
+    Set m_ColUsuariosFacturasPendientesVisadoTecnico = getColUsuariosFacturasPendientesVisadoTecnico()
+    
+    If m_ColUsuariosDPDsSinSO.Count = 0 And m_ColUsuariosDPDsConSOSinRO.Count = 0 _
+        And m_ColUsuariosDPDsSinVisadoPorCalidad.Count = 0 And m_ColUsuariosDPDsRechazadosPorCalidad.Count = 0 _
+        And m_ColUsuariosFacturasPendientesVisadoTecnico.Count = 0 Then
+        Exit Function
+    End If
+    Set m_ColUsuariosConAlgunaTarea = getColParaTecnicos(m_ColUsuariosDPDsSinSO, m_ColUsuariosDPDsConSOSinRO, _
+                                        m_ColUsuariosDPDsSinVisadoPorCalidad, m_ColUsuariosDPDsRechazadosPorCalidad, _
+                                        m_ColUsuariosFacturasPendientesVisadoTecnico)
+    If m_ColUsuariosConAlgunaTarea.Count = 0 Then
+        Exit Function
+    End If
+    For Each m_Tecnico In m_ColUsuariosConAlgunaTarea
+        'If CStr(m_Tecnico) = "tf06315" Then Stop
+        NTareas = 0
+        m_datosTecnico = getDatosUsuario(m_Tecnico)
+        dato = Split(m_datosTecnico, "|")
+        m_Nombre = dato(0)
+        m_CorreoUsuario = dato(1)
+        ID = dato(2)
+        m_FechaAhora = Now()
+        Set m_ColDPDsSinSO = getDPDsSinSO(m_Tecnico)
+        If m_ColDPDsSinSO.Count > 0 Then
+            m_HTMLTablaDPDsSinSO = getTablaHTMLDPDsSinSO(m_ColDPDsSinSO)
+            NTareas = NTareas + m_ColDPDsSinSO.Count
+        End If
+        Set m_ColDPDsConSOSinRO = getDPDsConSOSinRO(m_Tecnico)
+        If m_ColDPDsConSOSinRO.Count > 0 Then
+            m_HTMLTablaDPDsConSOSinRO = getTablaHTMLDPDsConSOSinRO(m_ColDPDsConSOSinRO)
+            NTareas = NTareas + m_ColDPDsConSOSinRO.Count
+        End If
+        Set m_ColDPDsSinVisadoPorCalidad = getDPDsSinVisadoPorCalidad(m_Tecnico, "")
+        If m_ColDPDsSinVisadoPorCalidad.Count > 0 Then
+            m_HTMLTablaDPDsSinVisadoPorCalidad = getTablaHTMLDPDsSinVisadoPorCalidad(m_ColDPDsSinVisadoPorCalidad)
+            NTareas = NTareas + m_ColDPDsSinVisadoPorCalidad.Count
+        End If
+        Set m_ColDPDsRechazadosPorCalidad = getDPDsRechazadosPorCalidad(m_Tecnico)
+        If m_ColDPDsRechazadosPorCalidad.Count > 0 Then
+            m_HTMLTablaDPDsRechazadosPorCalidad = getTablaHTMLDPDsRechazadosPorCalidad(m_ColDPDsRechazadosPorCalidad)
+            NTareas = NTareas + m_ColDPDsRechazadosPorCalidad.Count
+        End If
+        Set m_ColFacturasPendientesVisadoTecnico = getFacturasPendientesVisadoTecnico(ID, m_Nombre)
+        If m_ColFacturasPendientesVisadoTecnico.Count > 0 Then
+            m_HTMLTablaFacturasPendientesVisadoTecnico = getTablaHTMLFacturasPendientesVisadoTecnico(m_ColFacturasPendientesVisadoTecnico)
+            NTareas = NTareas + m_ColFacturasPendientesVisadoTecnico.Count
+        End If
+       
+        m_Titulo = "<H1>INFORME DE TAREAS PENDIENTES PARA " & m_Nombre & " " & _
+                                    Right("00" & Day(m_FechaAhora), 2) & "/" & _
+                                    Right("00" & Month(m_FechaAhora), 2) & "/" & Right("0000" & _
+                                    Year(m_FechaAhora), 4) & "</H1>"
+        m_HTMLCabecera = DameCabeceraHTML(m_Titulo)
+        m_Mensaje = m_HTMLCabecera & vbNewLine
+        m_Mensaje = m_Mensaje & m_Titulo & vbNewLine
+        m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        
+        If m_ColDPDsSinSO.Count > 0 Then
+            m_Mensaje = m_Mensaje & m_HTMLTablaDPDsSinSO & vbNewLine
+            m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        End If
+        If m_ColDPDsConSOSinRO.Count > 0 Then
+            m_Mensaje = m_Mensaje & m_HTMLTablaDPDsConSOSinRO & vbNewLine
+            m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        End If
+        If m_ColDPDsSinVisadoPorCalidad.Count > 0 Then
+            m_Mensaje = m_Mensaje & m_HTMLTablaDPDsSinVisadoPorCalidad & vbNewLine
+            m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        End If
+        If m_ColDPDsRechazadosPorCalidad.Count > 0 Then
+            m_Mensaje = m_Mensaje & m_HTMLTablaDPDsRechazadosPorCalidad & vbNewLine
+            m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        End If
+        If m_ColFacturasPendientesVisadoTecnico.Count > 0 Then
+            m_Mensaje = m_Mensaje & m_HTMLTablaFacturasPendientesVisadoTecnico & vbNewLine
+            m_Mensaje = m_Mensaje & "<br /><br />" & vbNewLine
+        End If
+        m_Mensaje = m_Mensaje & "</body>" & vbNewLine
+        m_Mensaje = m_Mensaje & "</html>" & vbNewLine
+        If NTareas > 0 Then
+          RegistrarCorreo NTareas & " Tareas Pendientes(DyS)", m_Mensaje, m_CorreoUsuario
+        End If
+    Next
+    
+
+    
+End Function
+
+Public Function RealizarTareasCalidad()
+    
+    Dim m_HTMLCabecera
+    Dim m_Titulo
+    Dim m_Mensaje
+    Dim m_FechaAhora
+    Dim p_Nombre
+    Dim m_ColDPDsSinVisadoPorCalidad
+    Dim m_HTMLTablaDPDsSinVisadoPorCalidad
+    Dim NTareas
+    
+    
+    NTareas = 0
+    Set m_ColDPDsSinVisadoPorCalidad = getDPDsSinVisadoPorCalidad("", "")
+    If m_ColDPDsSinVisadoPorCalidad.Count > 0 Then
+        m_HTMLTablaDPDsSinVisadoPorCalidad = getTablaHTMLDPDsSinVisadoPorCalidad(m_ColDPDsSinVisadoPorCalidad)
+        NTareas = NTareas + m_ColDPDsSinVisadoPorCalidad.Count
+    End If
+    
+    If m_ColDPDsSinVisadoPorCalidad.Count = 0 Then
+        Exit Function
+    End If
+    m_FechaAhora = Now()
+    m_HTMLCabecera = DameCabeceraHTML("TAREAS PENDIENTES (AGEDYS)")
+    m_Mensaje = m_HTMLCabecera & vbNewLine
+    m_Titulo = "<H3>INFORME DE TAREAS PENDIENTES PARA CALIDAD " & _
+                                    Right("00" & Day(m_FechaAhora), 2) & "/" & _
+                                    Right("00" & Month(m_FechaAhora), 2) & "/" & Right("0000" & _
+                                    Year(m_FechaAhora), 4) & "</H3>"
+    
+    m_Mensaje = m_Mensaje & m_Titulo & vbNewLine
+    m_Mensaje = m_Mensaje & "<br>" & vbNewLine
+    
+    m_Mensaje = m_Mensaje & m_HTMLTablaDPDsSinVisadoPorCalidad & vbNewLine
+   m_Mensaje = m_Mensaje & "<br>" & vbNewLine
+    
+    
+    m_Mensaje = m_Mensaje & "</body>" & vbNewLine
+    m_Mensaje = m_Mensaje & "</html>" & vbNewLine
+    RegistrarCorreo NTareas & " Tareas Pendientes(DyS)", m_Mensaje, m_CadenaCorreoCalidad
+
+    
+End Function
+
+Public Function RealizarTareasEconomia()
+    
+    Dim m_HTMLCabecera
+    Dim m_Mensaje
+    Dim m_Titulo
+    Dim m_FechaAhora
+    
+    Dim m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia
+    Dim m_ColDPDsSinPedido
+    Dim m_ColFacturasRechazadas
+    Dim m_ColFacturasVisadasPendientesDeOrdenPago
+    
+    
+    Dim m_HTMLTablaDPDsConFinAgendaTecnicaPorRecepcionaEconomia
+    Dim m_HTMLTablaDPDsSinPedido
+    Dim m_HTMLTablaFacturasRechazadas
+    Dim m_HTMLTablaFacturasVisadasPendientesDeOrdenPago
+    Dim NTareas
+    
+    NTareas = 0
+    Set m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia = getDPDsConFinAgendaTecnicaPorRecepcionaEconomia()
+    If m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia.Count > 0 Then
+        m_HTMLTablaDPDsConFinAgendaTecnicaPorRecepcionaEconomia = getTablaHTMLDPDsConFinAgendaTecnicaPorRecepcionaEconomia(m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia)
+        NTareas = NTareas + m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia.Count
+    End If
+    Set m_ColDPDsSinPedido = getDPDsSinPedido()
+    If m_ColDPDsSinPedido.Count > 0 Then
+        m_HTMLTablaDPDsSinPedido = getTablaHTMLDPDsSinPedido(m_ColDPDsSinPedido)
+        NTareas = NTareas + m_ColDPDsSinPedido.Count
+    End If
+    Set m_ColFacturasRechazadas = getFacturasRechazadas()
+    If m_ColFacturasRechazadas.Count > 0 Then
+        m_HTMLTablaFacturasRechazadas = getTablaHTMLFacturasRechazadas(m_ColFacturasRechazadas)
+        NTareas = NTareas + m_ColFacturasRechazadas.Count
+    End If
+    Set m_ColFacturasVisadasPendientesDeOrdenPago = getFacturasVisadasPendientesDeOrdenPago()
+    If m_ColFacturasVisadasPendientesDeOrdenPago.Count > 0 Then
+        m_HTMLTablaFacturasVisadasPendientesDeOrdenPago = getTablaHTMLFacturasVisadasPendientesDeOrdenPago(m_ColFacturasVisadasPendientesDeOrdenPago)
+        NTareas = NTareas + m_ColFacturasVisadasPendientesDeOrdenPago.Count
+    End If
+    If NTareas = 0 Then
+        Exit Function
+    End If
+    m_FechaAhora = Now()
+    m_HTMLCabecera = DameCabeceraHTML("TAREAS PENDIENTES (AGEDYS)")
+    m_Mensaje = m_HTMLCabecera & vbNewLine
+    m_Titulo = "<H1>INFORME DE TAREAS PENDIENTES PARA ECONOMÍA" & _
+                                Right("00" & Day(m_FechaAhora), 2) & "/" & Right("00" & Month(m_FechaAhora), 2) & "/" & Right("0000" & Year(m_FechaAhora), 4) & "</H1>" & vbNewLine
+    m_Mensaje = m_Mensaje & m_Titulo & vbNewLine
+    If m_ColDPDsConFinAgendaTecnicaPorRecepcionaEconomia.Count > 0 Then
+        m_Mensaje = m_Mensaje & m_HTMLTablaDPDsConFinAgendaTecnicaPorRecepcionaEconomia & vbNewLine
+        m_Mensaje = m_Mensaje & "</BR>" & vbNewLine
+    End If
+    If m_ColDPDsSinPedido.Count > 0 Then
+        m_Mensaje = m_Mensaje & m_HTMLTablaDPDsSinPedido & vbNewLine
+        m_Mensaje = m_Mensaje & "</BR>" & vbNewLine
+    End If
+    If m_ColFacturasRechazadas.Count > 0 Then
+        m_Mensaje = m_Mensaje & m_HTMLTablaFacturasRechazadas & vbNewLine
+        m_Mensaje = m_Mensaje & "</BR>" & vbNewLine
+    End If
+    If m_ColFacturasVisadasPendientesDeOrdenPago.Count > 0 Then
+        m_Mensaje = m_Mensaje & m_HTMLTablaFacturasVisadasPendientesDeOrdenPago & vbNewLine
+        m_Mensaje = m_Mensaje & "</BR>" & vbNewLine
+    End If
+    
+    
+    m_Mensaje = m_Mensaje & "</body>" & vbNewLine
+    m_Mensaje = m_Mensaje & "</html>" & vbNewLine
+    RegistrarCorreo NTareas & " Tareas Pendientes(DyS)", m_Mensaje, m_CadenaCorreoEconomia
+
+
+    
+End Function
+
+
+
+Public Function getIDCorreo()
+    Dim rcdDatos
+    Dim lngOrdinalMaximo
+    Dim m_SQL
+   
+    m_SQL = "SELECT Max(TbCorreosEnviados.IDCorreo) AS Maximo " & _
+            "FROM TbCorreosEnviados;"
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    With rcdDatos
+        If Not .EOF Then
+            If IsNumeric(.Fields("Maximo")) Then
+                lngOrdinalMaximo = .Fields("Maximo")
+            End If
+        End If
+    End With
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    getIDCorreo = lngOrdinalMaximo + 1
+End Function
+
+Public Function RegistrarTarea()
+    'Tareas
+    
+    Dim rcdDatos
+    
+    Dim m_SQL
+    
+    m_SQL = "SELECT * " & _
+            "FROM TbTareas " & _
+            "WHERE Tarea='Tareas';"
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    With rcdDatos
+        If .EOF Then
+            .AddNew
+                .Fields("Tarea") = "Tareas"
+                .Fields("Fecha") = Date
+                .Fields("Realizado") = "Sí"
+        Else
+            '.Edit
+                .Fields("Fecha") = Date
+                .Fields("Realizado") = "Sí"
+            .Update
+            
+        End If
+       
+    End With
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+End Function
+
+Public Function getColusuariosEconomia()
+    Dim m_UsuarioRed
+    Dim m_Nombre
+    Dim m_Correo
+    Dim m_Registro
+    Set getColusuariosEconomia = CreateObject("Scripting.Dictionary")
+    
+    m_UsuarioRed = "edg"
+    m_Nombre = "Emma Delgadillo Gómez"
+    m_Correo = "emma.delgadillogomez@telefonica.com"
+    m_Registro = m_UsuarioRed & "|" & m_Nombre & "|" & m_Correo
+    getColusuariosEconomia.Add m_Registro, m_Registro
+    
+    m_UsuarioRed = "tf06472"
+    m_Nombre = "Ángel Martín-Dorado Caballero"
+    m_Correo = "angel.martin-doradocaballero@telefonica.com"
+    m_Registro = m_UsuarioRed & "|" & m_Nombre & "|" & m_Correo
+    
+    m_UsuarioRed = "tf05019"
+    m_Nombre = "Pilar Salvador Sánchez"
+    m_Correo = "pilar.salvadorsanchez@telefonica.com"
+    m_Registro = m_UsuarioRed & "|" & m_Nombre & "|" & m_Correo
+    
+    getColusuariosEconomia.Add m_Registro, m_Registro
+End Function
+
+Public Function getColusuariosTareas(p_Tipo)
+
+    
+    Dim rcdDatos
+    Dim m_SQL
+    Dim m_Registro
+    
+    Set getColusuariosTareas = CreateObject("Scripting.Dictionary")
+    If p_Tipo = "Técnico" Then
+        m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
+                "FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
+                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.CorreoUsuario) Is Null));"
+    ElseIf p_Tipo = "Calidad" Then
+         m_SQL = "SELECT UsuarioRed, Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
+                "FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesPermisos " & _
+                "ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesPermisos.CorreoUsuario " & _
+                "WHERE " & _
+                "ParaTareasProgramadas=True " & _
+                "AND FechaBaja Is Null " & _
+                "AND ParaTareasProgramadas=True " & _
+                "AND IDAplicacion=" & m_IDAplicacion & " " & _
+                "AND EsUsuarioCalidad='Sí';"
+    ElseIf p_Tipo = "Economía" Then
+        m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
+                "FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
+                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsEconomia)='Sí'));"
+    ElseIf p_Tipo = "Administrador" Then
+        m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
+                "FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
+                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsAdministrador)='Sí'));"
+    Else
+        Exit Function
+    End If
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnLanzadera, adOpenDynamic, adLockPessimistic, adCmdText
+    If Not rcdDatos.EOF Then
+        
+        Do While Not rcdDatos.EOF
+            m_Registro = rcdDatos.Fields("UsuarioRed") & "|" & rcdDatos.Fields("Nombre") & "|" & rcdDatos.Fields("CorreoUsuario")
+            
+            If Not getColusuariosTareas.Exists(m_Registro) Then
+                getColusuariosTareas.Add m_Registro, m_Registro
+            End If
+            
+            rcdDatos.MoveNext
+        Loop
+        
+    End If
+    
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+End Function
+
+
+Public Function Lanzar()
+   
+    
+    Dim m_TareaHecha
+    
+    m_IDAplicacion = 3
+    m_URLBBDDTareas = "\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb"
+    m_URLBBDDLanzadera = "\\datoste\aplicaciones_dys\Aplicaciones PpD\0Lanzadera\Lanzadera_Datos.accdb"
+    Set CnTareas = Conn(m_URLBBDDTareas, m_Pass)
+    Set CnLanzadera = Conn(m_URLBBDDLanzadera, m_Pass)
+    m_TareaHecha = TareaRealizada()
+   ' m_TareaHecha = False
+    If m_TareaHecha = False Then
+        CSS = getCSS
+        GenerarColUsuarios
+        m_CadenaCorreoAdministradores = getCadenaCorreoTipo("Administradores")
+        m_CadenaCorreoAdministradores = "andres.romandelperal@telefonica.com;Fernando.lazarodiaz@telefonica.com"
+        m_CadenaCorreoCalidad = getCadenaCorreoTipo("Calidad")
+        m_CadenaCorreoEconomia = getCadenaCorreoTipo("Economía")
+        RealizarTareasCalidad
+        RealizarTareasEconomia
+        RealizarTareasTecnicas
+        RegistrarTarea
+    End If
+    CnLanzadera.Close
+    Set CnLanzadera = Nothing
+    
+    CnTareas.Close
+    Set CnTareas = Nothing
+    
+    
+    
+End Function
+
+Public Function TareaRealizada()
+    
+   
+    Dim m_FechaUltimaEjecucion
+    Dim m_FechaHoy
+    
+    
+    m_FechaHoy = Date
+    
+    m_FechaUltimaEjecucion = UltimaEjecucion()
+    If Not IsDate(m_FechaUltimaEjecucion) Then
+        TareaRealizada = False
+        Exit Function
+    End If
+    If CDate(m_FechaHoy) = CDate(m_FechaUltimaEjecucion) Then
+        TareaRealizada = True
+    Else
+        TareaRealizada = False
+    End If
+    Exit Function
+    
+    
+    
+End Function
+
+Public Function UltimaEjecucion()
+    
+    Dim rcdDatos
+    Dim m_SQL
+    
+    m_SQL = "SELECT Last(TbTareas.Fecha) AS Ultima " & _
+            "FROM TbTareas " & _
+            "WHERE Tarea='Tareas' AND Realizado='Sí';"
+    
+    
+    Set rcdDatos = CreateObject("ADODB.RecordSet")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    With rcdDatos
+        If Not .EOF Then
+           UltimaEjecucion = .Fields("Ultima")
+        End If
+        
+    End With
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+    
+End Function
+
+Public Function RegistrarCorreo(p_Asunto, p_Cuerpo, p_Destinatarios)
+
+    Dim rcdDatos
+    Dim m_SQL
+    Dim m_IDCorreo
+    
+'    p_Destinatarios = "andres.romandelperal@telefonica.com"
+'    m_CadenaCorreoAdministradores = ""
+    m_IDCorreo = getIDCorreo()
+    If Not IsNumeric(m_IDCorreo) Then
+        Exit Function
+    End If
+    m_SQL = "SELECT TbCorreosEnviados.* " & _
+            "FROM TbCorreosEnviados;"
+    
+    Set rcdDatos = CreateObject("ADODB.Recordset")
+    rcdDatos.Open m_SQL, CnTareas, adOpenDynamic, adLockPessimistic, adCmdText
+    With rcdDatos
+       .AddNew
+            .Fields("IDCorreo") = m_IDCorreo
+            .Fields("Aplicacion") = "Tareas"
+            .Fields("Asunto") = p_Asunto
+            .Fields("Cuerpo") = p_Cuerpo
+            
+            If InStr(1, p_Destinatarios, "@") <> 0 Then
+                .Fields("Destinatarios") = p_Destinatarios
+            End If
+            .Fields("DestinatariosConCopiaOculta") = m_CadenaCorreoAdministradores
+            .Fields("FechaGrabacion") = Now()
+        .Update
+    End With
+    rcdDatos.Close
+    Set rcdDatos = Nothing
+    
+End Function
+
+
+Lanzar
+
+
+
+
+

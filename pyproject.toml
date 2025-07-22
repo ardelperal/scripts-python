@@ -1,0 +1,31 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml"
+testpaths = [
+    "tests/unit",
+    "tests/integration",
+]
+pythonpath = [
+    "src",
+]
+markers = [
+    "integration: marks tests as integration tests that require real databases",
+    "unit: marks tests as unit tests (isolated components)",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+# Configuración de cobertura
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
