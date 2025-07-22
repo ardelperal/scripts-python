@@ -131,13 +131,30 @@ LOG_LEVEL=INFO|DEBUG|ERROR         # Nivel de logging
 
 ## Uso
 
-### Ejecutar Módulo BRASS
+### 🌐 Panel de Control Web (Recomendado)
+```bash
+# Iniciar servidor web del panel de control
+python server.py
+
+# Abrir navegador en: http://localhost:8080
+```
+
+**Características del Panel:**
+- 🎛️ Interfaz gráfica para ejecutar módulos
+- 🧪 Ejecución de tests con resultados en tiempo real
+- 📊 Monitoreo del estado del sistema
+- 🔄 Soporte multi-entorno (Local/Oficina)
+- 📝 Consola integrada con logs detallados
+
+### 🔧 Línea de Comandos (Alternativo)
+
+**Ejecutar Módulos:**
 ```bash
 # Ejecutar tarea BRASS
 python run_brass.py
 ```
 
-### Ejecutar Tests
+**Ejecutar Tests:**
 ```bash
 # Ejecutar todos los tests
 pytest
