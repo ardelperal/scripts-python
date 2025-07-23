@@ -1,88 +1,182 @@
-# Docker Compose para Sistema de Gestión de Tareas
+version: '3.8'
+
 services:
-  # Servicio principal de la aplicación
-  app:
-    build: 
+  # Servidor SMTP local para desarrollo
+  smtp-server:
+    image: mailhog/mailhog:latest
+    container_name: smtp-server-dev
+    ports:
+      - "1025:1025"  # Puerto SMTP
+      - "8025:8025"  # Interfaz web para ver correos
+    environment:
+      - MH_STORAGE=memory
+      - MH_SMTP_BIND_ADDR=0.0.0.0:1025
+      - MH_UI_BIND_ADDR=0.0.0.0:8025
+      - MH_API_BIND_ADDR=0.0.0.0:8025
+    networks:
+      - scripts-network
+    profiles:
+      - dev
+      - local
+
+  # Servicio principal - Scripts continuos
+  scripts-python-runner:
+    build:
       context: .
       dockerfile: Dockerfile
-    container_name: gestion-tareas-app
-    ports:
-      - "8888:8888"
+    container_name: scripts-python-runner
     environment:
-      - ENVIRONMENT=local
-      - DB_PASSWORD=dpddpd
+      - PYTHONPATH=/app/src:/app
+      - DATABASE_MODE=sqlite
+      - ENVIRONMENT=docker
+      - DOCKER_CONTAINER=true
       - LOG_LEVEL=INFO
-      - PYTHONUNBUFFERED=1
+      # SMTP configuration - usar servidor local en desarrollo
+      - SMTP_SERVER=smtp-server
+      - SMTP_PORT=1025
+      - SMTP_USE_LOCAL=true
     volumes:
-      # Mapear bases de datos locales
-      - ./dbs-locales:/app/dbs-locales:ro
-      # Mapear archivos de configuración
-      - ./herramientas:/app/herramientas:ro
-      # Mapear logs para persistencia
+      # Persistir logs
       - ./logs:/app/logs
-      # Mapear reportes de cobertura
-      - ./htmlcov:/app/htmlcov
-      # Variables de entorno
-      - ./.env:/app/.env:ro
+      # Persistir bases de datos SQLite
+      - ./dbs-sqlite:/app/dbs-sqlite
     restart: unless-stopped
+    command: ["python", "continuous_runner.py"]
+    depends_on:
+      - smtp-server
+    networks:
+      - scripts-network
+    profiles:
+      - local
+      
+  # Servicio web dashboard
+  scripts-python-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scripts-python-web
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONPATH=/app/src:/app
+      - FLASK_ENV=production
+      - DATABASE_MODE=sqlite
+      - ENVIRONMENT=docker
+      - DOCKER_CONTAINER=true
+      - LOG_LEVEL=INFO
+      # SMTP configuration
+      - SMTP_SERVER=smtp-server
+      - SMTP_PORT=1025
+      - SMTP_USE_LOCAL=true
+    volumes:
+      - ./logs:/app/logs
+      - ./dbs-sqlite:/app/dbs-sqlite
+    restart: unless-stopped
+    command: ["python", "server.py"]
+    depends_on:
+      - smtp-server
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/api/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
     networks:
-      - gestion-tareas-net
-
-  # Servicio de desarrollo (opcional)
-  dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: gestion-tareas-dev
-    ports:
-      - "8889:8888"
-    environment:
-      - ENVIRONMENT=local
-      - LOG_LEVEL=DEBUG
-      - PYTHONUNBUFFERED=1
-    volumes:
-      # Montar todo el código para desarrollo
-      - .:/app
-      # Excluir venv y cache
-      - /app/venv
-      - /app/__pycache__
-      - /app/.pytest_cache
-    command: ["python", "server.py"]
+      - scripts-network
     profiles:
-      - dev
-    networks:
-      - gestion-tareas-net
+      - local
 
-  # Servicio para ejecutar tests (on-demand)
-  tests:
+  # Servicio para desarrollo con hot reload
+  scripts-python-dev:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: gestion-tareas-tests
+    container_name: scripts-python-dev
+    ports:
+      - "5001:5000"
     environment:
+      - PYTHONPATH=/app/src:/app
+      - FLASK_ENV=development
+      - DATABASE_MODE=sqlite
       - ENVIRONMENT=local
+      - DOCKER_CONTAINER=false
       - LOG_LEVEL=DEBUG
+      # SMTP local para desarrollo
+      - SMTP_SERVER=smtp-server
+      - SMTP_PORT=1025
+      - SMTP_USE_LOCAL=true
     volumes:
-      - ./dbs-locales:/app/dbs-locales:ro
-      - ./herramientas:/app/herramientas:ro
-      - ./.env:/app/.env:ro
-      - ./htmlcov:/app/htmlcov
-    command: ["python", "-m", "pytest", "tests/", "-v", "--cov=src", "--cov-report=html", "--cov-report=term-missing"]
+      # Montar código fuente para desarrollo en caliente
+      - .:/app
+      - ./logs:/app/logs
+    command: ["python", "server.py", "--debug"]
+    depends_on:
+      - smtp-server
     profiles:
-      - tests
+      - dev
     networks:
-      - gestion-tareas-net
+      - scripts-network
+
+  # Servicios para producción (sin SMTP local)
+  scripts-python-runner-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scripts-python-runner-prod
+    environment:
+      - PYTHONPATH=/app/src:/app
+      - DATABASE_MODE=sqlite
+      - ENVIRONMENT=docker
+      - DOCKER_CONTAINER=true
+      - LOG_LEVEL=INFO
+      # SMTP real de oficina
+      - SMTP_SERVER=10.73.54.85
+      - SMTP_PORT=25
+      - SMTP_USE_LOCAL=false
+    volumes:
+      - ./logs:/app/logs
+      - ./dbs-sqlite:/app/dbs-sqlite
+    restart: unless-stopped
+    command: ["python", "continuous_runner.py"]
+    networks:
+      - scripts-network
+    profiles:
+      - prod
+
+  scripts-python-web-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scripts-python-web-prod
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONPATH=/app/src:/app
+      - FLASK_ENV=production
+      - DATABASE_MODE=sqlite
+      - ENVIRONMENT=docker
+      - DOCKER_CONTAINER=true
+      - LOG_LEVEL=INFO
+      # SMTP real de oficina
+      - SMTP_SERVER=10.73.54.85
+      - SMTP_PORT=25
+      - SMTP_USE_LOCAL=false
+    volumes:
+      - ./logs:/app/logs
+      - ./dbs-sqlite:/app/dbs-sqlite
+    restart: unless-stopped
+    command: ["python", "server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - scripts-network
+    profiles:
+      - prod
 
 networks:
-  gestion-tareas-net:
+  scripts-network:
     driver: bridge
-
-volumes:
-  logs-data:
-  coverage-data:

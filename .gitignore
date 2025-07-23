@@ -25,7 +25,7 @@ MANIFEST
 venv/
 env/
 ENV/
-.venv
+.venv/
 
 # Testing and Coverage
 .coverage

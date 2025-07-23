@@ -24,6 +24,19 @@ scripts-python/
 ├── tests/                      # Tests automatizados (49 tests, 61% cobertura)
 │   ├── __init__.py
 │   ├── README.md              # Documentación estructura tests
+│   ├── access_sync/           # 🔄 Tests sincronización Access-SQLite
+│   │   ├── README.md          # Documentación específica
+│   │   ├── sync_bidirectional_final.py (✅ FUNCIONAL)
+│   │   ├── test_access_simple.py
+│   │   └── test_bidirectional_sync.py
+│   ├── emails/                # 📧 Tests sistema de correo HTML
+│   │   ├── README.md
+│   │   ├── test_correos_mailhog.py (✅ FUNCIONAL)
+│   │   └── setup_smtp_local.py
+│   ├── demos/                 # 🎯 Scripts de demostración
+│   │   ├── README.md
+│   │   ├── crear_demo_html.py
+│   │   └── demo_ciclo_infinito.py
 │   ├── unit/                   # Tests unitarios por módulo
 │   │   ├── common/             # Tests módulos comunes (31 tests)
 │   │   │   ├── test_common_config.py
@@ -57,6 +70,33 @@ scripts-python/
 - Módulo Expedientes
 - Módulo AGEDYS
 - Sistema de correos
+
+## 🐳 Entorno Docker
+
+### Configuración Simplificada
+- **Dockerfile**: Container ligero con Python 3.11-slim (~200MB)
+- **docker-compose.yml**: Orquestación completa con múltiples perfiles
+- **Sincronización Access ↔ SQLite**: Bidireccional sin pérdida de datos
+
+### Comandos Docker
+```bash
+# Desarrollo local con MailHog
+docker-compose --profile local up
+
+# Solo dashboard web
+docker-compose --profile local up scripts-python-web
+
+# Producción con SMTP real
+docker-compose --profile prod up
+
+# Ver logs
+docker-compose logs -f
+```
+
+### Perfiles Disponibles
+- **`dev`**: Desarrollo con hot-reload
+- **`local`**: Local con MailHog para testing de emails
+- **`prod`**: Producción con SMTP real de oficina
 
 ## Configuración de Entornos
 

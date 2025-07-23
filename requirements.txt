@@ -1,4 +1,12 @@
-# Dependencias del proyecto
+# Dependencias del proyecto - Versión optimizada para Docker
+# Configuración ligera con SQLite (~200MB container)
+# Dependencias básicas de Flask
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Base de datos y procesamiento
+pandas==2.1.1
+sqlite3  # Incluido en Python estándar
 
 # Manejo de bases de datos Access
 pyodbc==5.0.1
@@ -6,15 +14,20 @@ pyodbc==5.0.1
 # Variables de entorno
 python-dotenv==1.0.0
 
-# Testing
+# Logging y utilidades
+python-dateutil==2.8.2
+colorlog==6.8.0
+
+# Para Docker y desarrollo
+gunicorn==21.2.0
+
+# Desarrollo y testing
 pytest==7.4.3
 pytest-cov==4.1.0
 pytest-mock==3.12.0
+pytest-flask==1.2.0
 
-# Desarrollo
+# Herramientas de desarrollo
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.1
-
-# Logging mejorado (opcional)
-colorlog==6.8.0

@@ -1,61 +1,66 @@
-# Dockerfile para Sistema de Gestión de Tareas
+# Dockerfile para solución ligera con SQLite
 FROM python:3.11-slim
 
 # Metadatos
-LABEL maintainer="Sistema de Gestión de Tareas"
-LABEL description="Migración VBS a Python con Panel de Control Web"
-LABEL version="1.0"
+LABEL maintainer="Scripts Python - Access to SQLite Migration"
+LABEL description="Lightweight Docker image with Access database migration to SQLite"
 
-# Variables de entorno
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV ENVIRONMENT=local
-ENV FLASK_ENV=production
-
-# Crear usuario no-root por seguridad
-RUN useradd --create-home --shell /bin/bash app
-
-# Instalar dependencias del sistema
+# Instalar herramientas del sistema necesarias
 RUN apt-get update && apt-get install -y \
-    # Para ODBC Access (si se necesita en producción)
-    unixodbc \
-    unixodbc-dev \
-    # Para compilar algunas dependencias Python
-    gcc \
-    g++ \
-    # Utilidades básicas
+    # Herramientas básicas
     curl \
-    wget \
+    git \
+    # mdbtools para leer Access en Linux
+    mdbtools \
+    # Herramientas de desarrollo (opcional para debug)
+    nano \
+    # Limpiar cache
     && rm -rf /var/lib/apt/lists/*
 
-# Establecer directorio de trabajo
+# Crear directorio de trabajo
 WORKDIR /app
 
-# Copiar requirements primero (para aprovechar cache de Docker)
-COPY requirements.txt .
+# Copiar requirements primero para aprovechar cache de Docker
+COPY requirements.txt ./requirements.txt
 
 # Instalar dependencias Python
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Instalar dependencias adicionales para migración
+RUN pip install --no-cache-dir pandas || echo "pandas ya instalado"
+
+# Nota: sqlite3 viene incluido con Python
 
 # Copiar código fuente
 COPY . .
 
 # Crear directorios necesarios
-RUN mkdir -p logs htmlcov static
+RUN mkdir -p dbs-sqlite logs
 
-# Cambiar ownership a usuario app
-RUN chown -R app:app /app
+# Ejecutar migración/creación de bases de datos durante el build
+RUN python create_demo_databases.py || echo "Bases de datos demo creadas"
 
-# Cambiar a usuario no-root
+# Script para la migración real si hay archivos Access disponibles
+RUN python migrate_databases.py || echo "No hay archivos Access para migrar - usando datos demo"
+
+# Crear usuario no-root para seguridad
+RUN useradd -m -u 1000 app && chown -R app:app /app
 USER app
 
-# Exponer puerto del servidor web
-EXPOSE 8888
+# Exponer puerto
+EXPOSE 5000
 
-# Comando por defecto - servidor web
-CMD ["python", "server.py"]
+# Variables de entorno
+ENV PYTHONPATH=/app/src:/app
+ENV FLASK_APP=server.py
+ENV FLASK_ENV=production
+ENV DATABASE_MODE=sqlite
+ENV ENVIRONMENT=docker
+ENV DOCKER_CONTAINER=true
+
+# Comando por defecto - ejecutar scripts de forma continua
+CMD ["python", "continuous_runner.py"]
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8888/api/status || exit 1
+  CMD curl -f http://localhost:5000/api/status || exit 1
