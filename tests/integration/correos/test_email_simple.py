@@ -3,7 +3,7 @@ Script Python simplificado para envío de correos - Solo para pruebas
 """
 import smtplib
 import logging
-import sqlite3
+import pyodbc
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -22,9 +22,8 @@ def enviar_correos():
     correos_enviados = 0
     
     try:
-        # Conectar a SQLite
-        conn = sqlite3.connect(config.db_correos_path)
-        conn.row_factory = sqlite3.Row
+        # Conectar a Access
+        conn = pyodbc.connect(config.get_db_correos_connection_string())
         cursor = conn.cursor()
         
         # Buscar correos pendientes
@@ -58,12 +57,12 @@ def enviar_correos():
             try:
                 # Crear mensaje
                 msg = MIMEMultipart()
-                msg['Subject'] = correo['Asunto'] or 'Sin asunto'
+                msg['Subject'] = correo.Asunto or 'Sin asunto'
                 msg['From'] = config.default_recipient
-                msg['To'] = correo['Destinatarios'] or config.default_recipient
+                msg['To'] = correo.Destinatarios or config.default_recipient
                 
                 # Cuerpo
-                cuerpo = correo['Cuerpo'] or 'Mensaje vacío'
+                cuerpo = correo.Cuerpo or 'Mensaje vacío'
                 if '<html>' in cuerpo.lower():
                     msg.attach(MIMEText(cuerpo, 'html', 'utf-8'))
                 else:
@@ -76,15 +75,15 @@ def enviar_correos():
                 # Marcar como enviado
                 cursor.execute(
                     "UPDATE TbCorreosEnviados SET FechaEnvio = ? WHERE IDCorreo = ?",
-                    (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), correo['IDCorreo'])
+                    (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), correo.IDCorreo)
                 )
                 conn.commit()
                 
                 correos_enviados += 1
-                logger.info(f"[OK] Correo enviado: ID {correo['IDCorreo']} - {correo['Asunto']}")
+                logger.info(f"[OK] Correo enviado: ID {correo.IDCorreo} - {correo.Asunto}")
                 
             except Exception as e:
-                logger.error(f"Error enviando correo {correo['IDCorreo']}: {e}")
+                logger.error(f"Error enviando correo {correo.IDCorreo}: {e}")
                 continue
         
         conn.close()
