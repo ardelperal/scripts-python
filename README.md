@@ -33,10 +33,7 @@ scripts-python/
 │   │   ├── README.md
 │   │   ├── test_correos_mailhog.py (✅ FUNCIONAL)
 │   │   └── setup_smtp_local.py
-│   ├── demos/                 # 🎯 Scripts de demostración
-│   │   ├── README.md
-│   │   ├── crear_demo_html.py
-│   │   └── demo_ciclo_infinito.py
+
 │   ├── unit/                   # Tests unitarios por módulo
 │   │   ├── common/             # Tests módulos comunes (31 tests)
 │   │   │   ├── test_common_config.py

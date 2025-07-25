@@ -6,7 +6,6 @@ Werkzeug==2.3.7
 
 # Base de datos y procesamiento
 pandas==2.1.1
-sqlite3  # Incluido en Python estándar
 
 # Manejo de bases de datos Access
 pyodbc==5.0.1

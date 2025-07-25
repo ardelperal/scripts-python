@@ -1,80 +1,60 @@
-# Tests Structure
+# Tests del Proyecto
 
-Este proyecto utiliza una estructura de tests organizada por módulos y tipos de prueba.
+## 📁 Estructura Organizada
 
-## Estructura
+### `unit/` - Tests Unitarios
+Tests que prueban funciones o métodos individuales de forma aislada.
 
-```
-tests/
-├── unit/                    # Tests unitarios (componentes aislados)
-│   ├── common/             # Tests para módulos comunes reutilizables
-│   │   ├── test_common_config.py      # Tests configuración multi-entorno
-│   │   ├── test_common_database.py    # Tests capa abstracción BD
-│   │   └── test_common_utils.py       # Tests utilidades HTML/logging
-│   └── brass/              # Tests específicos del módulo BRASS
-│       ├── test_brass_manager.py      # Tests gestor principal BRASS
-│       └── test_brass_utils.py        # Tests utilidades específicas BRASS
-└── integration/            # Tests de integración (componentes interconectados)
-    └── brass/              # Tests integración BRASS con BD real
-        └── test_brass_integration.py  # Tests flujo completo BRASS
-```
+- `brass/` - Tests del módulo brass
+- `common/` - Tests de utilidades comunes
+- `correos/` - Tests del módulo de correos
+- `expedientes/` - Tests del módulo de expedientes
 
-## Convenciones de nomenclatura
+### `integration/` - Tests de Integración
+Tests que prueban la interacción entre múltiples componentes.
 
-### Para tests unitarios:
-- `test_[módulo]_[componente].py` - Tests de funciones específicas
-- `test_[módulo]_manager.py` - Tests del gestor principal del módulo
-- `test_[módulo]_utils.py` - Tests de utilidades específicas del módulo
+- `brass/` - Integración del sistema brass
+- `database/` - Integración con bases de datos
+- `correos/` - Integración del sistema de correos
 
-### Para tests de integración:
-- `test_[módulo]_integration.py` - Tests del flujo completo del módulo
+### `functional/` - Tests Funcionales
+Tests que prueban flujos completos de trabajo.
 
-### Para módulos futuros:
-Cuando se migren otros módulos VBS, seguir el patrón:
+- `access_sync/` - Sincronización con Access
+- `correos_workflows/` - Flujos completos de correos
 
-```
-tests/unit/[modulo]/
-├── test_[modulo]_manager.py
-├── test_[modulo]_utils.py
-└── __init__.py
+### `fixtures/` - Datos y Utilidades de Prueba
+Scripts y datos para configurar entornos de test.
 
-tests/integration/[modulo]/
-├── test_[modulo]_integration.py
-└── __init__.py
-```
+### `data/` - Bases de Datos de Test
+Bases de datos SQLite para testing.
 
-## Ejecución de tests
+## 🚀 Comandos de Ejecución
 
 ```bash
 # Todos los tests
-pytest tests/ -v
+pytest
 
-# Solo tests unitarios
-pytest tests/unit/ -v
+# Solo unitarios
+pytest tests/unit/
 
-# Solo tests de integración
-pytest tests/integration/ -v
+# Solo integración
+pytest tests/integration/
 
-# Tests de un módulo específico
-pytest tests/unit/brass/ -v
-pytest tests/integration/brass/ -v
+# Solo funcionales
+pytest tests/functional/
 
-# Tests con cobertura
-pytest tests/ -v --cov=src --cov-report=html
+# Con cobertura
+pytest --cov=src tests/
+
+# Módulo específico
+pytest tests/unit/brass/
 ```
 
-## Módulos preparados
+## 📊 Marcadores (Markers)
 
-- ✅ **BRASS** - Gestión equipos de medida (migración completada)
-- 🔄 **NoConformidades** - Gestión de no conformidades (pendiente)
-- 🔄 **GestionRiesgos** - Gestión de riesgos (pendiente)  
-- 🔄 **Expedientes** - Gestión de expedientes (pendiente)
-- 🔄 **AGEDYS** - Sistema AGEDYS (pendiente)
-
-## Cobertura actual
-
-- **Total**: 61% de cobertura
-- **Common**: 100% config, 81% database, 52% utils
-- **BRASS**: 47% manager
-
-La infraestructura común (`common/`) está completamente testada y lista para ser reutilizada por los próximos módulos VBS a migrar.
+- `@pytest.mark.unit` - Tests unitarios
+- `@pytest.mark.integration` - Tests de integración
+- `@pytest.mark.functional` - Tests funcionales
+- `@pytest.mark.slow` - Tests que tardan más tiempo
+- `@pytest.mark.correos` - Tests relacionados con correos
