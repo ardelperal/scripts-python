@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime, date
 
 # Importar adaptadores
-from .database_adapter import UnifiedDatabase, DatabaseAdapterFactory
+from .database_adapter import AccessAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -29,38 +29,26 @@ class AccessDatabase:
     
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
-        self._unified_db = None
-        self._parse_connection_string()
-    
-    def _parse_connection_string(self):
-        """Extrae información de la cadena de conexión para crear UnifiedDatabase"""
-        # Extraer ruta de la BD de la connection string
-        # Formato típico: "Driver={...};DBQ=C:\path\to\db.accdb;"
-        if "DBQ=" in self.connection_string:
-            db_path = self.connection_string.split("DBQ=")[1].split(";")[0]
-            self.db_path = Path(db_path)
-            
-            # Obtener identificador base (nombre sin extensión)
-            self.db_identifier = self.db_path.stem
-            self.base_path = self.db_path.parent
-        else:
-            raise ValueError(f"No se pudo extraer ruta de DB de: {self.connection_string}")
+        self._connection = None
     
     def connect(self):
-        """Establece conexión usando el sistema unificado"""
+        """Establece conexión con Access usando pyodbc"""
         try:
-            self._unified_db = UnifiedDatabase(self.db_identifier, self.base_path)
-            logger.info(f"Conexión establecida con {self.db_identifier}")
-            return self
+            if not PYODBC_AVAILABLE:
+                raise ImportError("pyodbc es requerido para conexiones Access")
+            
+            self._connection = pyodbc.connect(self.connection_string)
+            logger.info(f"Conexión establecida con Access")
+            return self._connection
         except Exception as e:
             logger.error(f"Error al conectar con la base de datos: {e}")
             raise
     
     def disconnect(self):
         """Cierra la conexión"""
-        if self._unified_db:
-            self._unified_db.close()
-            self._unified_db = None
+        if self._connection:
+            self._connection.close()
+            self._connection = None
             logger.info("Conexión cerrada")
     
     def get_connection(self):
@@ -82,12 +70,21 @@ class AccessDatabase:
         return ConnectionManager(self)
     
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
-        """Ejecuta una consulta SELECT usando el adaptador unificado"""
-        if not self._unified_db:
+        """Ejecuta una consulta SELECT usando pyodbc"""
+        if not self._connection:
             self.connect()
         
         try:
-            result = self._unified_db.query(query, params)
+            cursor = self._connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            # Convertir resultados a lista de diccionarios
+            columns = [column[0] for column in cursor.description]
+            result = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
             logger.debug(f"Consulta ejecutada: {len(result)} filas retornadas")
             return result
         except Exception as e:
@@ -95,12 +92,20 @@ class AccessDatabase:
             raise
     
     def execute_non_query(self, query: str, params: Optional[tuple] = None) -> int:
-        """Ejecuta una consulta INSERT, UPDATE o DELETE usando el adaptador unificado"""
-        if not self._unified_db:
+        """Ejecuta una consulta INSERT, UPDATE o DELETE usando pyodbc"""
+        if not self._connection:
             self.connect()
         
         try:
-            rows_affected = self._unified_db.execute(query, params)
+            cursor = self._connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            rows_affected = cursor.rowcount
+            self._connection.commit()
+            
             logger.debug(f"Consulta ejecutada: {rows_affected} filas afectadas")
             return rows_affected
         except Exception as e:
@@ -248,82 +253,19 @@ class DemoDatabase:
         return True
 
 
-def get_database_instance(connection_string: Optional[str] = None, db_identifier: Optional[str] = None, base_path: Optional[Path] = None):
+def get_database_instance(connection_string: Optional[str] = None):
     """
-    Factory function mejorado que retorna la instancia apropiada de base de datos
+    Factory function que retorna la instancia apropiada de base de datos
     
     Args:
-        connection_string: Cadena de conexión tradicional (compatibilidad hacia atrás)
-        db_identifier: Identificador de BD para el sistema unificado
-        base_path: Directorio base donde buscar archivos de BD
+        connection_string: Cadena de conexión para Access
         
     Returns:
         Instancia de base de datos apropiada
     """
-    # Modo demo cuando no hay parámetros
-    if connection_string is None and db_identifier is None:
+    # Modo demo cuando no hay connection string
+    if connection_string is None:
         return DemoDatabase()
     
-    # Modo tradicional con connection string
-    if connection_string:
-        return AccessDatabase(connection_string)
-    
-    # Modo unificado directo
-    if db_identifier:
-        class UnifiedDatabaseWrapper:
-            """Wrapper para mantener compatibilidad de interfaz"""
-            def __init__(self, db_id, base_path):
-                self._unified_db = UnifiedDatabase(db_id, base_path)
-            
-            def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
-                return self._unified_db.query(query, params)
-            
-            def execute_non_query(self, query: str, params: Optional[tuple] = None) -> int:
-                return self._unified_db.execute(query, params)
-            
-            def get_max_id(self, table: str, id_field: str) -> int:
-                result = self._unified_db.query(f"SELECT MAX({id_field}) as max_id FROM {table}")
-                return result[0]['max_id'] if result and result[0]['max_id'] else 0
-            
-            def disconnect(self):
-                self._unified_db.close()
-        
-        return UnifiedDatabaseWrapper(db_identifier, base_path or Path("."))
-    
-    # Fallback a modo demo
-    return DemoDatabase()
-
-
-# Función de conveniencia para migración automática
-def ensure_database_available(db_identifier: str, base_path: Path) -> bool:
-    """
-    Asegura que la base de datos esté disponible, migrando de Access a SQLite si es necesario
-    
-    Args:
-        db_identifier: Nombre base de la BD
-        base_path: Directorio donde buscar archivos
-        
-    Returns:
-        True si la BD está disponible
-    """
-    from .access_migrator import AccessToSQLiteMigrator
-    
-    access_file = base_path / f"{db_identifier}.accdb"
-    sqlite_file = base_path / f"{db_identifier}.sqlite"
-    
-    # Si existe Access y estamos en entorno compatible, usar directamente
-    if access_file.exists() and PYODBC_AVAILABLE:
-        return True
-    
-    # Si existe SQLite, usar ese
-    if sqlite_file.exists():
-        return True
-    
-    # Si existe Access pero no pyodbc, migrar a SQLite
-    if access_file.exists():
-        logger.info(f"Migrando {access_file} a SQLite para compatibilidad...")
-        migrator = AccessToSQLiteMigrator()
-        return migrator.migrate_database(access_file, sqlite_file)
-    
-    logger.warning(f"No se encontró base de datos para {db_identifier} en {base_path}")
-    return False
+    # Modo Access con connection string
+    return AccessDatabase(connection_string)

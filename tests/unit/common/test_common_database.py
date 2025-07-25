@@ -76,14 +76,14 @@ class TestAccessDatabase:
         mock_connect.assert_called_once()
         mock_disconnect.assert_called_once()
     
-    @patch.object(AccessDatabase, 'get_connection')
-    def test_execute_query_success(self, mock_get_connection, access_db):
+    @patch('common.database.pyodbc.connect')
+    def test_execute_query_success(self, mock_connect, access_db):
         """Test ejecución exitosa de consulta"""
         # Mock de conexión y cursor
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        mock_get_connection.return_value.__enter__.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         
         # Mock de descripción de columnas y datos
         mock_cursor.description = [('id', None), ('name', None)]
@@ -98,13 +98,13 @@ class TestAccessDatabase:
         ]
         assert result == expected
     
-    @patch.object(AccessDatabase, 'get_connection')
-    def test_execute_query_with_params(self, mock_get_connection, access_db):
+    @patch('common.database.pyodbc.connect')
+    def test_execute_query_with_params(self, mock_connect, access_db):
         """Test ejecución de consulta con parámetros"""
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        mock_get_connection.return_value.__enter__.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         
         mock_cursor.description = [('count', None)]
         mock_cursor.fetchall.return_value = [(5,)]
@@ -115,14 +115,14 @@ class TestAccessDatabase:
         mock_cursor.execute.assert_called_once_with("SELECT COUNT(*) FROM test WHERE id = ? AND name = ?", params)
         assert result == [{'count': 5}]
     
-    @patch.object(AccessDatabase, 'get_connection')
-    def test_execute_non_query_success(self, mock_get_connection, access_db):
+    @patch('common.database.pyodbc.connect')
+    def test_execute_non_query_success(self, mock_connect, access_db):
         """Test ejecución exitosa de consulta no-SELECT"""
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_cursor.rowcount = 3
         mock_conn.cursor.return_value = mock_cursor
-        mock_get_connection.return_value.__enter__.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         
         result = access_db.execute_non_query("UPDATE test SET name = 'updated'")
         
