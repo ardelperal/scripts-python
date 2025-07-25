@@ -2,6 +2,19 @@
 
 Este proyecto es una migración del sistema legacy VBS a Python, implementando mejores prácticas de desarrollo, testing automatizado y soporte para múltiples entornos.
 
+## 📋 Tabla de Contenidos
+
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Características Implementadas](#características-implementadas)
+- [Configuración de Entornos](#configuración-de-entornos)
+- [Instalación](#instalación)
+- [Uso](#uso)
+- [Testing](#testing)
+- [Docker](#docker)
+- [Bases de Datos Locales](#bases-de-datos-locales)
+- [Sincronización Access ↔ SQLite](#sincronización-access--sqlite)
+- [Arquitectura](#arquitectura)
+
 ## Estructura del Proyecto
 
 ```
@@ -9,64 +22,89 @@ scripts-python/
 ├── .env                          # Variables de entorno
 ├── requirements.txt              # Dependencias Python
 ├── pyproject.toml               # Configuración de pytest y herramientas
-├── setup.py                     # Script de instalación automática
 ├── run_brass.py                 # Script principal para módulo BRASS
+├── run_expedientes.py           # Script para módulo expedientes
+├── run_EnviarCorreo.py          # Script para módulo correos
+├── run_tests.py                 # Script principal de testing
 ├── src/                         # Código fuente
 │   ├── __init__.py
 │   ├── common/                  # Utilidades compartidas
 │   │   ├── __init__.py
 │   │   ├── config.py           # Configuración multi-entorno
 │   │   ├── database.py         # Capa abstracción bases datos Access
+│   │   ├── database_adapter.py # Adaptador de bases de datos
+│   │   ├── database_sync.py    # Sincronización bidireccional
+│   │   ├── access_migrator.py  # Migración Access ↔ SQLite
 │   │   └── utils.py           # Utilidades HTML, logging, fechas
-│   └── brass/                  # Módulo BRASS (migrado)
+│   ├── brass/                  # Módulo BRASS (migrado)
+│   │   ├── __init__.py
+│   │   └── brass_manager.py    # Gestor principal BRASS
+│   ├── correos/                # Módulo de correos
+│   │   ├── __init__.py
+│   │   └── correos_manager.py  # Gestor de correos
+│   └── expedientes/            # Módulo de expedientes
 │       ├── __init__.py
-│       └── brass_manager.py    # Gestor principal BRASS
-├── tests/                      # Tests automatizados (49 tests, 61% cobertura)
+│       └── expedientes_manager.py # Gestor de expedientes
+├── tests/                      # Tests automatizados (22 tests organizados)
 │   ├── __init__.py
-│   ├── README.md              # Documentación estructura tests
-│   ├── access_sync/           # 🔄 Tests sincronización Access-SQLite
-│   │   ├── README.md          # Documentación específica
-│   │   ├── sync_bidirectional_final.py (✅ FUNCIONAL)
-│   │   ├── test_access_simple.py
-│   │   └── test_bidirectional_sync.py
-│   ├── emails/                # 📧 Tests sistema de correo HTML
-│   │   ├── README.md
-│   │   ├── test_correos_mailhog.py (✅ FUNCIONAL)
+│   ├── config.py              # Configuración de tests
+│   ├── conftest.py            # Configuración global pytest
+│   ├── data/                  # Bases de datos de test
+│   │   ├── __init__.py
+│   │   └── test_database.db
+│   ├── fixtures/              # Datos y utilidades de prueba
+│   │   ├── __init__.py
+│   │   ├── create_demo_databases.py
+│   │   ├── create_demo_sqlite.py
+│   │   ├── create_test_emails.py
+│   │   ├── create_test_emails_demo.py
+│   │   ├── migrate_databases.py
 │   │   └── setup_smtp_local.py
-
 │   ├── unit/                   # Tests unitarios por módulo
-│   │   ├── common/             # Tests módulos comunes (31 tests)
-│   │   │   ├── test_common_config.py
-│   │   │   ├── test_common_database.py
-│   │   │   └── test_common_utils.py
-│   │   └── brass/              # Tests específicos BRASS (10 tests)
-│   │       ├── test_brass_manager.py
-│   │       └── test_brass_utils.py
-│   └── integration/            # Tests integración BD real
-│       └── brass/              # Tests flujo completo BRASS (4 tests)
-│           └── test_brass_integration.py
+│   │   ├── __init__.py
+│   │   ├── common/             # Tests módulos comunes
+│   │   ├── brass/              # Tests específicos BRASS
+│   │   ├── correos/            # Tests del módulo de correos
+│   │   └── expedientes/        # Tests del módulo de expedientes
+│   ├── integration/            # Tests de integración
+│   │   ├── __init__.py
+│   │   ├── brass/              # Integración del sistema brass
+│   │   ├── correos/            # Integración del sistema de correos
+│   │   └── database/           # Integración con bases de datos
+│   └── functional/             # Tests funcionales
+│       ├── access_sync/        # Sincronización con Access
+│       └── correos_workflows/  # Flujos completos de correos
 ├── templates/                  # Plantillas HTML
 ├── logs/                       # Archivos de log
 ├── dbs-locales/               # Bases de datos locales
+├── dbs-sqlite/                # Bases de datos SQLite
 ├── herramientas/              # Archivos de configuración (CSS, etc.)
+├── docs/                      # Documentación
+│   ├── docker_guia.md         # Guía completa de Docker
+│   └── panel_control_guia.md  # Guía del panel de control
 └── legacy/                    # Sistema VBS original
 ```
 
 ## Características Implementadas
 
-### ✅ Migración Completada - Módulo BRASS
-- **Gestión de equipos de medida y calibraciones**
-- **Generación de reportes HTML**
-- **Integración con bases de datos Access**
-- **Sistema de notificaciones por correo**
-- **Logging estructurado**
+### ✅ Módulos Migrados
+- **BRASS**: Sistema de gestión de tareas migrado completamente
+- **Correos**: Sistema de envío de correos HTML
+- **Expedientes**: Gestión de expedientes (en desarrollo)
 
-### 🔄 Próximas Migraciones
-- Módulo NoConformidades
-- Módulo GestionRiesgos
-- Módulo Expedientes
-- Módulo AGEDYS
-- Sistema de correos
+### 🔧 Infraestructura
+- **Multi-entorno**: Soporte para local/oficina con detección automática
+- **Base de datos**: Abstracción para Access con migración a SQLite
+- **Logging**: Sistema de logs estructurado
+- **Testing**: 22 tests organizados con cobertura
+- **Docker**: Contenedorización completa del sistema
+
+### 🚀 Mejoras Implementadas
+- Manejo robusto de errores
+- Configuración centralizada
+- Estructura modular
+- Documentación completa
+- CI/CD preparado
 
 ## 🐳 Entorno Docker
 
