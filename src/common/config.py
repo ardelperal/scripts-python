@@ -37,22 +37,34 @@ class Config:
         
         # Configuración de correo
         self.default_recipient = os.getenv('DEFAULT_RECIPIENT', 'admin@empresa.com')
-        self.smtp_user = os.getenv('SMTP_USER', 'noreply@empresa.com')
-        self.smtp_password = os.getenv('SMTP_PASSWORD', '')
         
         # Configurar servidor SMTP según entorno
         if self.environment == 'local':
             # Servidor SMTP local para desarrollo
-            self.smtp_server = os.getenv('SMTP_SERVER', 'localhost')
-            self.smtp_port = int(os.getenv('SMTP_PORT', '1025'))
+            self.smtp_server = os.getenv('LOCAL_SMTP_SERVER', 'localhost')
+            self.smtp_port = int(os.getenv('LOCAL_SMTP_PORT', '1025'))
+            self.smtp_user = os.getenv('LOCAL_SMTP_USER', 'test@example.com')
+            self.smtp_password = os.getenv('LOCAL_SMTP_PASSWORD', '')
             self.smtp_auth = False
             self.smtp_tls = False
         else:
             # Servidor SMTP de oficina
-            self.smtp_server = os.getenv('SMTP_SERVER', '10.73.54.85')
-            self.smtp_port = int(os.getenv('SMTP_PORT', '25'))
+            self.smtp_server = os.getenv('OFFICE_SMTP_SERVER', '10.73.54.85')
+            self.smtp_port = int(os.getenv('OFFICE_SMTP_PORT', '25'))
+            self.smtp_user = os.getenv('OFFICE_SMTP_USER', '')
+            self.smtp_password = os.getenv('OFFICE_SMTP_PASSWORD', '')
             self.smtp_auth = False
             self.smtp_tls = False
+        
+        # Aplicar sobrescritura de SMTP si está configurada
+        # Esto permite usar un servidor alternativo cuando no se puede acceder al de oficina
+        if os.getenv('SMTP_OVERRIDE_SERVER'):
+            self.smtp_server = os.getenv('SMTP_OVERRIDE_SERVER')
+            self.smtp_port = int(os.getenv('SMTP_OVERRIDE_PORT', '25'))
+            self.smtp_user = os.getenv('SMTP_OVERRIDE_USER', '')
+            self.smtp_password = os.getenv('SMTP_OVERRIDE_PASSWORD', '')
+            self.smtp_auth = bool(self.smtp_user)  # Activar auth si hay usuario
+            self.smtp_tls = os.getenv('SMTP_OVERRIDE_TLS', 'false').lower() == 'true'
         
         # Configuración de logging
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')

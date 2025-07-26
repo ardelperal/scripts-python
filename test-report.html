@@ -1,0 +1,205 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Testing - 2025-07-26 10:21</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .metric { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+        .metric h3 { margin: 0 0 10px 0; font-size: 14px; opacity: 0.9; }
+        .metric .value { font-size: 32px; font-weight: bold; margin: 0; }
+        .success { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+        .warning { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); }
+        .error { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
+        .coverage-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .coverage-table th, .coverage-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .coverage-table th { background-color: #f8f9fa; font-weight: 600; }
+        .coverage-bar { width: 100px; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; }
+        .coverage-fill { height: 100%; border-radius: 10px; }
+        .high-coverage { background: linear-gradient(90deg, #4CAF50, #45a049); }
+        .medium-coverage { background: linear-gradient(90deg, #ff9800, #f57c00); }
+        .low-coverage { background: linear-gradient(90deg, #f44336, #d32f2f); }
+        .timestamp { text-align: center; color: #666; margin-top: 30px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Reporte de Testing</h1>
+        
+        <div class="summary">
+            <div class="metric">
+                <h3>Total Tests</h3>
+                <p class="value">0</p>
+            </div>
+            <div class="metric success">
+                <h3>✅ Pasaron</h3>
+                <p class="value">0</p>
+            </div>
+            <div class="metric success">
+                <h3>❌ Fallaron</h3>
+                <p class="value">0</p>
+            </div>
+            <div class="metric success">
+                <h3>🎯 Cobertura</h3>
+                <p class="value">88.7%</p>
+            </div>
+        </div>
+        
+        <h2>🎯 Cobertura por Módulos</h2>
+        <table class="coverage-table">
+            <thead>
+                <tr>
+                    <th>Módulo</th>
+                    <th>Cobertura</th>
+                    <th>Progreso</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>..__init__.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>brass.__init__.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>brass.brass_manager.py</td>
+                    <td>99.4%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 99.37%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>common.__init__.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>common.config.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>common.database.py</td>
+                    <td>61.9%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill medium-coverage" style="width: 61.88%"></div>
+                        </div>
+                    </td>
+                    <td>⚠️ Aceptable</td>
+                </tr>
+
+                <tr>
+                    <td>common.database_adapter.py</td>
+                    <td>94.5%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 94.52000000000001%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>common.utils.py</td>
+                    <td>97.5%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 97.5%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>correos.__init__.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>correos.correos_manager.py</td>
+                    <td>88.4%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 88.37%"></div>
+                        </div>
+                    </td>
+                    <td>✅ Bueno</td>
+                </tr>
+
+                <tr>
+                    <td>expedientes.__init__.py</td>
+                    <td>100.0%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 100.0%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+                <tr>
+                    <td>expedientes.expedientes_manager.py</td>
+                    <td>91.9%</td>
+                    <td>
+                        <div class="coverage-bar">
+                            <div class="coverage-fill high-coverage" style="width: 91.92%"></div>
+                        </div>
+                    </td>
+                    <td>🟢 Excelente</td>
+                </tr>
+
+            </tbody>
+        </table>
+        
+        <div class="timestamp">
+            Generado el 2025-07-26 a las 10:21:58
+        </div>
+    </div>
+</body>
+</html>

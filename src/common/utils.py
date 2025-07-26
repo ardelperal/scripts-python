@@ -3,9 +3,25 @@ Utilidades comunes para el proyecto
 """
 import os
 import logging
+import re
 from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
+
+
+def hide_password_in_connection_string(connection_string: str) -> str:
+    """
+    Oculta la contraseña en una cadena de conexión para logging seguro
+    
+    Args:
+        connection_string: Cadena de conexión que puede contener contraseña
+        
+    Returns:
+        Cadena de conexión con contraseña oculta
+    """
+    # Patrón para encontrar PWD=valor; o Password=valor;
+    pattern = r'(PWD|Password)=([^;]+);'
+    return re.sub(pattern, r'\1=***;', connection_string, flags=re.IGNORECASE)
 
 
 def setup_logging(log_level: str = "INFO", log_file: Optional[Path] = None):

@@ -1,6 +1,6 @@
 # Sistema de Gestión de Tareas - Migración de VBS a Python
 
-Este proyecto es una migración del sistema legacy VBS a Python, implementando mejores prácticas de desarrollo, testing automatizado y soporte para múltiples entornos.
+Este proyecto es una migración del sistema legacy VBS a Python, implementando mejores prácticas de desarrollo, testing automatizado, seguridad mejorada y soporte para múltiples entornos.
 
 ## 📋 Tabla de Contenidos
 
@@ -10,6 +10,7 @@ Este proyecto es una migración del sistema legacy VBS a Python, implementando m
 - [Instalación](#instalación)
 - [Uso](#uso)
 - [Testing](#testing)
+- [Seguridad](#seguridad)
 - [Variables de Entorno Principales](#variables-de-entorno-principales)
 - [Arquitectura](#arquitectura)
 
@@ -102,6 +103,12 @@ scripts-python/
 - **Testing**: 196 tests organizados con cobertura del 18%
 - **Coverage**: Reportes HTML interactivos con coverage.py
 - **SMTP**: Configuración sin autenticación para entorno oficina
+
+### 🔒 Seguridad
+- **Enmascaramiento de contraseñas** en logs y salidas de consola
+- **Protección de información sensible** en cadenas de conexión
+- **Función utilitaria** `hide_password_in_connection_string` para logging seguro
+- **Validación de seguridad** con tests automatizados
 
 ### 🚀 Mejoras Implementadas
 - Manejo robusto de errores
@@ -240,6 +247,32 @@ python run_EnviarCorreo.py
 python run_expedientes.py
 ```
 
+## Seguridad
+
+### Protección de Información Sensible
+El sistema implementa medidas de seguridad para proteger información sensible como contraseñas de base de datos:
+
+```python
+from src.common.utils import hide_password_in_connection_string
+
+# Ejemplo de uso
+connection_string = "Server=server;Database=db;PWD=secret123"
+safe_string = hide_password_in_connection_string(connection_string)
+print(safe_string)  # Output: "Server=server;Database=db;PWD=***"
+```
+
+### Características de Seguridad
+- **Enmascaramiento automático** de contraseñas en logs
+- **Soporte para múltiples formatos**: `PWD=`, `Password=` (case-insensitive)
+- **Preservación de estructura** de cadenas de conexión
+- **Tests de seguridad** automatizados
+
+### Validación de Seguridad
+```bash
+# Ejecutar tests de seguridad
+pytest tests/test_utils_security.py -v
+```
+
 ## Testing
 
 ### 🧪 Ejecución de Tests
@@ -257,6 +290,37 @@ pytest tests/integration/ -v -m integration
 
 # Ejecutar tests específicos
 pytest tests/unit/test_database.py -v
+```
+
+### Tipos de Tests
+
+#### Tests de Conectividad
+```bash
+# Tests de integración de base de datos
+pytest tests/test_database_connectivity.py -v
+
+# Tests específicos por base de datos
+pytest tests/test_database_connectivity.py::test_brass_database_connection -v
+pytest tests/test_database_connectivity.py::test_tareas_database_connection -v
+pytest tests/test_database_connectivity.py::test_correos_database_connection -v
+```
+
+#### Tests de Seguridad
+```bash
+# Tests de enmascaramiento de contraseñas
+pytest tests/test_utils_security.py -v
+```
+
+#### Tests Completos
+```bash
+# Ejecutar todos los tests
+pytest
+
+# Tests con cobertura
+pytest --cov=src
+
+# Tests con reporte detallado
+pytest -v --tb=short
 ```
 
 ### 📊 Coverage (Cobertura de Código)
