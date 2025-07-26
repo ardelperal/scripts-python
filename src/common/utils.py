@@ -170,3 +170,56 @@ def safe_str(value, default: str = "&nbsp;") -> str:
     if value is None or value == "":
         return default
     return str(value)
+
+
+def format_date(date_value, format_str: str = "%d/%m/%Y") -> str:
+    """
+    Formatea una fecha a string
+    
+    Args:
+        date_value: Fecha a formatear (datetime, date o string)
+        format_str: Formato de salida
+        
+    Returns:
+        Fecha formateada como string
+    """
+    if date_value is None:
+        return ""
+    
+    if isinstance(date_value, str):
+        try:
+            # Intentar parsear diferentes formatos de fecha
+            for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S"]:
+                try:
+                    date_value = datetime.strptime(date_value, fmt)
+                    break
+                except ValueError:
+                    continue
+            else:
+                return str(date_value)  # Si no se puede parsear, devolver como string
+        except Exception:
+            return str(date_value)
+    
+    if isinstance(date_value, (datetime, date)):
+        return date_value.strftime(format_str)
+    
+    return str(date_value)
+
+
+def send_email(to_address: str, subject: str, body: str, is_html: bool = True) -> bool:
+    """
+    Envía un email (función placeholder)
+    
+    Args:
+        to_address: Dirección de destino
+        subject: Asunto del email
+        body: Cuerpo del email
+        is_html: Si el cuerpo es HTML
+        
+    Returns:
+        True si se envió correctamente, False en caso contrario
+    """
+    # Esta es una función placeholder
+    # En un entorno real, aquí iría la lógica de envío de email
+    logging.info(f"Email enviado a {to_address} con asunto: {subject}")
+    return True

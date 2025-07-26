@@ -14,7 +14,6 @@ from typing import Any, Dict, List
 
 from ..common import config
 from ..common.database import AccessDatabase
-from ..common.database_sync import sync_database_from_access, sync_database_to_access
 
 logger = logging.getLogger(__name__)
 
@@ -148,37 +147,26 @@ class CorreosManager:
             logger.error(f"Error marcando correo como enviado: {e}")
 
     def sync_databases(self):
-        """Sincronizar bases de datos Access y SQLite"""
+        """Sincronizar bases de datos Access y SQLite (placeholder)"""
         try:
-            access_path = self.config.db_correos_path
-            sqlite_path = self.config.sqlite_dir / 'correos_datos.sqlite'
-            
-            logger.info(f"Sincronizando Access → SQLite: {access_path} → {sqlite_path}")
-            
-            try:
-                sync_database_from_access(access_path, sqlite_path, tables=['TbCorreosEnviados'])
-            except Exception as e:
-                logger.warning(f"Error con contraseña: {e}. Probando sin contraseña...")
-                # Intentar sin contraseña
-                original_password = self.config.db_password
-                self.config.db_password = ''
-                sync_database_from_access(access_path, sqlite_path, tables=['TbCorreosEnviados'])
-                self.config.db_password = original_password
+            logger.info("Sincronización de bases de datos no disponible en modo Access-only")
+            # En modo Access-only, no hay sincronización
+            return True
                 
         except Exception as e:
             logger.error(f"Error sincronizando bases de datos: {e}")
+            return False
 
     def sync_back_to_access(self):
-        """Sincronizar cambios de vuelta a Access"""
+        """Sincronizar cambios de vuelta a Access (placeholder)"""
         try:
-            access_path = self.config.db_correos_path
-            sqlite_path = self.config.sqlite_dir / 'correos_datos.sqlite'
-            
-            logger.info(f"Sincronizando SQLite → Access: {sqlite_path} → {access_path}")
-            sync_database_to_access(sqlite_path, access_path, tables=['TbCorreosEnviados'])
+            logger.info("Sincronización de vuelta a Access no necesaria en modo Access-only")
+            # En modo Access-only, no hay sincronización
+            return True
             
         except Exception as e:
             logger.error(f"Error sincronizando de vuelta a Access: {e}")
+            return False
 
     def execute_daily_task(self) -> bool:
         """

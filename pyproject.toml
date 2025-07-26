@@ -4,16 +4,15 @@ addopts = "-ra -q --strict-markers --cov=src --cov-report=term-missing --cov-rep
 testpaths = [
     "tests/unit",
     "tests/integration",
-    "tests/functional",
+    "tests/emails",
 ]
 pythonpath = [
     "src",
 ]
 markers = [
-    "unit: marks tests as unit tests (isolated components)",
     "integration: marks tests as integration tests that require real databases",
-    "functional: marks tests as functional tests (complete workflows)",
-    "correos: marks tests as correos functionality tests",
+    "unit: marks tests as unit tests (isolated components)",
+    "emails: marks tests as email functionality tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "smoke: marks tests as smoke tests (quick validation)",
 ]

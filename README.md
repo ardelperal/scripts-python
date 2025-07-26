@@ -10,9 +10,7 @@ Este proyecto es una migración del sistema legacy VBS a Python, implementando m
 - [Instalación](#instalación)
 - [Uso](#uso)
 - [Testing](#testing)
-- [Docker](#docker)
-- [Bases de Datos Locales](#bases-de-datos-locales)
-- [Sincronización Access ↔ SQLite](#sincronización-access--sqlite)
+- [Variables de Entorno Principales](#variables-de-entorno-principales)
 - [Arquitectura](#arquitectura)
 
 ## Estructura del Proyecto
@@ -26,6 +24,8 @@ scripts-python/
 ├── run_expedientes.py           # Script para módulo expedientes
 ├── run_EnviarCorreo.py          # Script para módulo correos
 ├── run_tests.py                 # Script principal de testing
+├── generate_coverage_report.py  # Generador reportes de cobertura
+├── .coveragerc                  # Configuración coverage.py
 ├── src/                         # Código fuente
 │   ├── __init__.py
 │   ├── common/                  # Utilidades compartidas
@@ -33,8 +33,6 @@ scripts-python/
 │   │   ├── config.py           # Configuración multi-entorno
 │   │   ├── database.py         # Capa abstracción bases datos Access
 │   │   ├── database_adapter.py # Adaptador de bases de datos
-│   │   ├── database_sync.py    # Sincronización bidireccional
-│   │   ├── access_migrator.py  # Migración Access ↔ SQLite
 │   │   └── utils.py           # Utilidades HTML, logging, fechas
 │   ├── brass/                  # Módulo BRASS (migrado)
 │   │   ├── __init__.py
@@ -77,11 +75,16 @@ scripts-python/
 ├── templates/                  # Plantillas HTML
 ├── logs/                       # Archivos de log
 ├── dbs-locales/               # Bases de datos locales
-├── dbs-sqlite/                # Bases de datos SQLite
+├── htmlcov/                   # Reportes HTML de cobertura
 ├── herramientas/              # Archivos de configuración (CSS, etc.)
 ├── docs/                      # Documentación
-│   ├── docker_guia.md         # Guía completa de Docker
-│   └── panel_control_guia.md  # Guía del panel de control
+│   ├── coverage_setup_summary.md # Resumen configuración coverage
+│   ├── htmlcov_usage_guide.md     # Guía uso reportes HTML
+│   ├── docker_guia.md             # Guía completa de Docker
+│   ├── panel_control_guia.md      # Guía del panel de control
+│   └── smtp_config_changes.md     # Cambios configuración SMTP
+├── examples/                    # Ejemplos y demos
+│   └── smtp_config_demo.py      # Demo configuración SMTP
 └── legacy/                    # Sistema VBS original
 ```
 
@@ -94,10 +97,11 @@ scripts-python/
 
 ### 🔧 Infraestructura
 - **Multi-entorno**: Soporte para local/oficina con detección automática
-- **Base de datos**: Abstracción para Access con migración a SQLite
+- **Base de datos**: Abstracción para Access con ODBC
 - **Logging**: Sistema de logs estructurado
-- **Testing**: 22 tests organizados con cobertura
-- **Docker**: Contenedorización completa del sistema
+- **Testing**: 196 tests organizados con cobertura del 18%
+- **Coverage**: Reportes HTML interactivos con coverage.py
+- **SMTP**: Configuración sin autenticación para entorno oficina
 
 ### 🚀 Mejoras Implementadas
 - Manejo robusto de errores
@@ -105,33 +109,6 @@ scripts-python/
 - Estructura modular
 - Documentación completa
 - CI/CD preparado
-
-## 🐳 Entorno Docker
-
-### Configuración Simplificada
-- **Dockerfile**: Container ligero con Python 3.11-slim (~200MB)
-- **docker-compose.yml**: Orquestación completa con múltiples perfiles
-- **Sincronización Access ↔ SQLite**: Bidireccional sin pérdida de datos
-
-### Comandos Docker
-```bash
-# Desarrollo local con MailHog
-docker-compose --profile local up
-
-# Solo dashboard web
-docker-compose --profile local up scripts-python-web
-
-# Producción con SMTP real
-docker-compose --profile prod up
-
-# Ver logs
-docker-compose logs -f
-```
-
-### Perfiles Disponibles
-- **`dev`**: Desarrollo con hot-reload
-- **`local`**: Local con MailHog para testing de emails
-- **`prod`**: Producción con SMTP real de oficina
 
 ## Configuración de Entornos
 
@@ -164,7 +141,35 @@ ENVIRONMENT=local|oficina          # Seleccionar entorno
 DB_PASSWORD=contraseña_bd          # Contraseña bases datos
 DEFAULT_RECIPIENT=email@empresa.com # Destinatario notificaciones
 LOG_LEVEL=INFO|DEBUG|ERROR         # Nivel de logging
+
+# Configuración SMTP (Entorno Oficina)
+SMTP_SERVER=10.73.54.85           # Servidor SMTP oficina
+SMTP_PORT=25                      # Puerto SMTP (sin autenticación)
+SMTP_FROM=noreply@empresa.com     # Email remitente
+
+# Configuración SMTP (Entorno Local)
+SMTP_SERVER=localhost             # MailHog local
+SMTP_PORT=1025                    # Puerto MailHog
+SMTP_FROM=test@example.com        # Email de prueba
 ```
+
+### 📧 Configuración SMTP
+
+El sistema soporta dos configuraciones SMTP:
+
+**Entorno Local (Desarrollo):**
+- Servidor: `localhost:1025` (MailHog)
+- Sin autenticación
+- Emails capturados para testing
+
+**Entorno Oficina (Producción):**
+- Servidor: `10.73.54.85:25`
+- Sin autenticación (compatible con VBS legacy)
+- Envío real de emails
+
+**Archivos relacionados:**
+- `examples/smtp_config_demo.py` - Demo de configuración
+- `docs/smtp_config_changes.md` - Documentación de cambios
 
 ## Instalación
 
@@ -227,7 +232,17 @@ python server.py
 ```bash
 # Ejecutar tarea BRASS
 python run_brass.py
+
+# Ejecutar módulo de correos
+python run_EnviarCorreo.py
+
+# Ejecutar módulo de expedientes
+python run_expedientes.py
 ```
+
+## Testing
+
+### 🧪 Ejecución de Tests
 
 **Ejecutar Tests:**
 ```bash
@@ -240,12 +255,38 @@ pytest tests/unit/ -v
 # Ejecutar solo tests de integración (requieren BD real)
 pytest tests/integration/ -v -m integration
 
-# Ejecutar con coverage completo
-pytest --cov=src --cov-report=html --cov-report=term-missing
-
 # Ejecutar tests específicos
 pytest tests/unit/test_database.py -v
 ```
+
+### 📊 Coverage (Cobertura de Código)
+
+**Generar Reportes de Cobertura:**
+```bash
+# Método rápido (recomendado)
+python generate_coverage_report.py
+
+# Método manual
+coverage run --source=src -m pytest tests/unit/ -v
+coverage html
+start htmlcov\index.html
+```
+
+**Estado Actual:**
+- **Total**: 196 tests ejecutándose correctamente
+- **Cobertura**: 18% del código fuente
+- **Reportes HTML**: Disponibles en `htmlcov/index.html`
+
+**Archivos de Coverage:**
+- `.coveragerc` - Configuración de coverage.py
+- `htmlcov/` - Reportes HTML interactivos
+- `generate_coverage_report.py` - Script automatizado
+
+**Interpretación de Reportes:**
+- 🟢 **Verde**: Líneas cubiertas por tests
+- 🔴 **Rojo**: Líneas sin cobertura (necesitan tests)
+- 🟡 **Amarillo**: Cobertura parcial
+- ⚪ **Blanco**: Líneas no ejecutables
 
 ## Variables de Entorno Principales
 
@@ -254,7 +295,11 @@ pytest tests/unit/test_database.py -v
 | `ENVIRONMENT` | Entorno (local/oficina) | `local` |
 | `DB_PASSWORD` | Contraseña bases de datos | `dpddpd` |
 | `LOCAL_DB_BRASS` | Ruta local BD BRASS | `dbs-locales/Brass.accdb` |
+| `OFFICE_DB_BRASS` | Ruta oficina BD BRASS | `\\servidor\aplicaciones\Brass.accdb` |
 | `DEFAULT_RECIPIENT` | Correo por defecto | `user@domain.com` |
+| `SMTP_SERVER` | Servidor SMTP | `10.73.54.85` |
+| `SMTP_PORT` | Puerto SMTP | `25` |
+| `LOG_LEVEL` | Nivel de logging | `INFO` |
 
 ## Arquitectura
 
@@ -262,6 +307,7 @@ pytest tests/unit/test_database.py -v
 
 - **config.py**: Gestión centralizada de configuración
 - **database.py**: Abstracción para bases de datos Access con ODBC  
+- **database_adapter.py**: Adaptador de conexiones de base de datos
 - **utils.py**: Utilidades compartidas (HTML, fechas, logging)
 
 ### Mejoras vs VBS Legacy

@@ -10,7 +10,7 @@ Uso:
     python run_tests.py                    # Ejecutar todos los tests
     python run_tests.py --unit            # Solo tests unitarios
     python run_tests.py --integration     # Solo tests de integración
-    python run_tests.py --correos          # Solo tests de correos
+    python run_tests.py --emails          # Solo tests de emails
     python run_tests.py --module brass    # Tests de un módulo específico
     python run_tests.py --coverage        # Con reporte de cobertura detallado
     python run_tests.py --html            # Generar reporte HTML
@@ -404,8 +404,8 @@ class TestRunner:
             test_path = "tests/unit"
         elif test_type == "integration":
             test_path = "tests/integration"
-        elif test_type == "correos":
-            test_path = "tests/functional/correos_workflows"
+        elif test_type == "emails":
+            test_path = "tests/emails"
         elif test_type == "module" and module:
             test_path = f"tests/unit/{module}"
             if not (self.project_root / test_path).exists():
@@ -450,7 +450,7 @@ Ejemplos de uso:
   python run_tests.py                    # Todos los tests
   python run_tests.py --unit            # Solo tests unitarios
   python run_tests.py --integration     # Solo tests de integración
-  python run_tests.py --correos          # Solo tests de correos
+  python run_tests.py --emails          # Solo tests de emails
   python run_tests.py --module brass    # Tests del módulo BRASS
   python run_tests.py --html            # Generar reporte HTML
         """
@@ -458,7 +458,7 @@ Ejemplos de uso:
     
     parser.add_argument("--unit", action="store_true", help="Ejecutar solo tests unitarios")
     parser.add_argument("--integration", action="store_true", help="Ejecutar solo tests de integración")
-    parser.add_argument("--correos", action="store_true", help="Ejecutar solo tests de correos")
+    parser.add_argument("--emails", action="store_true", help="Ejecutar solo tests de emails")
     parser.add_argument("--module", type=str, help="Ejecutar tests de un módulo específico")
     parser.add_argument("--html", action="store_true", help="Generar reporte HTML")
     parser.add_argument("--coverage", action="store_true", help="Mostrar reporte de cobertura detallado")
@@ -471,8 +471,8 @@ Ejemplos de uso:
         test_type = "unit"
     elif args.integration:
         test_type = "integration"
-    elif args.correos:
-        test_type = "correos"
+    elif args.emails:
+        test_type = "emails"
     elif args.module:
         test_type = "module"
     
