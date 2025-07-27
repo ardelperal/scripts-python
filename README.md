@@ -24,6 +24,7 @@ scripts-python/
 ├── run_brass.py                 # Script principal para módulo BRASS
 ├── run_expedientes.py           # Script para módulo expedientes
 ├── run_EnviarCorreo.py          # Script para módulo correos
+├── run_riesgos.py               # Script para módulo de riesgos
 ├── run_tests.py                 # Script principal de testing
 ├── generate_coverage_report.py  # Generador reportes de cobertura
 ├── .coveragerc                  # Configuración coverage.py
@@ -41,9 +42,12 @@ scripts-python/
 │   ├── correos/                # Módulo de correos
 │   │   ├── __init__.py
 │   │   └── correos_manager.py  # Gestor de correos
-│   └── expedientes/            # Módulo de expedientes
+│   ├── expedientes/            # Módulo de expedientes
+│   │   ├── __init__.py
+│   │   └── expedientes_manager.py # Gestor de expedientes
+│   └── riesgos/                # Módulo de gestión de riesgos
 │       ├── __init__.py
-│       └── expedientes_manager.py # Gestor de expedientes
+│       └── riesgos_manager.py  # Gestor de riesgos
 ├── tests/                      # Tests automatizados (22 tests organizados)
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
@@ -64,7 +68,8 @@ scripts-python/
 │   │   ├── common/             # Tests módulos comunes
 │   │   ├── brass/              # Tests específicos BRASS
 │   │   ├── correos/            # Tests del módulo de correos
-│   │   └── expedientes/        # Tests del módulo de expedientes
+│   │   ├── expedientes/        # Tests del módulo de expedientes
+│   │   └── riesgos/            # Tests del módulo de riesgos
 │   ├── integration/            # Tests de integración
 │   │   ├── __init__.py
 │   │   ├── brass/              # Integración del sistema brass
@@ -83,9 +88,12 @@ scripts-python/
 │   ├── htmlcov_usage_guide.md     # Guía uso reportes HTML
 │   ├── docker_guia.md             # Guía completa de Docker
 │   ├── panel_control_guia.md      # Guía del panel de control
-│   └── smtp_config_changes.md     # Cambios configuración SMTP
+│   ├── smtp_config_changes.md     # Cambios configuración SMTP
+│   ├── riesgos.md                 # Documentación módulo de riesgos
+│   └── migracion_riesgos.md       # Guía migración GestionRiesgos.vbs
 ├── examples/                    # Ejemplos y demos
-│   └── smtp_config_demo.py      # Demo configuración SMTP
+│   ├── smtp_config_demo.py      # Demo configuración SMTP
+│   └── ejemplo_riesgos.py       # Ejemplo uso módulo riesgos
 └── legacy/                    # Sistema VBS original
 ```
 
@@ -95,6 +103,7 @@ scripts-python/
 - **BRASS**: Sistema de gestión de tareas migrado completamente
 - **Correos**: Sistema de envío de correos HTML
 - **Expedientes**: Gestión de expedientes (en desarrollo)
+- **Riesgos**: Sistema de gestión de riesgos migrado completamente
 
 ### 🔧 Infraestructura
 - **Multi-entorno**: Soporte para local/oficina con detección automática
@@ -245,6 +254,9 @@ python run_EnviarCorreo.py
 
 # Ejecutar módulo de expedientes
 python run_expedientes.py
+
+# Ejecutar módulo de riesgos
+python run_riesgos.py
 ```
 
 ## Seguridad
