@@ -530,15 +530,21 @@ class ExpedientesManager:
             logger.error(f"Error registrando envío de correo: {e}")
             return False
     
-    def execute_daily_task(self) -> bool:
+    def execute_daily_task(self, forzar_ejecucion: bool = False) -> bool:
         """
         Ejecutar la tarea diaria de expedientes
+        
+        Args:
+            forzar_ejecucion: Si True, fuerza la ejecución independientemente de la lógica interna
         
         Returns:
             True si se ejecutó correctamente, False en caso contrario
         """
         try:
             logger.info("Iniciando tarea diaria de expedientes")
+            
+            if forzar_ejecucion:
+                logger.info("Ejecución forzada activada")
             
             # Generar reporte HTML
             html_report = self.generate_html_report()
@@ -547,24 +553,25 @@ class ExpedientesManager:
                 logger.warning("No se pudo generar el reporte HTML")
                 return False
             
-            # Enviar correo con el reporte
-            subject = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
-            recipients = [config.default_recipient]
+            # Obtener destinatarios (administradores por defecto)
+            from ..common.utils import get_admin_emails_string, send_notification_email
             
-            success = send_email(
-                recipients=recipients,
+            admin_emails = get_admin_emails_string(config, logger)
+            recipients = admin_emails if admin_emails else config.default_recipient
+            
+            # Enviar correo con el reporte usando la función centralizada
+            subject = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
+            
+            success = send_notification_email(
+                to_users=recipients,
                 subject=subject,
-                body=html_report,
-                is_html=True
+                body_html=html_report,
+                email_type="Expedientes_Reporte_Diario",
+                config=config,
+                logger=logger
             )
             
             if success:
-                # Registrar envío
-                self.register_email_sent(
-                    recipients=", ".join(recipients),
-                    subject=subject,
-                    body=html_report
-                )
                 logger.info("Tarea diaria de expedientes completada exitosamente")
                 return True
             else:

@@ -348,18 +348,19 @@ class TestExpedientesManager:
     def test_execute_daily_task_success(self, expedientes_manager, mock_utils):
         """Test ejecutar tarea diaria exitoso"""
         with patch.object(expedientes_manager, 'generate_html_report') as mock_generate, \
-             patch.object(expedientes_manager, 'register_email_sent') as mock_register:
+             patch('src.common.utils.get_admin_emails_string') as mock_get_emails, \
+             patch('src.common.utils.send_notification_email') as mock_send_notification:
             
             mock_generate.return_value = "<html>Test Report</html>"
-            mock_register.return_value = True
-            mock_utils['send_email'].return_value = True
+            mock_get_emails.return_value = "admin@example.com"
+            mock_send_notification.return_value = True
             
             result = expedientes_manager.execute_daily_task()
             
             assert result is True
             mock_generate.assert_called_once()
-            mock_utils['send_email'].assert_called_once()
-            mock_register.assert_called_once()
+            mock_send_notification.assert_called_once()
+            mock_get_emails.assert_called_once()
     
     def test_execute_daily_task_no_report(self, expedientes_manager):
         """Test ejecutar tarea diaria sin reporte"""
@@ -372,9 +373,13 @@ class TestExpedientesManager:
     
     def test_execute_daily_task_email_failure(self, expedientes_manager, mock_utils):
         """Test ejecutar tarea diaria con fallo en email"""
-        with patch.object(expedientes_manager, 'generate_html_report') as mock_generate:
+        with patch.object(expedientes_manager, 'generate_html_report') as mock_generate, \
+             patch('src.common.utils.get_admin_emails_string') as mock_get_emails, \
+             patch('src.common.utils.send_notification_email') as mock_send_notification:
+            
             mock_generate.return_value = "<html>Test Report</html>"
-            mock_utils['send_email'].return_value = False
+            mock_get_emails.return_value = "admin@example.com"
+            mock_send_notification.return_value = False
             
             result = expedientes_manager.execute_daily_task()
             

@@ -27,6 +27,12 @@ class TestBrassManager:
             yield mock_db
     
     @pytest.fixture
+    def mock_task_manager(self):
+        """Mock de TaskManager"""
+        with patch('src.brass.brass_manager.TaskManager') as mock_tm:
+            yield mock_tm
+    
+    @pytest.fixture
     def mock_utils(self):
         """Mock de utilidades"""
         with patch('src.brass.brass_manager.load_css_content') as mock_css, \
@@ -47,7 +53,7 @@ class TestBrassManager:
             }
     
     @pytest.fixture
-    def brass_manager(self, mock_config, mock_access_database, mock_utils):
+    def brass_manager(self, mock_config, mock_access_database, mock_task_manager, mock_utils):
         """Instancia de BrassManager con mocks"""
         return BrassManager()
     
@@ -61,18 +67,16 @@ class TestBrassManager:
     
     def test_get_last_execution_date_with_datetime(self, brass_manager):
         """Test obtener última fecha de ejecución con datetime"""
-        mock_result = [{'Ultima': datetime(2024, 1, 15, 10, 30)}]
-        brass_manager.db_tareas.execute_query.return_value = mock_result
+        brass_manager.task_manager.get_last_execution_date.return_value = date(2024, 1, 15)
         
         result = brass_manager.get_last_execution_date()
         
         assert result == date(2024, 1, 15)
-        brass_manager.db_tareas.execute_query.assert_called_once()
+        brass_manager.task_manager.get_last_execution_date.assert_called_once_with('BRASSDiario')
     
     def test_get_last_execution_date_with_date(self, brass_manager):
         """Test obtener última fecha de ejecución con date"""
-        mock_result = [{'Ultima': date(2024, 1, 15)}]
-        brass_manager.db_tareas.execute_query.return_value = mock_result
+        brass_manager.task_manager.get_last_execution_date.return_value = date(2024, 1, 15)
         
         result = brass_manager.get_last_execution_date()
         
@@ -80,7 +84,7 @@ class TestBrassManager:
     
     def test_get_last_execution_date_none(self, brass_manager):
         """Test obtener última fecha cuando no existe"""
-        brass_manager.db_tareas.execute_query.return_value = [{'Ultima': None}]
+        brass_manager.task_manager.get_last_execution_date.return_value = None
         
         result = brass_manager.get_last_execution_date()
         
@@ -88,7 +92,7 @@ class TestBrassManager:
     
     def test_get_last_execution_date_empty(self, brass_manager):
         """Test obtener última fecha con resultado vacío"""
-        brass_manager.db_tareas.execute_query.return_value = []
+        brass_manager.task_manager.get_last_execution_date.return_value = None
         
         result = brass_manager.get_last_execution_date()
         
@@ -96,7 +100,7 @@ class TestBrassManager:
     
     def test_get_last_execution_date_exception(self, brass_manager):
         """Test obtener última fecha con excepción"""
-        brass_manager.db_tareas.execute_query.side_effect = Exception("DB Error")
+        brass_manager.task_manager.get_last_execution_date.return_value = None
         
         result = brass_manager.get_last_execution_date()
         
@@ -104,30 +108,27 @@ class TestBrassManager:
     
     def test_is_task_completed_today_true(self, brass_manager):
         """Test verificar si tarea se completó hoy - True"""
-        with patch.object(brass_manager, 'get_last_execution_date') as mock_get_date:
-            mock_get_date.return_value = date.today()
-            
-            result = brass_manager.is_task_completed_today()
-            
-            assert result is True
+        brass_manager.task_manager.is_task_completed_today.return_value = True
+        
+        result = brass_manager.is_task_completed_today()
+        
+        assert result is True
     
     def test_is_task_completed_today_false(self, brass_manager):
         """Test verificar si tarea se completó hoy - False"""
-        with patch.object(brass_manager, 'get_last_execution_date') as mock_get_date:
-            mock_get_date.return_value = date(2024, 1, 1)
-            
-            result = brass_manager.is_task_completed_today()
-            
-            assert result is False
+        brass_manager.task_manager.is_task_completed_today.return_value = False
+        
+        result = brass_manager.is_task_completed_today()
+        
+        assert result is False
     
     def test_is_task_completed_today_none(self, brass_manager):
         """Test verificar si tarea se completó hoy - None"""
-        with patch.object(brass_manager, 'get_last_execution_date') as mock_get_date:
-            mock_get_date.return_value = None
-            
-            result = brass_manager.is_task_completed_today()
-            
-            assert result is False
+        brass_manager.task_manager.is_task_completed_today.return_value = False
+        
+        result = brass_manager.is_task_completed_today()
+        
+        assert result is False
     
     def test_is_calibration_valid_true(self, brass_manager):
         """Test verificar calibración válida"""
@@ -228,20 +229,24 @@ class TestBrassManager:
     def test_get_admin_users_from_db(self, brass_manager):
         """Test obtener usuarios admin desde BD"""
         mock_users = [{'UsuarioRed': 'user1', 'Nombre': 'User 1', 'CorreoUsuario': 'user1@test.com'}]
-        brass_manager.db_tareas.execute_query.return_value = mock_users
         
-        result = brass_manager.get_admin_users()
-        
-        assert result == mock_users
-        assert brass_manager._admin_users == mock_users
+        with patch('src.brass.brass_manager.get_admin_users') as mock_get_admin_users:
+            mock_get_admin_users.return_value = mock_users
+            
+            result = brass_manager.get_admin_users()
+            
+            assert result == mock_users
+            assert brass_manager._admin_users == mock_users
+            mock_get_admin_users.assert_called_once_with(brass_manager.config)
     
     def test_get_admin_users_exception(self, brass_manager):
         """Test obtener usuarios admin con excepción"""
-        brass_manager.db_tareas.execute_query.side_effect = Exception("DB Error")
-        
-        result = brass_manager.get_admin_users()
-        
-        assert result == []
+        with patch('src.brass.brass_manager.get_admin_users') as mock_get_admin_users:
+            mock_get_admin_users.side_effect = Exception("DB Error")
+            
+            result = brass_manager.get_admin_users()
+            
+            assert result == []
     
     def test_get_admin_emails_string_cached(self, brass_manager):
         """Test obtener emails admin con cache"""
@@ -302,29 +307,25 @@ class TestBrassManager:
     
     def test_register_task_completion_update_existing(self, brass_manager):
         """Test registrar tarea completada - actualizar existente"""
-        brass_manager.db_tareas.execute_query.return_value = [{'Count': 1}]
-        brass_manager.db_tareas.update_record.return_value = True
+        brass_manager.task_manager.register_task_completion.return_value = True
         
         result = brass_manager.register_task_completion()
         
         assert result is True
-        brass_manager.db_tareas.update_record.assert_called_once()
-        brass_manager.db_tareas.insert_record.assert_not_called()
+        brass_manager.task_manager.register_task_completion.assert_called_once_with('BRASSDiario')
     
     def test_register_task_completion_insert_new(self, brass_manager):
         """Test registrar tarea completada - insertar nuevo"""
-        brass_manager.db_tareas.execute_query.return_value = [{'Count': 0}]
-        brass_manager.db_tareas.insert_record.return_value = True
+        brass_manager.task_manager.register_task_completion.return_value = True
         
         result = brass_manager.register_task_completion()
         
         assert result is True
-        brass_manager.db_tareas.insert_record.assert_called_once()
-        brass_manager.db_tareas.update_record.assert_not_called()
+        brass_manager.task_manager.register_task_completion.assert_called_once_with('BRASSDiario')
     
     def test_register_task_completion_exception(self, brass_manager):
         """Test registrar tarea completada con excepción"""
-        brass_manager.db_tareas.execute_query.side_effect = Exception("DB Error")
+        brass_manager.task_manager.register_task_completion.return_value = False
         
         result = brass_manager.register_task_completion()
         
@@ -361,19 +362,21 @@ class TestBrassManager:
         with patch.object(brass_manager, 'is_task_completed_today') as mock_completed, \
              patch.object(brass_manager, 'get_equipment_out_of_calibration') as mock_get_equipment, \
              patch.object(brass_manager, 'generate_html_report') as mock_generate_html, \
-             patch.object(brass_manager, 'register_email') as mock_register_email, \
+             patch('src.brass.brass_manager.get_admin_emails_string') as mock_get_admin_emails, \
+             patch('src.brass.brass_manager.send_notification_email') as mock_send_email, \
              patch.object(brass_manager, 'register_task_completion') as mock_register_task:
             
             mock_completed.return_value = False
             mock_get_equipment.return_value = mock_equipment
             mock_generate_html.return_value = "<html>Report</html>"
-            mock_register_email.return_value = True
+            mock_get_admin_emails.return_value = "admin@test.com"
+            mock_send_email.return_value = True
             mock_register_task.return_value = True
             
             result = brass_manager.execute_task()
             
             assert result is True
-            mock_register_email.assert_called_once()
+            mock_send_email.assert_called_once()
             mock_register_task.assert_called_once()
     
     def test_execute_task_with_equipment_email_failure(self, brass_manager):

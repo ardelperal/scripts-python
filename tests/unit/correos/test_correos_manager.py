@@ -318,7 +318,7 @@ class TestCorreosManager:
         # Como es un placeholder, debería retornar True
         assert result is True
     
-    def test_execute_daily_task_success(self, correos_manager):
+    def test_ejecutar_tarea_diaria_success(self, correos_manager):
         """Test ejecución de tarea diaria exitosa"""
         with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar, \
              patch.object(correos_manager, 'sync_databases') as mock_sync, \
@@ -328,14 +328,14 @@ class TestCorreosManager:
             mock_sync.return_value = True
             mock_sync_back.return_value = True
             
-            result = correos_manager.execute_daily_task()
+            result = correos_manager.ejecutar_tarea_diaria()
             
             assert result is True
             mock_enviar.assert_called_once()
             mock_sync.assert_called_once()
             mock_sync_back.assert_called_once()
     
-    def test_execute_daily_task_email_failure(self, correos_manager):
+    def test_ejecutar_tarea_diaria_email_failure(self, correos_manager):
         """Test ejecución de tarea diaria con fallo en envío de emails"""
         with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar, \
              patch.object(correos_manager, 'sync_databases') as mock_sync, \
@@ -345,15 +345,15 @@ class TestCorreosManager:
             mock_sync.return_value = True
             mock_sync_back.return_value = True
             
-            result = correos_manager.execute_daily_task()
+            result = correos_manager.ejecutar_tarea_diaria()
             
             assert result is False
     
-    def test_execute_daily_task_exception(self, correos_manager):
+    def test_ejecutar_tarea_diaria_exception(self, correos_manager):
         """Test ejecución de tarea diaria con excepción general"""
         with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar:
             mock_enviar.side_effect = Exception("General error")
             
-            result = correos_manager.execute_daily_task()
+            result = correos_manager.ejecutar_tarea_diaria()
             
             assert result is False

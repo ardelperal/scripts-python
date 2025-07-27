@@ -3,6 +3,7 @@ Paquete común con utilidades compartidas
 """
 from .config import config
 from .database import AccessDatabase, DemoDatabase, get_database_instance
+from .task_manager import TaskManager, create_task_manager
 from .utils import (
     setup_logging,
     is_workday,
@@ -18,6 +19,8 @@ __all__ = [
     'AccessDatabase',
     'DemoDatabase',
     'get_database_instance',
+    'TaskManager',
+    'create_task_manager',
     'setup_logging',
     'is_workday',
     'is_night_time',

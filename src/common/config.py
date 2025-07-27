@@ -25,11 +25,15 @@ class Config:
             self.db_brass_path = self.root_dir / os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb')
             self.db_tareas_path = self.root_dir / os.getenv('LOCAL_DB_TAREAS', 'dbs-locales/Tareas_datos1.accdb')
             self.db_correos_path = self.root_dir / os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb')
+            self.db_noconformidades_path = self.root_dir / os.getenv('LOCAL_DB_NOCONFORMIDADES', 'dbs-locales/NoConformidades_Datos.accdb')
+            self.db_lanzadera_path = self.root_dir / os.getenv('LOCAL_DB_LANZADERA', 'dbs-locales/Lanzadera_Datos.accdb')
             self.css_file_path = self.root_dir / os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt')
         else:  # oficina
             self.db_brass_path = Path(os.getenv('OFFICE_DB_BRASS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Gestion_Brass_Gestion_Datos.accdb'))
             self.db_tareas_path = Path(os.getenv('OFFICE_DB_TAREAS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb'))
             self.db_correos_path = Path(os.getenv('OFFICE_DB_CORREOS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\correos_datos.accdb'))
+            self.db_noconformidades_path = Path(os.getenv('OFFICE_DB_NOCONFORMIDADES', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\No Conformidades\NoConformidades_Datos.accdb'))
+            self.db_lanzadera_path = Path(os.getenv('OFFICE_DB_LANZADERA', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\0Lanzadera\Lanzadera_Datos.accdb'))
             self.css_file_path = Path(os.getenv('OFFICE_CSS_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
         
         # Directorio para logs
@@ -56,19 +60,15 @@ class Config:
             self.smtp_auth = False
             self.smtp_tls = False
         
-        # Aplicar sobrescritura de SMTP si está configurada
-        # Esto permite usar un servidor alternativo cuando no se puede acceder al de oficina
-        if os.getenv('SMTP_OVERRIDE_SERVER'):
-            self.smtp_server = os.getenv('SMTP_OVERRIDE_SERVER')
-            self.smtp_port = int(os.getenv('SMTP_OVERRIDE_PORT', '25'))
-            self.smtp_user = os.getenv('SMTP_OVERRIDE_USER', '')
-            self.smtp_password = os.getenv('SMTP_OVERRIDE_PASSWORD', '')
-            self.smtp_auth = bool(self.smtp_user)  # Activar auth si hay usuario
-            self.smtp_tls = os.getenv('SMTP_OVERRIDE_TLS', 'false').lower() == 'true'
-        
         # Configuración de logging
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
         self.log_file = self.logs_dir / os.getenv('LOG_FILE', 'app.log')
+        
+        # IDs de Aplicaciones
+        self.app_id_agedys = int(os.getenv('APP_ID_AGEDYS', '3'))
+        self.app_id_brass = int(os.getenv('APP_ID_BRASS', '6'))
+        self.app_id_noconformidades = int(os.getenv('APP_ID_NOCONFORMIDADES', '8'))
+        self.app_id_expedientes = int(os.getenv('APP_ID_EXPEDIENTES', '19'))
         
         # Crear directorios necesarios
         self._ensure_directories()
@@ -85,6 +85,10 @@ class Config:
             return self.db_tareas_path
         elif db_type == 'correos':
             return self.db_correos_path
+        elif db_type == 'noconformidades':
+            return self.db_noconformidades_path
+        elif db_type == 'lanzadera':
+            return self.db_lanzadera_path
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
         
@@ -102,6 +106,37 @@ class Config:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_correos_path};PWD={self.db_password};"
         else:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_correos_path};"
+    
+    def get_db_noconformidades_connection_string(self) -> str:
+        """Retorna la cadena de conexión para la base de datos de No Conformidades"""
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_noconformidades_path};PWD={self.db_password};"
+    
+    def get_db_lanzadera_connection_string(self) -> str:
+        """Retorna la cadena de conexión para la base de datos Lanzadera"""
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_lanzadera_path};PWD={self.db_password};"
+    
+    def get_app_id(self, app_name: str) -> int:
+        """Retorna el ID de una aplicación específica"""
+        app_name = app_name.lower()
+        if app_name == 'agedys':
+            return self.app_id_agedys
+        elif app_name == 'brass':
+            return self.app_id_brass
+        elif app_name == 'noconformidades':
+            return self.app_id_noconformidades
+        elif app_name == 'expedientes':
+            return self.app_id_expedientes
+        else:
+            raise ValueError(f"Aplicación no soportada: {app_name}")
+    
+    def get_all_app_ids(self) -> dict:
+        """Retorna un diccionario con todos los IDs de aplicaciones"""
+        return {
+            'agedys': self.app_id_agedys,
+            'brass': self.app_id_brass,
+            'noconformidades': self.app_id_noconformidades,
+            'expedientes': self.app_id_expedientes
+        }
 
 
 # Instancia global de configuración

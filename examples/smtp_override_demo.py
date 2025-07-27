@@ -31,11 +31,11 @@ def demo_smtp_override():
     print()
     
     # Configurar SMTP alternativo
-    print("2. Configurando SMTP alternativo...")
+    print("2. Configurando SMTP alternativo (local sin autenticación)...")
     os.environ['SMTP_OVERRIDE_SERVER'] = 'localhost'
     os.environ['SMTP_OVERRIDE_PORT'] = '1025'
-    os.environ['SMTP_OVERRIDE_USER'] = 'test@example.com'
-    os.environ['SMTP_OVERRIDE_PASSWORD'] = 'testpass'
+    os.environ['SMTP_OVERRIDE_USER'] = ''  # Sin usuario para SMTP local
+    os.environ['SMTP_OVERRIDE_PASSWORD'] = ''  # Sin contraseña para SMTP local
     os.environ['SMTP_OVERRIDE_TLS'] = 'false'
     
     # Recargar configuración
@@ -77,11 +77,12 @@ def demo_smtp_override():
     print("   Para usar un servidor SMTP alternativo de forma permanente,")
     print("   descomenta y configura estas líneas en tu archivo .env:")
     print()
-    print("   SMTP_OVERRIDE_SERVER=tu_servidor_smtp")
-    print("   SMTP_OVERRIDE_PORT=587")
-    print("   SMTP_OVERRIDE_USER=tu_usuario@gmail.com")
-    print("   SMTP_OVERRIDE_PASSWORD=tu_contraseña")
-    print("   SMTP_OVERRIDE_TLS=true")
+    print("   # Para SMTP local (desarrollo/testing):")
+    print("   SMTP_OVERRIDE_SERVER=localhost")
+    print("   SMTP_OVERRIDE_PORT=1025")
+    print("   SMTP_OVERRIDE_USER=")
+    print("   SMTP_OVERRIDE_PASSWORD=")
+    print("   SMTP_OVERRIDE_TLS=false")
     print()
     print("   Esto sobrescribirá la configuración SMTP por defecto")
     print("   independientemente del entorno (local/oficina).")

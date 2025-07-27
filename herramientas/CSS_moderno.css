@@ -1,0 +1,341 @@
+/* CSS Moderno con Paneles - Sistema de Gestión */
+
+/* Reset y configuración base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #ffffff;
+    min-height: 100vh;
+    padding: 20px;
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+/* Container principal */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+/* Header del panel */
+.panel-header {
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    color: #2d3748;
+    padding: 30px;
+    text-align: center;
+    position: relative;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+    opacity: 0.3;
+}
+
+.panel-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.panel-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+/* Contenido del panel */
+.panel-content {
+    padding: 40px;
+}
+
+/* Secciones */
+.section {
+    margin-bottom: 40px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 20px 30px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title::before {
+    content: '📊';
+    font-size: 1.2rem;
+}
+
+.section-body {
+    padding: 30px;
+}
+
+/* Tablas modernas */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+thead {
+    background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+}
+
+th {
+    padding: 18px 20px;
+    text-align: left;
+    font-weight: 600;
+    color: white;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+    transition: background-color 0.2s ease;
+}
+
+tr:hover td {
+    background-color: #f8fafc;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+/* Estilos para campos y valores */
+.campo {
+    font-weight: 600;
+    color: #4a5568;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 4px solid #a0aec0;
+    min-width: 150px;
+    white-space: nowrap;
+}
+
+.valor {
+    color: #2d3748;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 8px;
+    word-break: break-word;
+    border-left: 4px solid #68d391;
+}
+
+/* Estados y badges */
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-success {
+    background: linear-gradient(135deg, #68d391 0%, #48bb78 100%);
+    color: white;
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+    color: white;
+}
+
+.badge-error {
+    background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+    color: white;
+}
+
+.badge-info {
+    background: linear-gradient(135deg, #90cdf4 0%, #63b3ed 100%);
+    color: white;
+}
+
+/* Clases de utilidad */
+.highlight {
+    background: linear-gradient(135deg, #fefcbf 0%, #faf089 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #f6ad55;
+    margin: 10px 0;
+}
+
+.warning {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #fc8181;
+    margin: 10px 0;
+    color: #c53030;
+}
+
+.error {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 2px solid #fc8181;
+    margin: 10px 0;
+    color: #c53030;
+    font-weight: 600;
+}
+
+.success {
+    background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #68d391;
+    margin: 10px 0;
+    color: #2f855a;
+}
+
+.info {
+    background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #90cdf4;
+    margin: 10px 0;
+    color: #2b6cb0;
+}
+
+/* Centrado */
+.centrado {
+    text-align: center;
+}
+
+/* Estilos especiales para columnas */
+.ColespanArriba {
+    background: linear-gradient(135deg, #90cdf4 0%, #63b3ed 100%);
+    color: white;
+    font-weight: 700;
+    text-align: center;
+    padding: 20px;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Efectos hover y transiciones */
+.section {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container {
+        border-radius: 15px;
+    }
+    
+    .panel-header {
+        padding: 20px;
+    }
+    
+    .panel-title {
+        font-size: 2rem;
+    }
+    
+    .panel-content {
+        padding: 20px;
+    }
+    
+    .section-body {
+        padding: 20px;
+    }
+    
+    th, td {
+        padding: 12px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .campo, .valor {
+        padding: 10px 12px;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.section {
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+}

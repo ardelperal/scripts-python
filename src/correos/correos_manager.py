@@ -12,8 +12,13 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from typing import Any, Dict, List
 
-from ..common import config
-from ..common.database import AccessDatabase
+try:
+    from ..common import config
+    from ..common.database import AccessDatabase
+except ImportError:
+    # Fallback para cuando se ejecuta directamente
+    from common import config
+    from common.database import AccessDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +26,10 @@ logger = logging.getLogger(__name__)
 class CorreosManager:
     """Gestor para el módulo de correos"""
     
-    def __init__(self):
+    def __init__(self, logger: logging.Logger = None):
         """Inicializar el gestor de correos"""
         self.config = config
+        self.logger = logger or logging.getLogger(__name__)
         self.smtp_server = config.smtp_server
         self.smtp_port = config.smtp_port
         self.smtp_user = config.smtp_user
@@ -61,8 +67,19 @@ class CorreosManager:
             # Enviar
             return self._enviar_smtp(msg, destinatarios)
         except Exception as e:
-            logger.error(f"Error en _enviar_correo_individual: {e}")
+            self.logger.error(f"Error en _enviar_correo_individual: {e}")
             return False
+
+    def close_connections(self):
+        """
+        Cierra las conexiones de base de datos si existen
+        """
+        try:
+            # En el modo Access-only no hay conexiones persistentes que cerrar
+            # Este método existe para compatibilidad con otros managers
+            pass
+        except Exception as e:
+            self.logger.error(f"Error cerrando conexiones en CorreosManager: {e}")
     
     def enviar_correos_no_enviados(self) -> int:
         """
@@ -72,7 +89,7 @@ class CorreosManager:
         correos_enviados = 0
         try:
             db_path = self._get_db_path()
-            logger.info(f"Ruta de base de datos usada: {db_path}")
+            self.logger.info(f"Ruta de base de datos usada: {db_path}")
             
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row  # Para acceso por nombre de columna
@@ -82,28 +99,28 @@ class CorreosManager:
             correos_pendientes = [dict(row) for row in rows]
             
             if not correos_pendientes:
-                logger.info("No hay correos pendientes de envío")
+                self.logger.info("No hay correos pendientes de envío")
                 return 0
             
-            logger.info(f"Encontrados {len(correos_pendientes)} correos pendientes")
+            self.logger.info(f"Encontrados {len(correos_pendientes)} correos pendientes")
             
             for correo in correos_pendientes:
-                logger.info(f"Procesando correo ID {correo['IDCorreo']} - Asunto: {correo['Asunto']}")
+                self.logger.info(f"Procesando correo ID {correo['IDCorreo']} - Asunto: {correo['Asunto']}")
                 try:
                     if self._enviar_correo_individual(correo):
                         self._marcar_correo_enviado(conn, correo['IDCorreo'], datetime.now())
                         correos_enviados += 1
-                        logger.info(f"Correo enviado: ID {correo['IDCorreo']} - {correo['Asunto']}")
+                        self.logger.info(f"Correo enviado: ID {correo['IDCorreo']} - {correo['Asunto']}")
                     else:
-                        logger.error(f"Error enviando correo ID {correo['IDCorreo']}")
+                        self.logger.error(f"Error enviando correo ID {correo['IDCorreo']}")
                 except Exception as e:
-                    logger.error(f"Error procesando correo {correo.get('IDCorreo', 'N/A')}: {e}")
+                    self.logger.error(f"Error procesando correo {correo.get('IDCorreo', 'N/A')}: {e}")
             
             conn.close()
             return correos_enviados
             
         except Exception as e:
-            logger.error(f"Error en enviar_correos_no_enviados: {e}")
+            self.logger.error(f"Error en enviar_correos_no_enviados: {e}")
             return 0
 
     def _get_db_path(self):
@@ -118,7 +135,7 @@ class CorreosManager:
                 adjunto['Content-Disposition'] = f'attachment; filename="{archivo_path.name}"'
                 msg.attach(adjunto)
         except Exception as e:
-            logger.error(f"Error adjuntando archivo {archivo_path}: {e}")
+            self.logger.error(f"Error adjuntando archivo {archivo_path}: {e}")
     
     def _enviar_smtp(self, msg: MIMEMultipart, destinatarios: List[str]) -> bool:
         """Enviar correo por SMTP"""
@@ -131,7 +148,7 @@ class CorreosManager:
                 servidor.sendmail(self.smtp_user, destinatarios, msg.as_string())
             return True
         except Exception as e:
-            logger.error(f"Error enviando correo por SMTP: {e}")
+            self.logger.error(f"Error enviando correo por SMTP: {e}")
             return False
 
     def _marcar_correo_enviado(self, conn: sqlite3.Connection, id_correo: int, fecha_envio: datetime):
@@ -144,53 +161,98 @@ class CorreosManager:
             )
             conn.commit()
         except Exception as e:
-            logger.error(f"Error marcando correo como enviado: {e}")
+            self.logger.error(f"Error marcando correo como enviado: {e}")
 
     def sync_databases(self):
         """Sincronizar bases de datos Access y SQLite (placeholder)"""
         try:
-            logger.info("Sincronización de bases de datos no disponible en modo Access-only")
+            self.logger.info("Sincronización de bases de datos no disponible en modo Access-only")
             # En modo Access-only, no hay sincronización
             return True
                 
         except Exception as e:
-            logger.error(f"Error sincronizando bases de datos: {e}")
+            self.logger.error(f"Error sincronizando bases de datos: {e}")
             return False
 
     def sync_back_to_access(self):
         """Sincronizar cambios de vuelta a Access (placeholder)"""
         try:
-            logger.info("Sincronización de vuelta a Access no necesaria en modo Access-only")
+            self.logger.info("Sincronización de vuelta a Access no necesaria en modo Access-only")
             # En modo Access-only, no hay sincronización
             return True
             
         except Exception as e:
-            logger.error(f"Error sincronizando de vuelta a Access: {e}")
+            self.logger.error(f"Error sincronizando de vuelta a Access: {e}")
             return False
 
-    def execute_daily_task(self) -> bool:
+    def enviar_correo(self, destinatario: str, asunto: str, cuerpo_html: str, tipo_correo: str = None) -> bool:
         """
-        Ejecutar la tarea diaria de envío de correos
+        Envía un correo directamente sin pasar por la base de datos SQLite
+        
+        Args:
+            destinatario: Dirección(es) de correo del destinatario (separadas por ;)
+            asunto: Asunto del correo
+            cuerpo_html: Cuerpo del correo en formato HTML
+            tipo_correo: Tipo de correo (para logging)
+            
+        Returns:
+            True si se envió correctamente, False en caso contrario
+        """
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.smtp_user
+            msg['To'] = destinatario
+            msg['Subject'] = asunto
+            msg.attach(MIMEText(cuerpo_html, 'html'))
+            
+            # Convertir destinatarios separados por ; en lista
+            destinatarios = [email.strip() for email in destinatario.split(';') if email.strip()]
+            
+            # Enviar
+            resultado = self._enviar_smtp(msg, destinatarios)
+            
+            if resultado:
+                self.logger.info(f"Correo enviado exitosamente - Tipo: {tipo_correo}, Destinatario: {destinatario}, Asunto: {asunto}")
+            else:
+                self.logger.error(f"Error enviando correo - Tipo: {tipo_correo}, Destinatario: {destinatario}, Asunto: {asunto}")
+                return False
+                
+            return resultado
+            
+        except Exception as e:
+            self.logger.error(f"Error en enviar_correo: {e}")
+            return False
+
+    def ejecutar_tarea_diaria(self, forzar_ejecucion: bool = False) -> bool:
+        """
+        Ejecuta la tarea diaria de envío de correos
+        
+        Args:
+            forzar_ejecucion: Si es True, ejecuta independientemente de las condiciones normales
         
         Returns:
             True si se ejecutó correctamente, False en caso contrario
         """
         try:
-            logger.info("Iniciando tarea diaria de envío de correos")
+            if forzar_ejecucion:
+                self.logger.info("Iniciando tarea diaria de envío de correos (ejecución forzada)")
+            else:
+                self.logger.info("Iniciando tarea diaria de envío de correos")
             
-            # Sincronizar desde Access
-            self.sync_databases()
+            # Sincronizar bases de datos primero
+            if not self.sync_databases():
+                return False
             
             # Enviar correos pendientes
             enviados = self.enviar_correos_no_enviados()
             
             # Sincronizar de vuelta a Access
-            if enviados > 0:
-                self.sync_back_to_access()
+            if not self.sync_back_to_access():
+                return False
             
-            logger.info(f"Tarea diaria completada. Total de correos enviados: {enviados}")
+            self.logger.info(f"Tarea diaria completada. Total de correos enviados: {enviados}")
             return True
             
         except Exception as e:
-            logger.error(f"Error ejecutando tarea diaria de correos: {e}")
+            self.logger.error(f"Error ejecutando tarea diaria de correos: {e}")
             return False

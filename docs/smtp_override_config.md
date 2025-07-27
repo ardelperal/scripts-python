@@ -22,8 +22,8 @@ Añade estas variables a tu archivo `.env` para usar un servidor SMTP alternativ
 # SMTP ALTERNATIVO (para cuando no se puede acceder al servidor de oficina)
 SMTP_OVERRIDE_SERVER=localhost          # Servidor SMTP alternativo
 SMTP_OVERRIDE_PORT=1025                 # Puerto del servidor alternativo
-SMTP_OVERRIDE_USER=test@example.com     # Usuario para autenticación (opcional)
-SMTP_OVERRIDE_PASSWORD=                 # Contraseña para autenticación (opcional)
+SMTP_OVERRIDE_USER=                     # Usuario para autenticación (vacío = sin auth)
+SMTP_OVERRIDE_PASSWORD=                 # Contraseña para autenticación (vacío = sin auth)
 SMTP_OVERRIDE_TLS=false                 # Usar TLS (true/false)
 ```
 
@@ -79,9 +79,9 @@ SMTP_OVERRIDE_TLS=true
 - Para testing de funcionalidad
 
 ### Escenario 2: Oficina - Máquina sin acceso SMTP
-- Usar Gmail o Outlook personal
-- Requiere autenticación
-- Para envío real de correos
+- Usar servidor SMTP local
+- No requiere autenticación
+- Para testing y desarrollo desde oficina
 
 ### Escenario 3: Oficina - Máquina con acceso SMTP
 - No usar sobrescritura

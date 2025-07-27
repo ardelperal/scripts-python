@@ -10,10 +10,19 @@ from pathlib import Path
 from common import (
     config,
     AccessDatabase,
+    TaskManager,
     load_css_content,
     generate_html_header,
     generate_html_footer,
     safe_str
+)
+from common.utils import (
+    get_admin_users, 
+    generate_html_header, 
+    generate_html_footer, 
+    safe_str,
+    get_admin_emails_string,
+    send_notification_email
 )
 
 logger = logging.getLogger(__name__)
@@ -23,12 +32,18 @@ class BrassManager:
     """Gestor principal del módulo BRASS"""
     
     def __init__(self):
+        # Inicializar configuración
+        self.config = config
+        
         # Inicializar conexiones a bases de datos
-        self.db_brass = AccessDatabase(config.get_db_brass_connection_string())
-        self.db_tareas = AccessDatabase(config.get_db_tareas_connection_string())
+        self.db_brass = AccessDatabase(self.config.get_db_brass_connection_string())
+        self.db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
+        
+        # Inicializar gestor de tareas
+        self.task_manager = TaskManager(config, logger)
         
         # Cargar contenido CSS
-        self.css_content = load_css_content(config.css_file_path)
+        self.css_content = load_css_content(self.config.css_file_path)
         
         # Cache para usuarios administradores
         self._admin_users = None
@@ -41,28 +56,7 @@ class BrassManager:
         Returns:
             Fecha de última ejecución o None si no existe
         """
-        try:
-            query = """
-                SELECT MAX(Fecha) as Ultima 
-                FROM TbTareas 
-                WHERE Tarea = 'BRASSDiario' AND Realizado = 'Sí'
-            """
-            
-            result = self.db_tareas.execute_query(query)
-            
-            if result and result[0]['Ultima']:
-                fecha = result[0]['Ultima']
-                # Convertir a date si es datetime
-                if isinstance(fecha, datetime):
-                    return fecha.date()
-                elif isinstance(fecha, date):
-                    return fecha
-                
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error obteniendo fecha de última ejecución: {e}")
-            return None
+        return self.task_manager.get_last_execution_date('BRASSDiario')
     
     def is_task_completed_today(self) -> bool:
         """
@@ -71,13 +65,7 @@ class BrassManager:
         Returns:
             True si ya se ejecutó hoy, False en caso contrario
         """
-        last_execution = self.get_last_execution_date()
-        today = date.today()
-        
-        if last_execution is None:
-            return False
-        
-        return last_execution == today
+        return self.task_manager.is_task_completed_today('BRASSDiario')
     
     def get_equipment_out_of_calibration(self) -> List[Dict[str, Any]]:
         """
@@ -196,7 +184,7 @@ class BrassManager:
     
     def get_admin_users(self) -> List[Dict[str, str]]:
         """
-        Obtiene la lista de usuarios administradores
+        Obtiene la lista de usuarios administradores usando la función común
         
         Returns:
             Lista de usuarios administradores
@@ -205,18 +193,8 @@ class BrassManager:
             return self._admin_users
         
         try:
-            query = """
-                SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-                FROM TbUsuariosAplicaciones ua 
-                INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-                WHERE ua.ParaTareasProgramadas = True 
-                AND ua.FechaBaja IS NULL 
-                AND uat.EsAdministrador = 'Sí'
-            """
-            
-            result = self.db_tareas.execute_query(query)
-            self._admin_users = result
-            return result
+            self._admin_users = get_admin_users(self.config)
+            return self._admin_users
             
         except Exception as e:
             logger.error(f"Error obteniendo usuarios administradores: {e}")
@@ -284,52 +262,34 @@ class BrassManager:
         Returns:
             True si se registró correctamente
         """
-        try:
-            # Verificar si ya existe registro para hoy
-            query_check = """
-                SELECT COUNT(*) as Count 
-                FROM TbTareas 
-                WHERE Tarea = 'BRASSDiario' AND Fecha = ?
-            """
-            
-            today = date.today()
-            result = self.db_tareas.execute_query(query_check, (today,))
-            
-            if result and result[0]['Count'] > 0:
-                # Actualizar registro existente
-                task_data = {
-                    "Fecha": today,
-                    "Realizado": "Sí"
-                }
-                success = self.db_tareas.update_record(
-                    "TbTareas", 
-                    task_data, 
-                    "Tarea = 'BRASSDiario' AND Fecha = ?", 
-                    (today,)
-                )
-            else:
-                # Insertar nuevo registro
-                task_data = {
-                    "Tarea": "BRASSDiario",
-                    "Fecha": today,
-                    "Realizado": "Sí"
-                }
-                success = self.db_tareas.insert_record("TbTareas", task_data)
-            
-            if success:
-                logger.info("Tarea registrada como completada")
-            else:
-                logger.error("Error registrando tarea")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error registrando tarea: {e}")
-            return False
+        return self.task_manager.register_task_completion('BRASSDiario')
     
-    def execute_task(self) -> bool:
+    def close_connections(self):
+        """Cierra todas las conexiones de base de datos"""
+        try:
+            if self.db_brass:
+                self.db_brass.disconnect()
+        except Exception as e:
+            logger.error(f"Error cerrando conexión BRASS: {e}")
+        
+        try:
+            if self.db_tareas:
+                self.db_tareas.disconnect()
+        except Exception as e:
+            logger.error(f"Error cerrando conexión tareas: {e}")
+        
+        try:
+            if self.task_manager:
+                self.task_manager.close_connection()
+        except Exception as e:
+            logger.error(f"Error cerrando TaskManager: {e}")
+    
+    def execute_task(self, forzar_ejecucion: bool = False) -> bool:
         """
         Ejecuta la tarea principal del módulo BRASS
+        
+        Args:
+            forzar_ejecucion: Si True, fuerza la ejecución aunque ya se haya ejecutado hoy
         
         Returns:
             True si se ejecutó correctamente
@@ -337,8 +297,8 @@ class BrassManager:
         try:
             logger.info("Iniciando tarea BRASS")
             
-            # Verificar si ya se ejecutó hoy
-            if self.is_task_completed_today():
+            # Verificar si ya se ejecutó hoy (solo si no se fuerza)
+            if not forzar_ejecucion and self.is_task_completed_today():
                 logger.info("La tarea ya se ejecutó hoy")
                 return True
             
@@ -353,12 +313,17 @@ class BrassManager:
             # Generar reporte HTML
             html_report = self.generate_html_report(equipment_list)
             
-            # Registrar correo
+            # Obtener correos de administradores
+            admin_emails = get_admin_emails_string(self.config)
+            
+            # Enviar correo usando la función centralizada
             subject = "Informe Equipos de Medida fuera de calibración (BRASS)"
-            success = self.register_email(
+            success = send_notification_email(
                 subject=subject,
                 body=html_report,
-                recipients=config.default_recipient
+                recipients=admin_emails,
+                config=self.config,
+                application="BRASS"
             )
             
             if success:
