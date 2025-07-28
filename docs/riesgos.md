@@ -236,14 +236,14 @@ Las pruebas cubren:
 Crear una tarea programada que ejecute:
 
 ```cmd
-python C:\ruta\al\proyecto\run_riesgos.py
+python run_riesgos.py
 ```
 
 ### Cron (Linux/Unix)
 
 ```bash
 # Ejecutar diariamente a las 8:00 AM
-0 8 * * * /usr/bin/python3 /ruta/al/proyecto/run_riesgos.py
+0 8 * * * python3 run_riesgos.py
 ```
 
 ## Monitoreo y Mantenimiento

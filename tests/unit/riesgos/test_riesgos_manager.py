@@ -386,6 +386,197 @@ class TestRiesgosManager(unittest.TestCase):
             result = method('user1')
             self.assertEqual(result, [])
 
+    def test_get_risks_to_reclassify_success(self):
+        """Prueba obtener riesgos que necesitan retipificación exitosamente."""
+        mock_data = [
+            {
+                'IDRiesgo': 1,
+                'Nemotecnico': 'TEST-001',
+                'DescripcionRiesgo': 'Riesgo de prueba',
+                'TipoRiesgo': 'Técnico',
+                'UsuarioCalidad': 'Usuario Calidad',
+                'FechaRiesgoParaRetipificar': '2024-01-01'
+            }
+        ]
+        self.manager.db.execute_query.return_value = mock_data
+        
+        result = self.manager._get_risks_to_reclassify()
+        
+        self.assertEqual(result, mock_data)
+        self.manager.db.execute_query.assert_called_once()
+
+    def test_get_risks_to_reclassify_error(self):
+        """Prueba error al obtener riesgos que necesitan retipificación."""
+        self.manager.db.execute_query.side_effect = Exception("DB error")
+        
+        result = self.manager._get_risks_to_reclassify()
+        
+        self.assertEqual(result, [])
+
+    def test_get_editions_ready_for_publication_success(self):
+        """Prueba obtener ediciones preparadas para publicar exitosamente."""
+        mock_data = [
+            {
+                'Nemotecnico': 'TEST-001',
+                'NombreProyecto': 'Proyecto Test',
+                'Juridica': 'Sí',
+                'Edicion': '1.0',
+                'FechaEdicion': '2024-01-01',
+                'NombreUsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        self.manager.db.execute_query.return_value = mock_data
+        
+        result = self.manager._get_editions_ready_for_publication()
+        
+        self.assertEqual(result, mock_data)
+        self.manager.db.execute_query.assert_called_once()
+
+    def test_get_editions_ready_for_publication_error(self):
+        """Prueba error al obtener ediciones preparadas para publicar."""
+        self.manager.db.execute_query.side_effect = Exception("DB error")
+        
+        result = self.manager._get_editions_ready_for_publication()
+        
+        self.assertEqual(result, [])
+
+    def test_get_accepted_risks_pending_review_success(self):
+        """Prueba obtener riesgos aceptados pendientes de visado exitosamente."""
+        mock_data = [
+            {
+                'IDRiesgo': 1,
+                'Nemotecnico': 'TEST-001',
+                'DescripcionRiesgo': 'Riesgo aceptado',
+                'JustificacionAceptacionRiesgo': 'Justificación',
+                'FechaJustificacionAceptacionRiesgo': '2024-01-01',
+                'UsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        self.manager.db.execute_query.return_value = mock_data
+        
+        result = self.manager._get_accepted_risks_pending_review()
+        
+        self.assertEqual(result, mock_data)
+        self.manager.db.execute_query.assert_called_once()
+
+    def test_get_accepted_risks_pending_review_error(self):
+        """Prueba error al obtener riesgos aceptados pendientes de visado."""
+        self.manager.db.execute_query.side_effect = Exception("DB error")
+        
+        result = self.manager._get_accepted_risks_pending_review()
+        
+        self.assertEqual(result, [])
+
+    def test_get_retired_risks_pending_review_success(self):
+        """Prueba obtener riesgos retirados pendientes de visado exitosamente."""
+        mock_data = [
+            {
+                'IDRiesgo': 1,
+                'Nemotecnico': 'TEST-001',
+                'DescripcionRiesgo': 'Riesgo retirado',
+                'CausaRaiz': 'Causa raíz',
+                'FechaJustificacionRetiroRiesgo': '2024-01-01',
+                'UsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        self.manager.db.execute_query.return_value = mock_data
+        
+        result = self.manager._get_retired_risks_pending_review()
+        
+        self.assertEqual(result, mock_data)
+        self.manager.db.execute_query.assert_called_once()
+
+    def test_get_retired_risks_pending_review_error(self):
+        """Prueba error al obtener riesgos retirados pendientes de visado."""
+        self.manager.db.execute_query.side_effect = Exception("DB error")
+        
+        result = self.manager._get_retired_risks_pending_review()
+        
+        self.assertEqual(result, [])
+
+    def test_generate_editions_table_html_with_data(self):
+        """Prueba generación de tabla HTML para ediciones con datos."""
+        data = [
+            {
+                'Proyecto': 'TEST-001',
+                'NombreProyecto': 'Proyecto Test',
+                'Juridica': 'Sí',
+                'Edicion': '1.0',
+                'FechaEdicion': '2024-01-01',
+                'FechaPrevistaCierre': '2024-02-01',
+                'FechaMaxProximaPublicacion': '2024-03-01',
+                'Dias': '30',
+                'NombreUsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        
+        result = self.manager._generate_editions_table_html('Test Title', data)
+        
+        self.assertIn('Test Title', result)
+        self.assertIn('Total: 1 elementos', result)
+        self.assertIn('<table>', result)
+        self.assertIn('TEST-001', result)
+        self.assertIn('Proyecto Test', result)
+
+    def test_generate_editions_table_html_no_data(self):
+        """Prueba generación de tabla HTML para ediciones sin datos."""
+        result = self.manager._generate_editions_table_html('Empty Title', [])
+        
+        self.assertEqual(result, "")
+
+    def test_generate_editions_ready_table_html_with_data(self):
+        """Prueba generación de tabla HTML para ediciones preparadas con datos."""
+        data = [
+            {
+                'Nemotecnico': 'TEST-001',
+                'NombreProyecto': 'Proyecto Test',
+                'Juridica': 'Sí',
+                'Edicion': '1.0',
+                'FechaEdicion': '2024-01-01',
+                'NombreUsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        
+        result = self.manager._generate_editions_ready_table_html('Ready Title', data)
+        
+        self.assertIn('Ready Title', result)
+        self.assertIn('Total: 1 elementos', result)
+        self.assertIn('<table>', result)
+        self.assertIn('TEST-001', result)
+        self.assertIn('Proyecto Test', result)
+
+    def test_generate_editions_ready_table_html_no_data(self):
+        """Prueba generación de tabla HTML para ediciones preparadas sin datos."""
+        result = self.manager._generate_editions_ready_table_html('Empty Title', [])
+        
+        self.assertEqual(result, "")
+
+    def test_generate_risks_table_html_with_data(self):
+        """Prueba generación de tabla HTML para riesgos con datos."""
+        data = [
+            {
+                'IDRiesgo': 1,
+                'Nemotecnico': 'TEST-001',
+                'DescripcionRiesgo': 'Riesgo de prueba',
+                'UsuarioCalidad': 'Usuario Calidad'
+            }
+        ]
+        
+        result = self.manager._generate_risks_table_html('Risks Title', data)
+        
+        self.assertIn('Risks Title', result)
+        self.assertIn('Total: 1 elementos', result)
+        self.assertIn('<table>', result)
+        self.assertIn('1', result)
+        self.assertIn('TEST-001', result)
+        self.assertIn('Riesgo de prueba', result)
+
+    def test_generate_risks_table_html_no_data(self):
+        """Prueba generación de tabla HTML para riesgos sin datos."""
+        result = self.manager._generate_risks_table_html('Empty Title', [])
+        
+        self.assertEqual(result, "")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,7 +24,7 @@ class TestCorreosManager:
             mock_config.smtp_user = "test@example.com"
             mock_config.smtp_password = "password"
             mock_config.smtp_tls = False
-            mock_config.get_db_correos_connection_string.return_value = "DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:\\test\\correos.accdb;"
+            mock_config.get_db_correos_connection_string.return_value = "DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=test_correos.accdb;"
             yield mock_config
     
     @pytest.fixture
@@ -289,3 +289,80 @@ class TestCorreosManager:
             result = correos_manager.execute_daily_task()
             
             assert result is False
+
+    def test_insertar_correo_success(self, correos_manager, mock_access_db):
+        """Test insertar correo exitoso"""
+        mock_access_db.get_max_id.return_value = 5
+        mock_access_db.insert_record.return_value = True
+        
+        result = correos_manager.insertar_correo(
+            aplicacion="TestApp",
+            asunto="Test Subject",
+            cuerpo="Test Body",
+            destinatarios="test@example.com",
+            destinatarios_cc="cc@example.com",
+            destinatarios_bcc="bcc@example.com",
+            url_adjunto="/path/to/file.pdf"
+        )
+        
+        assert result == 6  # max_id + 1
+        mock_access_db.connect.assert_called_once()
+        mock_access_db.get_max_id.assert_called_once_with("TbCorreosEnviados", "IDCorreo")
+        mock_access_db.insert_record.assert_called_once()
+        mock_access_db.disconnect.assert_called_once()
+    
+    def test_insertar_correo_insert_failure(self, correos_manager, mock_access_db):
+        """Test insertar correo con fallo en insert"""
+        mock_access_db.get_max_id.return_value = 5
+        mock_access_db.insert_record.return_value = False
+        
+        result = correos_manager.insertar_correo(
+            aplicacion="TestApp",
+            asunto="Test Subject",
+            cuerpo="Test Body",
+            destinatarios="test@example.com"
+        )
+        
+        assert result == 0
+        mock_access_db.disconnect.assert_called_once()
+    
+    def test_insertar_correo_exception(self, correos_manager, mock_access_db):
+        """Test insertar correo con excepción"""
+        mock_access_db.connect.side_effect = Exception("DB Error")
+        
+        result = correos_manager.insertar_correo(
+            aplicacion="TestApp",
+            asunto="Test Subject",
+            cuerpo="Test Body",
+            destinatarios="test@example.com"
+        )
+        
+        assert result == 0
+        mock_access_db.disconnect.assert_called_once()
+    
+    def test_insertar_correo_minimal_params(self, correos_manager, mock_access_db):
+        """Test insertar correo con parámetros mínimos"""
+        mock_access_db.get_max_id.return_value = 10
+        mock_access_db.insert_record.return_value = True
+        
+        result = correos_manager.insertar_correo(
+            aplicacion="TestApp",
+            asunto="Test Subject",
+            cuerpo="<html><body>Test HTML Body</body></html>",
+            destinatarios="test@example.com"
+        )
+        
+        assert result == 11
+        
+        # Verificar que se llamó insert_record con los datos correctos
+        call_args = mock_access_db.insert_record.call_args
+        assert call_args[0][0] == "TbCorreosEnviados"
+        email_data = call_args[0][1]
+        assert email_data["IDCorreo"] == 11
+        assert email_data["Aplicacion"] == "TestApp"
+        assert email_data["Asunto"] == "Test Subject"
+        assert email_data["Destinatarios"] == "test@example.com"
+        assert email_data["DestinatariosConCopia"] is None
+        assert email_data["DestinatariosConCopiaOculta"] is None
+        assert email_data["URLAdjunto"] is None
+        assert email_data["CuerpoHTML"] is True  # Detecta HTML por < y >

@@ -319,9 +319,9 @@ class TestExpedientesManager:
     
     def test_register_email_sent_access_success(self, expedientes_manager):
         """Test registrar email enviado - Access exitoso"""
-        mock_cursor = Mock()
-        expedientes_manager.correos_conn.get_cursor.return_value = mock_cursor
-        expedientes_manager.correos_conn.commit.return_value = None
+        # Mock de la conexión de base de datos para que insert_record devuelva True
+        expedientes_manager.correos_conn.get_max_id.return_value = 5
+        expedientes_manager.correos_conn.insert_record.return_value = True
         
         result = expedientes_manager.register_email_sent(
             "test@example.com",
@@ -329,13 +329,21 @@ class TestExpedientesManager:
             "Test Body"
         )
         
-        assert result is True
-        mock_cursor.execute.assert_called_once()
-        expedientes_manager.correos_conn.commit.assert_called_once()
+        assert result == True
+        expedientes_manager.correos_conn.insert_record.assert_called_once()
+        
+        # Verificar que se llamó con los parámetros correctos
+        call_args = expedientes_manager.correos_conn.insert_record.call_args
+        assert call_args[0][0] == "TbCorreosEnviados"  # tabla
+        assert call_args[0][1]["Aplicacion"] == "Expedientes"
+        assert call_args[0][1]["Asunto"] == "Test Subject"
+        assert call_args[0][1]["Cuerpo"] == "Test Body"
+        assert call_args[0][1]["Destinatarios"] == "test@example.com"
     
     def test_register_email_sent_exception(self, expedientes_manager):
         """Test registrar email enviado con excepción"""
-        expedientes_manager.correos_conn.get_cursor.side_effect = Exception("DB Error")
+        # Mock de la conexión para que lance una excepción
+        expedientes_manager.correos_conn.get_max_id.side_effect = Exception("DB Error")
         
         result = expedientes_manager.register_email_sent(
             "test@example.com",
@@ -343,7 +351,7 @@ class TestExpedientesManager:
             "Test Body"
         )
         
-        assert result is False
+        assert result == False
     
     def test_execute_daily_task_success(self, expedientes_manager, mock_utils):
         """Test ejecutar tarea diaria exitoso"""

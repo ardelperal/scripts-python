@@ -55,7 +55,7 @@ scripts-python/
 │   └── riesgos/                # Módulo de gestión de riesgos
 │       ├── __init__.py
 │       └── riesgos_manager.py  # Gestor de riesgos
-├── tests/                      # Tests automatizados
+├── tests/                      # Tests automatizados (279 tests, 81% cobertura)
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
 │   ├── conftest.py            # Configuración global pytest
@@ -64,18 +64,16 @@ scripts-python/
 │   ├── fixtures/              # Datos y utilidades de prueba
 │   │   ├── __init__.py
 │   │   ├── create_demo_databases.py
-│   │   ├── create_test_emails.py
 │   │   ├── create_test_emails_demo.py
-│   │   ├── migrate_databases.py
 │   │   └── setup_smtp_local.py
-│   ├── unit/                   # Tests unitarios por módulo
+│   ├── unit/                   # Tests unitarios por módulo (233 tests)
 │   │   ├── __init__.py
 │   │   ├── common/             # Tests módulos comunes
 │   │   ├── brass/              # Tests específicos BRASS
 │   │   ├── correos/            # Tests del módulo de correos
 │   │   ├── expedientes/        # Tests del módulo de expedientes
 │   │   └── riesgos/            # Tests del módulo de riesgos
-│   ├── integration/            # Tests de integración
+│   ├── integration/            # Tests de integración (46 tests)
 │   │   ├── __init__.py
 │   │   ├── brass/              # Integración del sistema brass
 │   │   ├── correos/            # Integración del sistema de correos
@@ -85,8 +83,11 @@ scripts-python/
 │   │   └── correos_workflows/  # Flujos completos de correos
 │   └── manual/                 # Tests manuales y de desarrollo
 │       ├── test_com_access.py  # Test de conectividad COM Access
+│       ├── test_correos_*.py   # Tests específicos de correos
+│       ├── test_env_config.py  # Test de configuración de entorno
 │       ├── test_network_verification.py # Test de verificación de red
 │       ├── test_relink_tables.py       # Test de reenlace de tablas
+│       ├── test_smtp_riesgos.py        # Test SMTP para riesgos
 │       └── test_user_functions.py      # Test de funciones de usuario
 ├── templates/                  # Plantillas HTML
 ├── logs/                       # Archivos de log
@@ -119,7 +120,7 @@ scripts-python/
 - **Multi-entorno**: Soporte para local/oficina con detección automática
 - **Base de datos**: Abstracción para Access con ODBC
 - **Logging**: Sistema de logs estructurado
-- **Testing**: 196 tests organizados con cobertura del 18%
+- **Testing**: 289 tests organizados con cobertura del 82%
 - **Coverage**: Reportes HTML interactivos con coverage.py
 - **SMTP**: Configuración sin autenticación para entorno oficina
 
@@ -196,6 +197,41 @@ El sistema soporta dos configuraciones SMTP:
 **Archivos relacionados:**
 - `examples/smtp_config_demo.py` - Demo de configuración
 - `docs/smtp_config_changes.md` - Documentación de cambios
+
+## 📊 Estado de Cobertura de Tests
+
+### Resumen General
+- **Total de tests**: 289 tests
+- **Cobertura global**: 82%
+- **Tests unitarios**: 243 tests
+- **Tests de integración**: 46 tests
+
+### Cobertura por Módulo
+| Módulo | Cobertura | Tests |
+|--------|-----------|-------|
+| `src/common/config.py` | 88% | ✅ |
+| `src/common/database.py` | 55% | ✅ |
+| `src/common/database_adapter.py` | 95% | ✅ |
+| `src/common/notifications.py` | 100% | ✅ |
+| `src/common/utils.py` | 49% | ✅ |
+| `src/correos/correos_manager.py` | 91% | ✅ |
+| `src/expedientes/expedientes_manager.py` | 98% | ✅ |
+| `src/riesgos/riesgos_manager.py` | 90% | ✅ |
+
+### Comandos de Testing
+```bash
+# Ejecutar todos los tests principales
+python -m pytest tests/unit/ tests/integration/ -v
+
+# Generar reporte de cobertura HTML
+python -m pytest --cov=src --cov-report=html
+
+# Ver reporte de cobertura
+# Abrir htmlcov/index.html en navegador
+
+# Ejecutar tests específicos
+python scripts/run_tests.py
+```
 
 ## Instalación
 
@@ -389,8 +425,8 @@ start htmlcov\index.html
 ```
 
 **Estado Actual:**
-- **Total**: 196 tests ejecutándose correctamente
-- **Cobertura**: 18% del código fuente
+- **Total**: 289 tests ejecutándose correctamente
+- **Cobertura**: 82% del código fuente
 - **Reportes HTML**: Disponibles en `htmlcov/index.html`
 
 **Archivos de Coverage:**

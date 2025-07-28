@@ -124,7 +124,7 @@ def execute_query(self, query: str) -> Optional[List[Dict]]:
 **Antes (VBScript):**
 ```vbscript
 ' Variables hardcodeadas en el script
-rutaBD = "C:\ruta\fija\base_datos.accdb"
+rutaBD = "dbs-locales/base_datos.accdb"
 servidorSMTP = "smtp.empresa.com"
 ```
 
@@ -472,7 +472,7 @@ python-dateutil>=2.8.2
   <Actions>
     <Exec>
       <Command>python</Command>
-      <Arguments>C:\scripts\run_riesgos.py --config C:\scripts\config\production.json</Arguments>
+      <Arguments>run_riesgos.py --config config/production.json</Arguments>
     </Exec>
   </Actions>
 </Task>

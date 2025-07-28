@@ -11,8 +11,8 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from typing import Any, Dict, List
 
-from ..common import config
-from ..common.database import AccessDatabase
+from common import config
+from common.database import AccessDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,59 @@ class CorreosManager:
                 
         except Exception as e:
             logger.error(f"Error marcando correo como enviado: {e}")
+
+    def insertar_correo(self, aplicacion: str, asunto: str, cuerpo: str, 
+                       destinatarios: str, destinatarios_cc: str = None, 
+                       destinatarios_bcc: str = None, url_adjunto: str = None) -> int:
+        """
+        Inserta un nuevo correo en la base de datos usando la regla del máximo + 1
+        
+        Args:
+            aplicacion: Nombre de la aplicación
+            asunto: Asunto del correo
+            cuerpo: Cuerpo del correo
+            destinatarios: Destinatarios principales
+            destinatarios_cc: Destinatarios con copia (opcional)
+            destinatarios_bcc: Destinatarios con copia oculta (opcional)
+            url_adjunto: Ruta del archivo adjunto (opcional)
+            
+        Returns:
+            ID del correo insertado o 0 si hubo error
+        """
+        try:
+            self.db_conn.connect()
+            
+            # Obtener próximo ID usando la regla del máximo + 1
+            next_id = self.db_conn.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
+            
+            # Preparar datos del correo
+            email_data = {
+                "IDCorreo": next_id,
+                "Aplicacion": aplicacion,
+                "Asunto": asunto,
+                "Cuerpo": cuerpo,
+                "Destinatarios": destinatarios,
+                "DestinatariosConCopia": destinatarios_cc,
+                "DestinatariosConCopiaOculta": destinatarios_bcc,
+                "URLAdjunto": url_adjunto,
+                "FechaGrabacion": datetime.now(),
+                "CuerpoHTML": True if "<" in cuerpo and ">" in cuerpo else False
+            }
+            
+            success = self.db_conn.insert_record("TbCorreosEnviados", email_data)
+            
+            if success:
+                logger.info(f"Correo insertado correctamente con ID {next_id}")
+                return next_id
+            else:
+                logger.error("Error insertando correo")
+                return 0
+                
+        except Exception as e:
+            logger.error(f"Error insertando correo: {e}")
+            return 0
+        finally:
+            self.db_conn.disconnect()
 
     def execute_daily_task(self) -> bool:
         """

@@ -385,7 +385,7 @@ class RiesgosManager:
     
     def record_task_execution(self, task_type: str) -> bool:
         """
-        Registra la ejecución de una tarea.
+        Registra la ejecución de una tarea usando la función común.
         
         Args:
             task_type: Tipo de tarea ejecutada
@@ -394,12 +394,17 @@ class RiesgosManager:
             True si se registró correctamente, False en caso contrario
         """
         try:
-            query = """
-                INSERT INTO TbTareasEjecutadas (TipoTarea, FechaEjecucion)
-                VALUES (?, ?)
-            """
-            self.db.execute_query(query, [task_type, datetime.now()])
-            return True
+            from common.utils import register_task_completion
+            
+            # Mapear tipos de tarea a nombres estándar
+            task_names = {
+                'TECNICA': 'RiesgosTecnica',
+                'CALIDAD': 'RiesgosCalidad', 
+                'CALIDADMENSUAL': 'RiesgosCalidadMensual'
+            }
+            
+            task_name = task_names.get(task_type, f'Riesgos{task_type}')
+            return register_task_completion(self.db, task_name)
             
         except Exception as e:
             self.logger.error(f"Error registrando ejecución de tarea {task_type}: {e}")
@@ -723,13 +728,63 @@ class RiesgosManager:
     
     def _generate_quality_metrics_html(self) -> str:
         """Genera métricas de calidad semanales."""
-        # Implementar métricas específicas de calidad
-        return "<div class='section'><h3>Métricas de Calidad</h3><p>Implementar métricas específicas</p></div>"
+        html = ""
+        
+        # Obtener datos de ediciones a punto de caducar
+        editions_about_to_expire = self._get_editions_about_to_expire()
+        if editions_about_to_expire:
+            html += self._generate_editions_table_html(
+                "EDICIONES CON FECHA DE PUBLICACIÓN A PUNTO DE SER SUPERADA",
+                editions_about_to_expire
+            )
+        
+        # Obtener datos de ediciones caducadas
+        expired_editions = self._get_expired_editions()
+        if expired_editions:
+            html += self._generate_editions_table_html(
+                "EDICIONES CON FECHA DE PUBLICACIÓN SUPERADA",
+                expired_editions
+            )
+        
+        # Obtener datos de riesgos para retipificar
+        risks_to_reclassify = self._get_risks_to_reclassify()
+        if risks_to_reclassify:
+            html += self._generate_risks_table_html(
+                "RIESGOS PARA RETIPIFICAR",
+                risks_to_reclassify
+            )
+        
+        return html if html else "<div class='section'><h3>Métricas de Calidad</h3><p>No hay elementos para mostrar.</p></div>"
     
     def _generate_monthly_metrics_html(self) -> str:
         """Genera métricas de calidad mensuales."""
-        # Implementar métricas específicas mensuales
-        return "<div class='section'><h3>Métricas Mensuales</h3><p>Implementar métricas específicas</p></div>"
+        html = ""
+        
+        # Obtener datos de ediciones preparadas para publicar
+        editions_ready = self._get_editions_ready_for_publication()
+        if editions_ready:
+            html += self._generate_editions_ready_table_html(
+                "EDICIONES PREPARADAS PARA PUBLICAR",
+                editions_ready
+            )
+        
+        # Obtener datos de riesgos aceptados por visar
+        accepted_risks = self._get_accepted_risks_pending_review()
+        if accepted_risks:
+            html += self._generate_risks_table_html(
+                "RIESGOS ACEPTADOS POR EL TÉCNICO A FALTA DE VISADO POR CALIDAD",
+                accepted_risks
+            )
+        
+        # Obtener datos de riesgos retirados por visar
+        retired_risks = self._get_retired_risks_pending_review()
+        if retired_risks:
+            html += self._generate_risks_table_html(
+                "RIESGOS RETIRADOS POR EL TÉCNICO A FALTA DE VISADO POR CALIDAD",
+                retired_risks
+            )
+        
+        return html if html else "<div class='section'><h3>Métricas Mensuales</h3><p>No hay elementos para mostrar.</p></div>"
     
     # Métodos para obtener datos específicos (implementar según necesidades)
     def _get_editions_need_publication_data(self, user_id: str) -> List[Dict]:
@@ -795,3 +850,240 @@ class RiesgosManager:
             return self.db.execute_query(query)
         except:
             return []
+    
+    # Métodos auxiliares para métricas de calidad
+    def _get_editions_about_to_expire(self) -> List[Dict]:
+        """Obtiene ediciones a punto de caducar (próximos 15 días)."""
+        try:
+            query = """
+            SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,
+                   TbProyectos.FechaPrevistaCierre, TbProyectosEdiciones.IDEdicion,
+                   TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion,
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad,
+                   DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS Dias
+            FROM TbProyectos INNER JOIN TbProyectosEdiciones 
+                 ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) <= 15
+              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) > -1
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _get_expired_editions(self) -> List[Dict]:
+        """Obtiene ediciones con fecha de publicación superada."""
+        try:
+            query = """
+            SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,
+                   TbProyectos.FechaPrevistaCierre, TbProyectosEdiciones.IDEdicion,
+                   TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion,
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad,
+                   DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS Dias
+            FROM TbProyectos INNER JOIN TbProyectosEdiciones 
+                 ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) < 0
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _get_risks_to_reclassify(self) -> List[Dict]:
+        """Obtiene riesgos que necesitan retipificación."""
+        try:
+            query = """
+            SELECT TbRiesgos.IDRiesgo, TbExpedientes1.Nemotecnico, TbRiesgos.DescripcionRiesgo,
+                   TbRiesgos.TipoRiesgo, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad,
+                   TbRiesgos.FechaRiesgoParaRetipificar
+            FROM (TbExpedientes1 INNER JOIN TbRiesgos ON TbExpedientes1.IDExpediente = TbRiesgos.IDExpediente)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 
+                 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbRiesgos.FechaRiesgoParaRetipificar IS NOT NULL
+              AND TbRiesgos.FechaRetipificacionRiesgo IS NULL
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _get_editions_ready_for_publication(self) -> List[Dict]:
+        """Obtiene ediciones preparadas para publicar."""
+        try:
+            query = """
+            SELECT TbExpedientes1.Nemotecnico, TbProyectos.NombreProyecto, TbProyectos.Juridica,
+                   TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion,
+                   TbUsuariosAplicaciones.Nombre AS NombreUsuarioCalidad
+            FROM ((TbExpedientes1 INNER JOIN TbProyectos ON TbExpedientes1.IDProyecto = TbProyectos.IDProyecto)
+                  INNER JOIN TbProyectosEdiciones ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones.Id
+            WHERE TbProyectosEdiciones.PropuestaPublicacionFecha IS NOT NULL
+              AND TbProyectosEdiciones.PropuestaRechazadaPorCalidadFecha IS NULL
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _get_accepted_risks_pending_review(self) -> List[Dict]:
+        """Obtiene riesgos aceptados pendientes de visado por calidad."""
+        try:
+            query = """
+            SELECT TbRiesgos.IDRiesgo, TbExpedientes1.Nemotecnico, TbRiesgos.DescripcionRiesgo,
+                   TbRiesgos.JustificacionAceptacionRiesgo, TbRiesgos.FechaJustificacionAceptacionRiesgo,
+                   TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM (TbExpedientes1 INNER JOIN TbRiesgos ON TbExpedientes1.IDExpediente = TbRiesgos.IDExpediente)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 
+                 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbRiesgos.FechaJustificacionAceptacionRiesgo IS NOT NULL
+              AND TbRiesgos.FechaAprobacionAceptacionPorCalidad IS NULL
+              AND TbRiesgos.FechaRechazoAceptacionPorCalidad IS NULL
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _get_retired_risks_pending_review(self) -> List[Dict]:
+        """Obtiene riesgos retirados pendientes de visado por calidad."""
+        try:
+            query = """
+            SELECT TbRiesgos.IDRiesgo, TbExpedientes1.Nemotecnico, TbRiesgos.DescripcionRiesgo,
+                   TbRiesgos.CausaRaiz, TbRiesgos.FechaJustificacionRetiroRiesgo,
+                   TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM (TbExpedientes1 INNER JOIN TbRiesgos ON TbExpedientes1.IDExpediente = TbRiesgos.IDExpediente)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 
+                 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbRiesgos.FechaJustificacionRetiroRiesgo IS NOT NULL
+              AND TbRiesgos.FechaAprobacionRetiroPorCalidad IS NULL
+              AND TbRiesgos.FechaRechazoRetiroPorCalidad IS NULL
+            """
+            return self.db.execute_query(query)
+        except:
+            return []
+    
+    def _generate_editions_table_html(self, title: str, data: List[Dict]) -> str:
+        """Genera tabla HTML para ediciones."""
+        if not data:
+            return ""
+        
+        html = f"""
+        <div class="section">
+            <h3>{title}</h3>
+            <p class="count">Total: {len(data)} elementos</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Proyecto</th>
+                        <th>Nombre</th>
+                        <th>Jurídica</th>
+                        <th>Últ Ed.</th>
+                        <th>Fecha Últ Ed.</th>
+                        <th>Fecha Prevista Cierre</th>
+                        <th>Fecha Máx.Próx Ed.</th>
+                        <th>Días</th>
+                        <th>Resp. Calidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for row in data:
+            html += "<tr>"
+            html += f"<td>{row.get('Proyecto', '')}</td>"
+            html += f"<td>{row.get('NombreProyecto', '')}</td>"
+            html += f"<td>{row.get('Juridica', '')}</td>"
+            html += f"<td>{row.get('Edicion', '')}</td>"
+            html += f"<td>{format_date(row.get('FechaEdicion')) if row.get('FechaEdicion') else ''}</td>"
+            html += f"<td>{format_date(row.get('FechaPrevistaCierre')) if row.get('FechaPrevistaCierre') else ''}</td>"
+            html += f"<td>{format_date(row.get('FechaMaxProximaPublicacion')) if row.get('FechaMaxProximaPublicacion') else ''}</td>"
+            html += f"<td>{row.get('Dias', '')}</td>"
+            html += f"<td>{row.get('NombreUsuarioCalidad', '')}</td>"
+            html += "</tr>"
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        return html
+    
+    def _generate_editions_ready_table_html(self, title: str, data: List[Dict]) -> str:
+        """Genera tabla HTML para ediciones preparadas para publicar."""
+        if not data:
+            return ""
+        
+        html = f"""
+        <div class="section">
+            <h3>{title}</h3>
+            <p class="count">Total: {len(data)} elementos</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nemotécnico</th>
+                        <th>Nombre Proyecto</th>
+                        <th>Jurídica</th>
+                        <th>Edición</th>
+                        <th>Fecha Edición</th>
+                        <th>Resp. Calidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for row in data:
+            html += "<tr>"
+            html += f"<td>{row.get('Nemotecnico', '')}</td>"
+            html += f"<td>{row.get('NombreProyecto', '')}</td>"
+            html += f"<td>{row.get('Juridica', '')}</td>"
+            html += f"<td>{row.get('Edicion', '')}</td>"
+            html += f"<td>{format_date(row.get('FechaEdicion')) if row.get('FechaEdicion') else ''}</td>"
+            html += f"<td>{row.get('NombreUsuarioCalidad', '')}</td>"
+            html += "</tr>"
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        return html
+    
+    def _generate_risks_table_html(self, title: str, data: List[Dict]) -> str:
+        """Genera tabla HTML para riesgos."""
+        if not data:
+            return ""
+        
+        html = f"""
+        <div class="section">
+            <h3>{title}</h3>
+            <p class="count">Total: {len(data)} elementos</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Riesgo</th>
+                        <th>Nemotécnico</th>
+                        <th>Descripción</th>
+                        <th>Resp. Calidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for row in data:
+            html += "<tr>"
+            html += f"<td>{row.get('IDRiesgo', '')}</td>"
+            html += f"<td>{row.get('Nemotecnico', '')}</td>"
+            html += f"<td>{row.get('DescripcionRiesgo', '')}</td>"
+            html += f"<td>{row.get('UsuarioCalidad', '')}</td>"
+            html += "</tr>"
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        return html

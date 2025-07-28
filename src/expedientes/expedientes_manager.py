@@ -450,26 +450,23 @@ class ExpedientesManager:
             True si se registró correctamente, False en caso contrario
         """
         try:
-            cursor = self.correos_conn.get_cursor()
+            from common.utils import register_email_in_database
             
-            # Insertar registro en TbCorreosEnviados
-            query = """
-                INSERT INTO TbCorreosEnviados 
-                (FechaEnvio, Para, Asunto, Cuerpo, TipoTarea)
-                VALUES (?, ?, ?, ?, ?)
-            """
+            # Usar la función común para registrar el email
+            success = register_email_in_database(
+                db_connection=self.correos_conn,
+                application="Expedientes",
+                subject=subject,
+                body=body,
+                recipients=to_email
+            )
             
-            cursor.execute(query, (
-                datetime.now(),
-                to_email,
-                subject,
-                body,
-                'expedientes_diario'
-            ))
+            if success:
+                logger.info(f"Email registrado correctamente para {to_email}")
+            else:
+                logger.error(f"Error registrando email para {to_email}")
             
-            self.correos_conn.commit()
-            logger.info(f"Email registrado correctamente para {to_email}")
-            return True
+            return success
             
         except Exception as e:
             logger.error(f"Error registrando email enviado: {e}")
@@ -490,7 +487,9 @@ class ExpedientesManager:
             
             if not html_report:
                 logger.warning("No se pudo generar el reporte HTML")
-                return False
+                # Aún así registrar la tarea como completada
+                from common.utils import register_task_completion
+                return register_task_completion(self.tareas_conn, "ExpedientesDiario")
             
             # Enviar correo con el reporte
             subject = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
@@ -511,10 +510,17 @@ class ExpedientesManager:
                     body=html_report
                 )
                 logger.info("Tarea diaria de expedientes completada exitosamente")
-                return True
             else:
                 logger.error("Error enviando correo del reporte")
-                return False
+            
+            # Registrar la tarea como completada usando la función común
+            from common.utils import register_task_completion
+            task_registered = register_task_completion(self.tareas_conn, "ExpedientesDiario")
+            
+            if not task_registered:
+                logger.warning("Error registrando la tarea, pero la ejecución fue exitosa")
+            
+            return success
                 
         except Exception as e:
             logger.error(f"Error ejecutando tarea diaria de expedientes: {e}")

@@ -2,27 +2,22 @@
 
 ## Resumen General
 - **Cobertura Total**: 82% (1035/1260 líneas)
-- **Tests Ejecutados**: 248 tests pasaron
-- **Fecha de Análisis**: 27 enero 2025
+- **Tests Ejecutados**: 289 tests pasaron (243 unitarios, 46 integración)
+- **Fecha de Análisis**: 19 diciembre 2024
 
 ## Cobertura por Módulo
 
-### ✅ Módulos con Excelente Cobertura (90%+)
-1. **src\brass\brass_manager.py**: 99% (158/159 líneas)
-2. **src\common\database_adapter.py**: 95% (69/73 líneas)
-3. **src\expedientes\expedientes_manager.py**: 92% (182/198 líneas)
-4. **src\common\config.py**: 90% (70/78 líneas)
-5. **src\riesgos\riesgos_manager.py**: 90% (235/260 líneas)
-
-### ⚠️ Módulos con Buena Cobertura (70-89%)
-1. **src\correos\correos_manager.py**: 88% (114/129 líneas)
-
-### ❌ Módulos con Cobertura Insuficiente (<70%)
-1. **src\common\database.py**: 62% (99/160 líneas)
-2. **src\common\utils.py**: 49% (92/187 líneas)
-
-### ✅ Módulos con Cobertura Completa (100%)
-- Todos los archivos `__init__.py`
+| Módulo | Líneas | Cubiertas | Cobertura | Estado |
+|--------|--------|-----------|-----------|--------|
+| `src/common/config.py` | 84 | 74 | 88% | ✅ Excelente |
+| `src/common/database.py` | 186 | 102 | 55% | ⚠️ Mejorable |
+| `src/common/database_adapter.py` | 73 | 69 | 95% | ✅ Excelente |
+| `src/common/notifications.py` | 50 | 50 | 100% | ✅ Perfecto |
+| `src/common/utils.py` | 187 | 92 | 49% | ⚠️ Mejorable |
+| `src/correos/correos_manager.py` | 109 | 99 | 91% | ✅ Excelente |
+| `src/expedientes/expedientes_manager.py` | 179 | 176 | 98% | ✅ Excelente |
+| `src/riesgos/riesgos_manager.py` | 259 | 234 | 90% | ✅ Excelente |
+| **TOTAL** | **1302** | **1070** | **82%** | ✅ **Muy Bueno** |
 
 ## Análisis Detallado por Módulo
 

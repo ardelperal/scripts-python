@@ -9,8 +9,8 @@ from pathlib import Path
 # Agregar el directorio src al path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from expedientes import ExpedientesManager
-from common import config
+from expedientes.expedientes_manager import ExpedientesManager
+from common.config import config
 
 # Configurar logging
 logging.basicConfig(

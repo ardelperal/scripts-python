@@ -8,6 +8,9 @@ from datetime import datetime, date
 from pathlib import Path
 from typing import Optional, List, Dict
 
+# Importar config para funciones que lo necesitan
+from .config import config
+
 
 def hide_password_in_connection_string(connection_string: str) -> str:
     """
@@ -269,26 +272,75 @@ def get_admin_emails_string(db_connection) -> str:
         return ""
 
 
-def send_email(to_address: str, subject: str, body: str, is_html: bool = True) -> bool:
+def send_email(to_address: str, subject: str, body: str, is_html: bool = True, 
+               from_app: str = "Sistema", attachments: List[str] = None) -> bool:
     """
-    Envía un email (función placeholder)
+    Envía un email usando SMTP (implementación real basada en legacy VBS)
     
     Args:
         to_address: Dirección de destino
         subject: Asunto del email
         body: Cuerpo del email
         is_html: Si el cuerpo es HTML
+        from_app: Aplicación que envía el correo
+        attachments: Lista de rutas de archivos adjuntos
         
     Returns:
         True si se envió correctamente, False en caso contrario
     """
-    # Esta es una función placeholder
-    # En un entorno real, aquí iría la lógica de envío de email
-    logging.info(f"Email enviado a {to_address} con asunto: {subject}")
-    return True
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.application import MIMEApplication
+        from pathlib import Path
+        
+        # Configuración SMTP basada en legacy VBS
+        smtp_server = config.smtp_server
+        smtp_port = config.smtp_port
+        
+        # Crear mensaje
+        msg = MIMEMultipart()
+        msg['From'] = f"{from_app}.DySN@telefonica.com"
+        msg['To'] = to_address
+        msg['Subject'] = subject
+        
+        # Añadir BCC para administrador (como en VBS legacy)
+        admin_email = "Andres.RomandelPeral@telefonica.com"
+        if admin_email not in to_address:
+            msg['Bcc'] = admin_email
+        
+        # Añadir cuerpo del mensaje
+        if is_html:
+            msg.attach(MIMEText(body, 'html', 'utf-8'))
+        else:
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
+        # Añadir archivos adjuntos si existen
+        if attachments:
+            for attachment_path in attachments:
+                if Path(attachment_path).exists():
+                    with open(attachment_path, 'rb') as f:
+                        attach = MIMEApplication(f.read())
+                        attach.add_header('Content-Disposition', 'attachment', 
+                                        filename=Path(attachment_path).name)
+                        msg.attach(attach)
+        
+        # Enviar email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            # Sin autenticación como en VBS legacy
+            server.sendmail(msg['From'], [to_address, admin_email], msg.as_string())
+        
+        logging.info(f"Email enviado exitosamente a {to_address} con asunto: {subject}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error enviando email a {to_address}: {e}")
+        return False
 
 
-def send_notification_email(to_address: str, subject: str, body: str, is_html: bool = True) -> bool:
+def send_notification_email(to_address: str, subject: str, body: str, is_html: bool = True, 
+                           from_app: str = "Sistema", attachments: List[str] = None) -> bool:
     """
     Envía un email de notificación (función mejorada de send_email)
     
@@ -297,15 +349,15 @@ def send_notification_email(to_address: str, subject: str, body: str, is_html: b
         subject: Asunto del email
         body: Cuerpo del email
         is_html: Si el cuerpo es HTML
+        from_app: Aplicación que envía el correo
+        attachments: Lista de rutas de archivos adjuntos
         
     Returns:
         True si se envió correctamente, False en caso contrario
     """
     try:
-        # Por ahora usa la función send_email existente
-        # En el futuro se puede implementar con SMTP real
         logging.info(f"Enviando notificación a {to_address} con asunto: {subject}")
-        return send_email(to_address, subject, body, is_html)
+        return send_email(to_address, subject, body, is_html, from_app, attachments)
     except Exception as e:
         logging.error(f"Error enviando notificación: {e}")
         return False
@@ -359,6 +411,8 @@ def register_email_in_database(db_connection, application: str, subject: str, bo
 def register_task_completion(db_connection, task_name: str, execution_date: Optional[date] = None) -> bool:
     """
     Registra la finalización de una tarea en la base de datos
+    Solo debe haber un registro por nombre de tarea.
+    Si no existe se crea, si existe se actualiza la fecha.
     
     Args:
         db_connection: Conexión a la base de datos de tareas
@@ -372,17 +426,17 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
         if execution_date is None:
             execution_date = date.today()
         
-        # Verificar si ya existe registro para la fecha
+        # Verificar si ya existe registro para la tarea (sin importar la fecha)
         query_check = """
             SELECT COUNT(*) as Count 
             FROM TbTareas 
-            WHERE Tarea = ? AND Fecha = ?
+            WHERE Tarea = ?
         """
         
-        result = db_connection.execute_query(query_check, (task_name, execution_date))
+        result = db_connection.execute_query(query_check, (task_name,))
         
         if result and result[0]['Count'] > 0:
-            # Actualizar registro existente
+            # Actualizar registro existente - solo cambiar la fecha
             task_data = {
                 "Fecha": execution_date,
                 "Realizado": "Sí"
@@ -390,9 +444,10 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
             success = db_connection.update_record(
                 "TbTareas", 
                 task_data, 
-                "Tarea = ? AND Fecha = ?", 
-                (task_name, execution_date)
+                "Tarea = ?", 
+                (task_name,)
             )
+            logging.info(f"Tarea {task_name} actualizada con fecha {execution_date}")
         else:
             # Insertar nuevo registro
             task_data = {
@@ -401,6 +456,7 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
                 "Realizado": "Sí"
             }
             success = db_connection.insert_record("TbTareas", task_data)
+            logging.info(f"Tarea {task_name} creada con fecha {execution_date}")
         
         if success:
             logging.info(f"Tarea {task_name} registrada como completada")

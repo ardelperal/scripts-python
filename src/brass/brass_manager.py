@@ -279,57 +279,25 @@ class BrassManager:
     
     def register_task_completion(self) -> bool:
         """
-        Registra la finalización de la tarea BRASS
+        Registra la finalización de la tarea BRASS usando la función común
         
         Returns:
             True si se registró correctamente
         """
         try:
-            # Verificar si ya existe registro para hoy
-            query_check = """
-                SELECT COUNT(*) as Count 
-                FROM TbTareas 
-                WHERE Tarea = 'BRASSDiario' AND Fecha = ?
-            """
-            
-            today = date.today()
-            result = self.db_tareas.execute_query(query_check, (today,))
-            
-            if result and result[0]['Count'] > 0:
-                # Actualizar registro existente
-                task_data = {
-                    "Fecha": today,
-                    "Realizado": "Sí"
-                }
-                success = self.db_tareas.update_record(
-                    "TbTareas", 
-                    task_data, 
-                    "Tarea = 'BRASSDiario' AND Fecha = ?", 
-                    (today,)
-                )
-            else:
-                # Insertar nuevo registro
-                task_data = {
-                    "Tarea": "BRASSDiario",
-                    "Fecha": today,
-                    "Realizado": "Sí"
-                }
-                success = self.db_tareas.insert_record("TbTareas", task_data)
-            
-            if success:
-                logger.info("Tarea registrada como completada")
-            else:
-                logger.error("Error registrando tarea")
-            
-            return success
+            from common.utils import register_task_completion
+            return register_task_completion(self.db_tareas, "BRASSDiario")
             
         except Exception as e:
             logger.error(f"Error registrando tarea: {e}")
             return False
     
-    def execute_task(self) -> bool:
+    def execute_task(self, force: bool = False) -> bool:
         """
         Ejecuta la tarea principal del módulo BRASS
+        
+        Args:
+            force: Si es True, ejecuta la tarea aunque ya se haya ejecutado hoy
         
         Returns:
             True si se ejecutó correctamente
@@ -337,10 +305,13 @@ class BrassManager:
         try:
             logger.info("Iniciando tarea BRASS")
             
-            # Verificar si ya se ejecutó hoy
-            if self.is_task_completed_today():
+            # Verificar si ya se ejecutó hoy (solo si no es modo forzado)
+            if not force and self.is_task_completed_today():
                 logger.info("La tarea ya se ejecutó hoy")
                 return True
+            
+            if force:
+                logger.info("Ejecutando en modo forzado")
             
             # Obtener equipos fuera de calibración
             equipment_list = self.get_equipment_out_of_calibration()

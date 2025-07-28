@@ -327,8 +327,16 @@ class TestFormatDate:
 class TestSendEmail:
     """Tests para la función send_email"""
     
-    def test_send_email_success(self):
+    @patch('smtplib.SMTP')
+    @patch('src.common.utils.config')
+    def test_send_email_success(self, mock_config, mock_smtp):
         """Test envío exitoso de email"""
+        # Configurar mocks
+        mock_config.smtp_server = "localhost"
+        mock_config.smtp_port = 25
+        mock_smtp_instance = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_smtp_instance
+        
         with patch('logging.info') as mock_info:
             result = send_email("test@example.com", "Test Subject", "Test Body")
             
@@ -336,11 +344,37 @@ class TestSendEmail:
             mock_info.assert_called_once()
             assert "test@example.com" in mock_info.call_args[0][0]
             assert "Test Subject" in mock_info.call_args[0][0]
+            mock_smtp_instance.sendmail.assert_called_once()
     
-    def test_send_email_html_false(self):
+    @patch('smtplib.SMTP')
+    @patch('src.common.utils.config')
+    def test_send_email_html_false(self, mock_config, mock_smtp):
         """Test envío con HTML desactivado"""
+        # Configurar mocks
+        mock_config.smtp_server = "localhost"
+        mock_config.smtp_port = 25
+        mock_smtp_instance = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_smtp_instance
+        
         with patch('logging.info') as mock_info:
             result = send_email("test@example.com", "Subject", "Body", is_html=False)
             
             assert result is True
             mock_info.assert_called_once()
+            mock_smtp_instance.sendmail.assert_called_once()
+    
+    @patch('smtplib.SMTP')
+    @patch('src.common.utils.config')
+    def test_send_email_failure(self, mock_config, mock_smtp):
+        """Test fallo en envío de email"""
+        # Configurar mocks
+        mock_config.smtp_server = "localhost"
+        mock_config.smtp_port = 25
+        mock_smtp.side_effect = Exception("SMTP Error")
+        
+        with patch('logging.error') as mock_error:
+            result = send_email("test@example.com", "Subject", "Body")
+            
+            assert result is False
+            mock_error.assert_called_once()
+            assert "Error enviando email" in mock_error.call_args[0][0]
