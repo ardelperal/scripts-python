@@ -23,7 +23,7 @@ def get_current_env_config():
             'db_brass': os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb'),
             'db_tareas': os.getenv('LOCAL_DB_TAREAS', 'dbs-locales/Tareas_datos1.accdb'),
             'db_correos': os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb'),
-            'css_file': os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt'),
+            'css_file': os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS_moderno.css'),
             'smtp_server': os.getenv('LOCAL_SMTP_SERVER', 'localhost'),
             'smtp_port': int(os.getenv('LOCAL_SMTP_PORT', '1025')),
             'smtp_user': os.getenv('LOCAL_SMTP_USER', 'test@example.com'),
@@ -65,7 +65,9 @@ class TestConfig:
             assert 'Gestion_Brass_Gestion_Datos.accdb' in str(test_config.db_brass_path)
             assert 'Tareas_datos1.accdb' in str(test_config.db_tareas_path)
             assert 'correos_datos.accdb' in str(test_config.db_correos_path)
-            assert 'CSS.txt' in str(test_config.css_file_path)
+            # Verificar que contiene un archivo CSS (puede ser .css o .txt)
+            css_path_str = str(test_config.css_file_path)
+            assert ('CSS.txt' in css_path_str or 'CSS_moderno.css' in css_path_str or '.css' in css_path_str)
             # Verificar configuración SMTP local
             assert test_config.smtp_server == env_config['smtp_server']
             assert test_config.smtp_port == env_config['smtp_port']

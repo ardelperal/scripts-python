@@ -6,14 +6,25 @@ para gestionar tareas relacionadas con riesgos de proyectos.
 """
 
 import logging
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from ..common.config import Config
-from ..common.database import AccessDatabase
-from ..common.utils import format_date, send_notification_email, get_admin_emails_string
+from common.config import Config
+from common.database import AccessDatabase
+from common.utils import (
+    format_date,
+    send_email,
+    send_notification_email,
+    get_admin_emails_string,
+    get_technical_users,
+    get_quality_users,
+    get_user_email,
+    get_technical_emails_string,
+    get_quality_emails_string,
+    register_email_in_database,
+    register_task_completion
+)
 
 
 class RiesgosManager:
@@ -37,7 +48,7 @@ class RiesgosManager:
         """
         self.config = config
         self.logger = logging.getLogger(__name__)
-        self.db = AccessDatabase(config.database_path)
+        self.db = AccessDatabase(config.get_db_riesgos_connection_string())
         
     def connect(self) -> bool:
         """
@@ -430,7 +441,7 @@ class RiesgosManager:
                 self.logger.info(f"Tareas ejecutadas: {', '.join(executed_tasks)}")
                 
                 # Enviar notificación de resumen
-                admin_emails = get_admin_emails_string()
+                admin_emails = get_admin_emails_string(self.db)
                 if admin_emails:
                     subject = "Resumen de ejecución - Gestión de Riesgos"
                     body = f"""
@@ -501,7 +512,7 @@ class RiesgosManager:
             html_content = self._generate_quality_report_html()
             
             # Enviar a administradores
-            admin_emails = get_admin_emails_string()
+            admin_emails = get_admin_emails_string(self.db)
             if admin_emails:
                 subject = "Informe Semanal de Calidad - Gestión de Riesgos"
                 
@@ -534,7 +545,7 @@ class RiesgosManager:
             html_content = self._generate_monthly_quality_report_html()
             
             # Enviar a administradores
-            admin_emails = get_admin_emails_string()
+            admin_emails = get_admin_emails_string(self.db)
             if admin_emails:
                 subject = "Informe Mensual de Calidad - Gestión de Riesgos"
                 

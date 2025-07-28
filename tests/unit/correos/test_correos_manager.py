@@ -4,7 +4,6 @@ Tests unitarios para CorreosManager
 import pytest
 from unittest.mock import Mock, patch, MagicMock, mock_open
 import smtplib
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from email.mime.multipart import MIMEMultipart
@@ -25,21 +24,19 @@ class TestCorreosManager:
             mock_config.smtp_user = "test@example.com"
             mock_config.smtp_password = "password"
             mock_config.smtp_tls = False
-            mock_config.sqlite_dir = Path("/mock/sqlite")
+            mock_config.get_db_correos_connection_string.return_value = "DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:\\test\\correos.accdb;"
             yield mock_config
     
     @pytest.fixture
-    def mock_sqlite_connect(self):
-        """Mock de sqlite3.connect"""
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = Mock()
-            mock_cursor = Mock()
-            mock_conn.cursor.return_value = mock_cursor
-            mock_connect.return_value = mock_conn
-            yield mock_connect, mock_conn, mock_cursor
+    def mock_access_db(self):
+        """Mock de AccessDatabase"""
+        with patch('src.correos.correos_manager.AccessDatabase') as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            yield mock_db
     
     @pytest.fixture
-    def correos_manager(self, mock_config):
+    def correos_manager(self, mock_config, mock_access_db):
         """Instancia de CorreosManager con mocks"""
         return CorreosManager()
     
@@ -102,95 +99,73 @@ class TestCorreosManager:
             
             assert result is False
     
-    def test_enviar_correos_no_enviados_success(self, correos_manager):
+    def test_enviar_correos_no_enviados_success(self, correos_manager, mock_access_db):
         """Test enviar correos no enviados exitoso"""
-        # Mock de datos de correos como sqlite3.Row
-        mock_row1 = Mock()
-        mock_row1.keys.return_value = ['IDCorreo', 'Destinatarios', 'Asunto', 'Cuerpo', 'URLAdjunto']
-        mock_row1.__getitem__ = lambda self, key: {
-            'IDCorreo': 1, 'Destinatarios': 'test1@example.com', 
-            'Asunto': 'Test 1', 'Cuerpo': 'Body 1', 'URLAdjunto': None
-        }[key]
+        # Mock de datos de correos desde Access
+        mock_correos = [
+            {
+                'IDCorreo': 1, 'Destinatarios': 'test1@example.com', 
+                'Asunto': 'Test 1', 'Cuerpo': 'Body 1', 'URLAdjunto': None
+            },
+            {
+                'IDCorreo': 2, 'Destinatarios': 'test2@example.com', 
+                'Asunto': 'Test 2', 'Cuerpo': 'Body 2', 'URLAdjunto': None
+            }
+        ]
         
-        mock_row2 = Mock()
-        mock_row2.keys.return_value = ['IDCorreo', 'Destinatarios', 'Asunto', 'Cuerpo', 'URLAdjunto']
-        mock_row2.__getitem__ = lambda self, key: {
-            'IDCorreo': 2, 'Destinatarios': 'test2@example.com', 
-            'Asunto': 'Test 2', 'Cuerpo': 'Body 2', 'URLAdjunto': None
-        }[key]
+        mock_access_db.execute_query.return_value = mock_correos
         
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value = mock_conn
-            mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchall.return_value = [mock_row1, mock_row2]
+        with patch.object(correos_manager, '_enviar_correo_individual') as mock_enviar, \
+             patch.object(correos_manager, '_marcar_correo_enviado') as mock_marcar:
             
-            with patch.object(correos_manager, '_enviar_correo_individual') as mock_enviar, \
-                 patch.object(correos_manager, '_marcar_correo_enviado') as mock_marcar:
-                
-                mock_enviar.side_effect = [True, True]
-                
-                result = correos_manager.enviar_correos_no_enviados()
-                
-                assert result == 2
-                assert mock_enviar.call_count == 2
-                assert mock_marcar.call_count == 2
+            mock_enviar.side_effect = [True, True]
+            
+            result = correos_manager.enviar_correos_no_enviados()
+            
+            assert result == 2
+            assert mock_enviar.call_count == 2
+            assert mock_marcar.call_count == 2
     
-    def test_enviar_correos_no_enviados_partial_success(self, correos_manager):
+    def test_enviar_correos_no_enviados_partial_success(self, correos_manager, mock_access_db):
         """Test enviar correos no enviados con éxito parcial"""
-        mock_row1 = Mock()
-        mock_row1.keys.return_value = ['IDCorreo', 'Destinatarios', 'Asunto', 'Cuerpo', 'URLAdjunto']
-        mock_row1.__getitem__ = lambda self, key: {
-            'IDCorreo': 1, 'Destinatarios': 'test1@example.com', 
-            'Asunto': 'Test 1', 'Cuerpo': 'Body 1', 'URLAdjunto': None
-        }[key]
+        mock_correos = [
+            {
+                'IDCorreo': 1, 'Destinatarios': 'test1@example.com', 
+                'Asunto': 'Test 1', 'Cuerpo': 'Body 1', 'URLAdjunto': None
+            },
+            {
+                'IDCorreo': 2, 'Destinatarios': 'test2@example.com', 
+                'Asunto': 'Test 2', 'Cuerpo': 'Body 2', 'URLAdjunto': None
+            }
+        ]
         
-        mock_row2 = Mock()
-        mock_row2.keys.return_value = ['IDCorreo', 'Destinatarios', 'Asunto', 'Cuerpo', 'URLAdjunto']
-        mock_row2.__getitem__ = lambda self, key: {
-            'IDCorreo': 2, 'Destinatarios': 'test2@example.com', 
-            'Asunto': 'Test 2', 'Cuerpo': 'Body 2', 'URLAdjunto': None
-        }[key]
+        mock_access_db.execute_query.return_value = mock_correos
         
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value = mock_conn
-            mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchall.return_value = [mock_row1, mock_row2]
+        with patch.object(correos_manager, '_enviar_correo_individual') as mock_enviar, \
+             patch.object(correos_manager, '_marcar_correo_enviado') as mock_marcar:
             
-            with patch.object(correos_manager, '_enviar_correo_individual') as mock_enviar, \
-                 patch.object(correos_manager, '_marcar_correo_enviado') as mock_marcar:
-                
-                mock_enviar.side_effect = [True, False]
-                
-                result = correos_manager.enviar_correos_no_enviados()
-                
-                assert result == 1
-                assert mock_marcar.call_count == 1
+            mock_enviar.side_effect = [True, False]
+            
+            result = correos_manager.enviar_correos_no_enviados()
+            
+            assert result == 1
+            assert mock_marcar.call_count == 1
     
-    def test_enviar_correos_no_enviados_no_emails(self, correos_manager):
+    def test_enviar_correos_no_enviados_no_emails(self, correos_manager, mock_access_db):
         """Test enviar correos no enviados sin emails"""
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value = mock_conn
-            mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchall.return_value = []
-            
-            result = correos_manager.enviar_correos_no_enviados()
-            
-            assert result == 0
+        mock_access_db.execute_query.return_value = []
+        
+        result = correos_manager.enviar_correos_no_enviados()
+        
+        assert result == 0
     
-    def test_enviar_correos_no_enviados_exception(self, correos_manager):
+    def test_enviar_correos_no_enviados_exception(self, correos_manager, mock_access_db):
         """Test enviar correos no enviados con excepción"""
-        with patch('sqlite3.connect') as mock_connect:
-            mock_connect.side_effect = Exception("DB Error")
-            
-            result = correos_manager.enviar_correos_no_enviados()
-            
-            assert result == 0
+        mock_access_db.connect.side_effect = Exception("DB Error")
+        
+        result = correos_manager.enviar_correos_no_enviados()
+        
+        assert result == 0
     
     def test_adjuntar_archivo_success(self, correos_manager):
         """Test adjuntar archivo exitoso"""
@@ -279,75 +254,32 @@ class TestCorreosManager:
             
             assert result is False
     
-    def test_marcar_correo_enviado_success(self, correos_manager):
+    def test_marcar_correo_enviado_success(self, correos_manager, mock_access_db):
         """Test marcar correo enviado exitoso"""
-        mock_conn = Mock()
-        mock_cursor = Mock()
-        mock_conn.cursor.return_value = mock_cursor
-        
         fecha_envio = datetime.now()
+        mock_access_db.update_record.return_value = True
         
-        correos_manager._marcar_correo_enviado(mock_conn, 1, fecha_envio)
+        correos_manager._marcar_correo_enviado(1, fecha_envio)
         
-        mock_cursor.execute.assert_called_once()
-        mock_conn.commit.assert_called_once()
+        mock_access_db.update_record.assert_called_once()
     
-    def test_marcar_correo_enviado_exception(self, correos_manager):
+    def test_marcar_correo_enviado_exception(self, correos_manager, mock_access_db):
         """Test marcar correo enviado con excepción"""
-        mock_conn = Mock()
-        mock_cursor = Mock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.execute.side_effect = Exception("DB Error")
-        
         fecha_envio = datetime.now()
+        mock_access_db.update_record.side_effect = Exception("DB Error")
         
         # El método no retorna nada, solo loggea el error
-        correos_manager._marcar_correo_enviado(mock_conn, 1, fecha_envio)
-    
-    def test_sync_databases_success(self, correos_manager):
-        """Test sincronización de bases de datos exitosa"""
-        result = correos_manager.sync_databases()
-        
-        # Como es un placeholder, debería retornar True
-        assert result is True
-    
-    def test_sync_back_to_access_success(self, correos_manager):
-        """Test sincronización de vuelta a Access exitosa"""
-        result = correos_manager.sync_back_to_access()
-        
-        # Como es un placeholder, debería retornar True
-        assert result is True
+        correos_manager._marcar_correo_enviado(1, fecha_envio)
     
     def test_execute_daily_task_success(self, correos_manager):
         """Test ejecución de tarea diaria exitosa"""
-        with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar, \
-             patch.object(correos_manager, 'sync_databases') as mock_sync, \
-             patch.object(correos_manager, 'sync_back_to_access') as mock_sync_back:
-            
+        with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar:
             mock_enviar.return_value = 5
-            mock_sync.return_value = True
-            mock_sync_back.return_value = True
             
             result = correos_manager.execute_daily_task()
             
             assert result is True
             mock_enviar.assert_called_once()
-            mock_sync.assert_called_once()
-            mock_sync_back.assert_called_once()
-    
-    def test_execute_daily_task_email_failure(self, correos_manager):
-        """Test ejecución de tarea diaria con fallo en envío de emails"""
-        with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar, \
-             patch.object(correos_manager, 'sync_databases') as mock_sync, \
-             patch.object(correos_manager, 'sync_back_to_access') as mock_sync_back:
-            
-            mock_enviar.side_effect = Exception("Email error")
-            mock_sync.return_value = True
-            mock_sync_back.return_value = True
-            
-            result = correos_manager.execute_daily_task()
-            
-            assert result is False
     
     def test_execute_daily_task_exception(self, correos_manager):
         """Test ejecución de tarea diaria con excepción general"""

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Añadir el directorio src al path para importaciones
-src_path = Path(__file__).parent / "src"
+src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 from common import config, setup_logging

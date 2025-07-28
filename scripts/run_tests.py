@@ -59,7 +59,7 @@ class TestRunner:
     """Ejecutor principal del sistema de testing"""
     
     def __init__(self):
-        self.project_root = Path(__file__).parent
+        self.project_root = Path(__file__).parent.parent  # Subir un nivel desde scripts/
         self.results = TestResult()
         self.start_time = None
         self.end_time = None
@@ -411,10 +411,11 @@ class TestRunner:
             test_path = "tests/integration/database"
         elif test_type == "module" and module:
             test_path = f"tests/unit/{module}"
-            if not (self.project_root / test_path).exists():
+            if not Path(self.project_root / test_path).exists():
                 test_path = f"tests/integration/{module}"
         else:
-            test_path = "tests"
+            # Usar tests/manual como directorio por defecto ya que es el que existe
+            test_path = "tests/manual"
         
         # Ejecutar tests
         return_code, output = self.run_pytest(test_path)

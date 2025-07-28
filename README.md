@@ -18,16 +18,23 @@ Este proyecto es una migración del sistema legacy VBS a Python, implementando m
 
 ```
 scripts-python/
-├── .env                          # Variables de entorno
+├── .env                          # Variables de entorno (local)
 ├── requirements.txt              # Dependencias Python
 ├── pyproject.toml               # Configuración de pytest y herramientas
-├── run_brass.py                 # Script principal para módulo BRASS
-├── run_expedientes.py           # Script para módulo expedientes
-├── run_EnviarCorreo.py          # Script para módulo correos
-├── run_riesgos.py               # Script para módulo de riesgos
-├── run_tests.py                 # Script principal de testing
-├── generate_coverage_report.py  # Generador reportes de cobertura
 ├── .coveragerc                  # Configuración coverage.py
+├── README.md                    # Documentación principal
+├── config/                      # Configuración del proyecto
+│   └── .env.example            # Plantilla de variables de entorno
+├── scripts/                     # Scripts principales de ejecución
+│   ├── run_brass.py            # Script principal para módulo BRASS
+│   ├── run_expedientes.py      # Script para módulo expedientes
+│   ├── run_EnviarCorreo.py     # Script para módulo correos
+│   ├── run_riesgos.py          # Script para módulo de riesgos
+│   └── run_tests.py            # Script principal de testing
+├── tools/                       # Herramientas de desarrollo
+│   ├── setup_local_environment.py  # Configuración entorno local
+│   ├── generate_coverage_report.py # Generador reportes de cobertura
+│   └── continuous_runner.py        # Ejecución continua de tests
 ├── src/                         # Código fuente
 │   ├── __init__.py
 │   ├── common/                  # Utilidades compartidas
@@ -48,17 +55,15 @@ scripts-python/
 │   └── riesgos/                # Módulo de gestión de riesgos
 │       ├── __init__.py
 │       └── riesgos_manager.py  # Gestor de riesgos
-├── tests/                      # Tests automatizados (22 tests organizados)
+├── tests/                      # Tests automatizados
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
 │   ├── conftest.py            # Configuración global pytest
-│   ├── data/                  # Bases de datos de test
-│   │   ├── __init__.py
-│   │   └── test_database.db
+│   ├── data/                  # Datos de test
+│   │   └── __init__.py
 │   ├── fixtures/              # Datos y utilidades de prueba
 │   │   ├── __init__.py
 │   │   ├── create_demo_databases.py
-│   │   ├── create_demo_sqlite.py
 │   │   ├── create_test_emails.py
 │   │   ├── create_test_emails_demo.py
 │   │   ├── migrate_databases.py
@@ -75,12 +80,17 @@ scripts-python/
 │   │   ├── brass/              # Integración del sistema brass
 │   │   ├── correos/            # Integración del sistema de correos
 │   │   └── database/           # Integración con bases de datos
-│   └── functional/             # Tests funcionales
-│       ├── access_sync/        # Sincronización con Access
-│       └── correos_workflows/  # Flujos completos de correos
+│   ├── functional/             # Tests funcionales
+│   │   ├── access_sync/        # Sincronización con Access
+│   │   └── correos_workflows/  # Flujos completos de correos
+│   └── manual/                 # Tests manuales y de desarrollo
+│       ├── test_com_access.py  # Test de conectividad COM Access
+│       ├── test_network_verification.py # Test de verificación de red
+│       ├── test_relink_tables.py       # Test de reenlace de tablas
+│       └── test_user_functions.py      # Test de funciones de usuario
 ├── templates/                  # Plantillas HTML
 ├── logs/                       # Archivos de log
-├── dbs-locales/               # Bases de datos locales
+├── dbs-locales/               # Bases de datos locales (13 archivos .accdb)
 ├── htmlcov/                   # Reportes HTML de cobertura
 ├── herramientas/              # Archivos de configuración (CSS, etc.)
 ├── docs/                      # Documentación
@@ -197,8 +207,8 @@ El sistema soporta dos configuraciones SMTP:
 
 2. **Configurar variables de entorno**
    ```bash
-   # Copiar el archivo de ejemplo
-   cp .env.example .env
+   # Copiar el archivo de ejemplo desde config/
+   cp config/.env.example .env
    
    # Editar .env con tus configuraciones específicas
    # - Cambiar DB_PASSWORD por la contraseña real
@@ -211,18 +221,13 @@ El sistema soporta dos configuraciones SMTP:
    pip install -r requirements.txt
    ```
 
-4. **Ejecutar script de instalación (opcional)**
+4. **Configurar entorno local (opcional)**
    ```bash
-   python setup.py
+   # Ejecutar herramienta de configuración
+   python tools/setup_local_environment.py
    ```
 
-2. **Configurar variables de entorno**
-   ```bash
-   # Editar .env según el entorno deseado
-   # Por defecto está configurado para entorno local
-   ```
-
-3. **Instalar driver ODBC para Access** (si no está instalado)
+5. **Instalar driver ODBC para Access** (si no está instalado)
    - Descargar Microsoft Access Database Engine
 
 ## Uso
@@ -247,16 +252,33 @@ python server.py
 **Ejecutar Módulos:**
 ```bash
 # Ejecutar tarea BRASS
-python run_brass.py
+python scripts/run_brass.py
 
 # Ejecutar módulo de correos
-python run_EnviarCorreo.py
+python scripts/run_EnviarCorreo.py
 
 # Ejecutar módulo de expedientes
-python run_expedientes.py
+python scripts/run_expedientes.py
 
 # Ejecutar módulo de riesgos
-python run_riesgos.py
+python scripts/run_riesgos.py
+
+# Ejecutar tests
+python scripts/run_tests.py
+```
+
+### 🛠️ Herramientas de Desarrollo
+
+**Configuración y Mantenimiento:**
+```bash
+# Configurar entorno local
+python tools/setup_local_environment.py
+
+# Generar reportes de cobertura
+python tools/generate_coverage_report.py
+
+# Ejecución continua de tests
+python tools/continuous_runner.py
 ```
 
 ## Seguridad
@@ -302,6 +324,9 @@ pytest tests/integration/ -v -m integration
 
 # Ejecutar tests específicos
 pytest tests/unit/test_database.py -v
+
+# Ejecutar tests manuales de desarrollo
+pytest tests/manual/ -v
 ```
 
 ### Tipos de Tests
@@ -315,6 +340,21 @@ pytest tests/test_database_connectivity.py -v
 pytest tests/test_database_connectivity.py::test_brass_database_connection -v
 pytest tests/test_database_connectivity.py::test_tareas_database_connection -v
 pytest tests/test_database_connectivity.py::test_correos_database_connection -v
+```
+
+#### Tests Manuales de Desarrollo
+```bash
+# Tests de conectividad COM Access
+pytest tests/manual/test_com_access.py -v
+
+# Tests de verificación de red
+pytest tests/manual/test_network_verification.py -v
+
+# Tests de reenlace de tablas
+pytest tests/manual/test_relink_tables.py -v
+
+# Tests de funciones de usuario
+pytest tests/manual/test_user_functions.py -v
 ```
 
 #### Tests de Seguridad
@@ -340,7 +380,7 @@ pytest -v --tb=short
 **Generar Reportes de Cobertura:**
 ```bash
 # Método rápido (recomendado)
-python generate_coverage_report.py
+python tools/generate_coverage_report.py
 
 # Método manual
 coverage run --source=src -m pytest tests/unit/ -v
@@ -356,7 +396,7 @@ start htmlcov\index.html
 **Archivos de Coverage:**
 - `.coveragerc` - Configuración de coverage.py
 - `htmlcov/` - Reportes HTML interactivos
-- `generate_coverage_report.py` - Script automatizado
+- `tools/generate_coverage_report.py` - Script automatizado
 
 **Interpretación de Reportes:**
 - 🟢 **Verde**: Líneas cubiertas por tests

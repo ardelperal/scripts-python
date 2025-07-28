@@ -3,14 +3,23 @@ Gestor de Expedientes
 Adaptación del script legacy Expedientes.vbs
 """
 import logging
-import sqlite3
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
-from ..common import config
-from ..common.database import AccessDatabase
-from ..common.utils import format_date, send_email
+from common import config
+from common.database import AccessDatabase
+from common.utils import (
+    format_date, 
+    send_email,
+    register_email_in_database,
+    generate_html_header,
+    generate_html_footer,
+    load_css_content,
+    safe_str,
+    send_notification_email,
+    get_admin_emails_string
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +40,8 @@ class ExpedientesManager:
         """Inicializar conexiones a las bases de datos"""
         try:
             # Conexión a base de datos de expedientes
-            if config.database_mode == 'sqlite':
-                expedientes_db_path = config.expedientes_sqlite_path
-                self.expedientes_conn = sqlite3.connect(expedientes_db_path)
-                self.expedientes_conn.row_factory = sqlite3.Row
-                logger.info(f"Conectado a base de datos SQLite de expedientes: {expedientes_db_path}")
-            else:
-                # Para Access, usar AccessDatabase
-                self.expedientes_conn = AccessDatabase(config.get_db_expedientes_connection_string())
-                logger.info("Conectado a base de datos Access de expedientes")
+            self.expedientes_conn = AccessDatabase(config.get_db_expedientes_connection_string())
+            logger.info("Conectado a base de datos Access de expedientes")
             
             # Conexión a base de datos de correos
             self.correos_conn = AccessDatabase(config.get_db_correos_connection_string())
@@ -78,11 +80,6 @@ class ExpedientesManager:
             Lista de expedientes próximos a finalizar
         """
         try:
-            if config.database_mode == 'sqlite':
-                cursor = self.expedientes_conn.cursor()
-            else:
-                cursor = self.expedientes_conn.get_cursor()
-            
             # Fecha límite
             limit_date = datetime.now() + timedelta(days=days_threshold)
             
@@ -99,17 +96,18 @@ class ExpedientesManager:
                 ORDER BY FechaFinalizacion ASC
             """
             
-            cursor.execute(query, (limit_date.strftime('%Y-%m-%d'),))
+            cursor = self.expedientes_conn.get_cursor()
+            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
             results = cursor.fetchall()
             
             expedientes = []
             for row in results:
                 expedientes.append({
-                    'expediente': row['Expediente'] if config.database_mode == 'sqlite' else row[0],
-                    'fecha_finalizacion': row['FechaFinalizacion'] if config.database_mode == 'sqlite' else row[1],
-                    'estado': row['Estado'] if config.database_mode == 'sqlite' else row[2],
-                    'responsable': row['Responsable'] if config.database_mode == 'sqlite' else row[3],
-                    'descripcion': row['Descripcion'] if config.database_mode == 'sqlite' else row[4]
+                    'expediente': row[0],
+                    'fecha_finalizacion': row[1],
+                    'estado': row[2],
+                    'responsable': row[3],
+                    'descripcion': row[4]
                 })
             
             logger.info(f"Encontrados {len(expedientes)} expedientes próximos a finalizar")
@@ -130,11 +128,6 @@ class ExpedientesManager:
             Lista de hitos próximos a finalizar
         """
         try:
-            if config.database_mode == 'sqlite':
-                cursor = self.expedientes_conn.cursor()
-            else:
-                cursor = self.expedientes_conn.get_cursor()
-            
             # Fecha límite
             limit_date = datetime.now() + timedelta(days=days_threshold)
             
@@ -153,29 +146,20 @@ class ExpedientesManager:
                 ORDER BY h.FechaLimite ASC
             """
             
-            cursor.execute(query, (limit_date.strftime('%Y-%m-%d'),))
+            cursor = self.expedientes_conn.get_cursor()
+            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
             results = cursor.fetchall()
             
             hitos = []
             for row in results:
-                if config.database_mode == 'sqlite':
-                    hitos.append({
-                        'id_hito': row['IdHito'],
-                        'expediente': row['Expediente'],
-                        'descripcion': row['Descripcion'],
-                        'fecha_limite': row['FechaLimite'],
-                        'estado': row['Estado'],
-                        'responsable': row['Responsable']
-                    })
-                else:
-                    hitos.append({
-                        'id_hito': row[0],
-                        'expediente': row[1],
-                        'descripcion': row[2],
-                        'fecha_limite': row[3],
-                        'estado': row[4],
-                        'responsable': row[5]
-                    })
+                hitos.append({
+                    'id_hito': row[0],
+                    'expediente': row[1],
+                    'descripcion': row[2],
+                    'fecha_limite': row[3],
+                    'estado': row[4],
+                    'responsable': row[5]
+                })
             
             logger.info(f"Encontrados {len(hitos)} hitos próximos a finalizar")
             return hitos
@@ -192,11 +176,6 @@ class ExpedientesManager:
             Lista de expedientes sin CodS4H
         """
         try:
-            if config.database_mode == 'sqlite':
-                cursor = self.expedientes_conn.cursor()
-            else:
-                cursor = self.expedientes_conn.get_cursor()
-            
             query = """
                 SELECT 
                     Expediente,
@@ -211,27 +190,19 @@ class ExpedientesManager:
                 ORDER BY FechaAdjudicacion DESC
             """
             
+            cursor = self.expedientes_conn.get_cursor()
             cursor.execute(query)
             results = cursor.fetchall()
             
             expedientes = []
             for row in results:
-                if config.database_mode == 'sqlite':
-                    expedientes.append({
-                        'expediente': row['Expediente'],
-                        'fecha_adjudicacion': row['FechaAdjudicacion'],
-                        'importe': row['Importe'],
-                        'proveedor': row['Proveedor'],
-                        'estado': row['Estado']
-                    })
-                else:
-                    expedientes.append({
-                        'expediente': row[0],
-                        'fecha_adjudicacion': row[1],
-                        'importe': row[2],
-                        'proveedor': row[3],
-                        'estado': row[4]
-                    })
+                expedientes.append({
+                    'expediente': row[0],
+                    'fecha_adjudicacion': row[1],
+                    'importe': row[2],
+                    'proveedor': row[3],
+                    'estado': row[4]
+                })
             
             logger.info(f"Encontrados {len(expedientes)} expedientes TSOL sin CodS4H")
             return expedientes
@@ -251,11 +222,6 @@ class ExpedientesManager:
             Lista de expedientes en fase de oferta por mucho tiempo
         """
         try:
-            if config.database_mode == 'sqlite':
-                cursor = self.expedientes_conn.cursor()
-            else:
-                cursor = self.expedientes_conn.get_cursor()
-            
             # Fecha límite
             limit_date = datetime.now() - timedelta(days=days_threshold)
             
@@ -272,27 +238,19 @@ class ExpedientesManager:
                 ORDER BY FechaInicioOferta ASC
             """
             
-            cursor.execute(query, (limit_date.strftime('%Y-%m-%d'),))
+            cursor = self.expedientes_conn.get_cursor()
+            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
             results = cursor.fetchall()
             
             expedientes = []
             for row in results:
-                if config.database_mode == 'sqlite':
-                    expedientes.append({
-                        'expediente': row['Expediente'],
-                        'fecha_inicio_oferta': row['FechaInicioOferta'],
-                        'estado': row['Estado'],
-                        'responsable': row['Responsable'],
-                        'descripcion': row['Descripcion']
-                    })
-                else:
-                    expedientes.append({
-                        'expediente': row[0],
-                        'fecha_inicio_oferta': row[1],
-                        'estado': row[2],
-                        'responsable': row[3],
-                        'descripcion': row[4]
-                    })
+                expedientes.append({
+                    'expediente': row[0],
+                    'fecha_inicio_oferta': row[1],
+                    'estado': row[2],
+                    'responsable': row[3],
+                    'descripcion': row[4]
+                })
             
             logger.info(f"Encontrados {len(expedientes)} expedientes en fase de oferta por mucho tiempo")
             return expedientes
@@ -316,7 +274,10 @@ class ExpedientesManager:
             expedientes_oferta_largo = self.get_expedientes_fase_oferta_largo_tiempo()
             
             # Generar HTML
-            html_content = self._generate_html_header()
+            title = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
+            css_path = Path(__file__).parent.parent.parent / "herramientas" / "CSS1.css"
+            html_content = generate_html_header(title, load_css_content(css_path))
+            html_content += f"<h1>Reporte Diario de Expedientes</h1>\n<p>Fecha: {format_date(datetime.now())}</p>\n"
             
             # Sección de expedientes próximos a finalizar
             if expedientes_proximos:
@@ -334,7 +295,7 @@ class ExpedientesManager:
             if expedientes_oferta_largo:
                 html_content += self._generate_oferta_largo_section(expedientes_oferta_largo)
             
-            html_content += self._generate_html_footer()
+            html_content += generate_html_footer()
             
             return html_content
             
@@ -343,27 +304,24 @@ class ExpedientesManager:
             return ""
     
     def _generate_html_header(self) -> str:
-        """Generar cabecera HTML"""
-        return f"""
-        <html>
-        <head>
-            <title>Reporte Diario de Expedientes - {format_date(datetime.now())}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                h1 {{ color: #2c3e50; }}
-                h2 {{ color: #34495e; border-bottom: 2px solid #3498db; }}
-                table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #3498db; color: white; }}
-                tr:nth-child(even) {{ background-color: #f2f2f2; }}
-                .warning {{ background-color: #fff3cd; }}
-                .danger {{ background-color: #f8d7da; }}
-            </style>
-        </head>
-        <body>
-            <h1>Reporte Diario de Expedientes</h1>
-            <p>Fecha: {format_date(datetime.now())}</p>
         """
+        Generar cabecera HTML (wrapper de la función común)
+        
+        Returns:
+            Cabecera HTML como string
+        """
+        title = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
+        css_path = Path(__file__).parent.parent.parent / "herramientas" / "CSS1.css"
+        return generate_html_header(title, load_css_content(css_path))
+    
+    def _generate_html_footer(self) -> str:
+        """
+        Generar pie HTML (wrapper de la función común)
+        
+        Returns:
+            Pie HTML como string
+        """
+        return generate_html_footer()
     
     def _generate_expedientes_proximos_section(self, expedientes: List[Dict]) -> str:
         """Generar sección de expedientes próximos a finalizar"""
@@ -382,11 +340,11 @@ class ExpedientesManager:
         for exp in expedientes:
             html += f"""
             <tr class="warning">
-                <td>{exp['expediente']}</td>
-                <td>{exp['fecha_finalizacion']}</td>
-                <td>{exp['estado']}</td>
-                <td>{exp['responsable']}</td>
-                <td>{exp['descripcion']}</td>
+                <td>{safe_str(exp['expediente'])}</td>
+                <td>{safe_str(exp['fecha_finalizacion'])}</td>
+                <td>{safe_str(exp['estado'])}</td>
+                <td>{safe_str(exp['responsable'])}</td>
+                <td>{safe_str(exp['descripcion'])}</td>
             </tr>
             """
         
@@ -411,12 +369,12 @@ class ExpedientesManager:
         for hito in hitos:
             html += f"""
             <tr class="warning">
-                <td>{hito['id_hito']}</td>
-                <td>{hito['expediente']}</td>
-                <td>{hito['descripcion']}</td>
-                <td>{hito['fecha_limite']}</td>
-                <td>{hito['estado']}</td>
-                <td>{hito['responsable']}</td>
+                <td>{safe_str(hito['id_hito'])}</td>
+                <td>{safe_str(hito['expediente'])}</td>
+                <td>{safe_str(hito['descripcion'])}</td>
+                <td>{safe_str(hito['fecha_limite'])}</td>
+                <td>{safe_str(hito['estado'])}</td>
+                <td>{safe_str(hito['responsable'])}</td>
             </tr>
             """
         
@@ -440,11 +398,11 @@ class ExpedientesManager:
         for exp in expedientes:
             html += f"""
             <tr class="danger">
-                <td>{exp['expediente']}</td>
-                <td>{exp['fecha_adjudicacion']}</td>
-                <td>{exp['importe']}</td>
-                <td>{exp['proveedor']}</td>
-                <td>{exp['estado']}</td>
+                <td>{safe_str(exp['expediente'])}</td>
+                <td>{safe_str(exp['fecha_adjudicacion'])}</td>
+                <td>{safe_str(exp['importe'])}</td>
+                <td>{safe_str(exp['proveedor'])}</td>
+                <td>{safe_str(exp['estado'])}</td>
             </tr>
             """
         
@@ -468,66 +426,53 @@ class ExpedientesManager:
         for exp in expedientes:
             html += f"""
             <tr class="warning">
-                <td>{exp['expediente']}</td>
-                <td>{exp['fecha_inicio_oferta']}</td>
-                <td>{exp['estado']}</td>
-                <td>{exp['responsable']}</td>
-                <td>{exp['descripcion']}</td>
+                <td>{safe_str(exp['expediente'])}</td>
+                <td>{safe_str(exp['fecha_inicio_oferta'])}</td>
+                <td>{safe_str(exp['estado'])}</td>
+                <td>{safe_str(exp['responsable'])}</td>
+                <td>{safe_str(exp['descripcion'])}</td>
             </tr>
             """
         
         html += "</table>"
         return html
     
-    def _generate_html_footer(self) -> str:
-        """Generar pie HTML"""
-        return """
-        </body>
-        </html>
+    def register_email_sent(self, to_email: str, subject: str, body: str) -> bool:
         """
-    
-    def register_email_sent(self, recipients: str, subject: str, body: str) -> bool:
-        """
-        Registrar envío de correo en la base de datos
+        Registrar email enviado en la base de datos
         
         Args:
-            recipients: Destinatarios del correo
-            subject: Asunto del correo
-            body: Cuerpo del correo
+            to_email: Email de destino
+            subject: Asunto del email
+            body: Cuerpo del email
             
         Returns:
             True si se registró correctamente, False en caso contrario
         """
         try:
-            if config.database_mode == 'sqlite':
-                cursor = self.correos_conn.cursor()
-            else:
-                cursor = self.correos_conn.get_cursor()
+            cursor = self.correos_conn.get_cursor()
             
+            # Insertar registro en TbCorreosEnviados
             query = """
-                INSERT INTO correos_enviados 
-                (fecha_envio, destinatarios, asunto, cuerpo, modulo)
+                INSERT INTO TbCorreosEnviados 
+                (FechaEnvio, Para, Asunto, Cuerpo, TipoTarea)
                 VALUES (?, ?, ?, ?, ?)
             """
             
             cursor.execute(query, (
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                recipients,
+                datetime.now(),
+                to_email,
                 subject,
                 body,
-                'expedientes'
+                'expedientes_diario'
             ))
             
-            if config.database_mode == 'sqlite':
-                self.correos_conn.commit()
-            else:
-                self.correos_conn.commit()
-                
-            logger.info("Registro de correo guardado correctamente")
+            self.correos_conn.commit()
+            logger.info(f"Email registrado correctamente para {to_email}")
             return True
             
         except Exception as e:
-            logger.error(f"Error registrando envío de correo: {e}")
+            logger.error(f"Error registrando email enviado: {e}")
             return False
     
     def execute_daily_task(self) -> bool:
@@ -549,19 +494,19 @@ class ExpedientesManager:
             
             # Enviar correo con el reporte
             subject = f"Reporte Diario de Expedientes - {format_date(datetime.now())}"
-            recipients = [config.default_recipient]
+            to_address = config.default_recipient
             
             success = send_email(
-                recipients=recipients,
+                to_address=to_address,
                 subject=subject,
                 body=html_report,
                 is_html=True
             )
             
             if success:
-                # Registrar envío
+                # Registrar envío usando el método de la clase
                 self.register_email_sent(
-                    recipients=", ".join(recipients),
+                    to_email=to_address,
                     subject=subject,
                     body=html_report
                 )

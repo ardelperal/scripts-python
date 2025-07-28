@@ -6,11 +6,12 @@ Este script ejecuta las tareas diarias de gestión de riesgos,
 equivalente al script VBScript GestionRiesgos.vbs.
 
 Uso:
-    python run_riesgos.py [--config CONFIG_FILE] [--verbose]
+    python run_riesgos.py [--verbose] [--force-technical] [--force-quality] [--force-monthly]
 
 Ejemplos:
     python run_riesgos.py
-    python run_riesgos.py --config config/production.json --verbose
+    python run_riesgos.py --verbose
+    python run_riesgos.py --force-technical --verbose
 """
 
 import argparse
@@ -19,10 +20,10 @@ import sys
 from pathlib import Path
 
 # Agregar el directorio src al path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from src.common.config import Config
-from src.riesgos.riesgos_manager import RiesgosManager
+from common.config import Config
+from riesgos.riesgos_manager import RiesgosManager
 
 
 def setup_logging(verbose: bool = False):
@@ -48,11 +49,6 @@ def main():
     """Función principal del script."""
     parser = argparse.ArgumentParser(
         description='Ejecuta las tareas de gestión de riesgos'
-    )
-    parser.add_argument(
-        '--config',
-        default='config/config.json',
-        help='Archivo de configuración (default: config/config.json)'
     )
     parser.add_argument(
         '--verbose',
@@ -83,8 +79,8 @@ def main():
     
     try:
         # Cargar configuración
-        config = Config.from_file(args.config)
-        logger.info(f"Configuración cargada desde: {args.config}")
+        from common.config import config
+        logger.info(f"Configuración cargada para entorno: {config.environment}")
         
         # Crear manager de riesgos
         manager = RiesgosManager(config)
@@ -137,9 +133,6 @@ def main():
         
         return 0
         
-    except FileNotFoundError:
-        logger.error(f"Archivo de configuración no encontrado: {args.config}")
-        return 1
     except Exception as e:
         logger.error(f"Error inesperado: {e}", exc_info=True)
         return 1

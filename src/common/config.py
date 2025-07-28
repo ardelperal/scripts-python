@@ -25,11 +25,15 @@ class Config:
             self.db_brass_path = self.root_dir / os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb')
             self.db_tareas_path = self.root_dir / os.getenv('LOCAL_DB_TAREAS', 'dbs-locales/Tareas_datos1.accdb')
             self.db_correos_path = self.root_dir / os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb')
+            self.db_riesgos_path = self.root_dir / os.getenv('LOCAL_DB_RIESGOS', 'dbs-locales/Gestion_Riesgos_Datos.accdb')
+            self.db_expedientes_path = self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
             self.css_file_path = self.root_dir / os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt')
         else:  # oficina
             self.db_brass_path = Path(os.getenv('OFFICE_DB_BRASS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Gestion_Brass_Gestion_Datos.accdb'))
             self.db_tareas_path = Path(os.getenv('OFFICE_DB_TAREAS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb'))
             self.db_correos_path = Path(os.getenv('OFFICE_DB_CORREOS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\correos_datos.accdb'))
+            self.db_riesgos_path = Path(os.getenv('OFFICE_DB_RIESGOS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\GESTION RIESGOS\Gestion_Riesgos_Datos.accdb'))
+            self.db_expedientes_path = Path(os.getenv('OFFICE_DB_EXPEDIENTES', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Expedientes_datos.accdb'))
             self.css_file_path = Path(os.getenv('OFFICE_CSS_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
         
         # Directorio para logs
@@ -70,6 +74,13 @@ class Config:
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
         self.log_file = self.logs_dir / os.getenv('LOG_FILE', 'app.log')
         
+        # IDs de Aplicaciones
+        self.app_id_agedys = int(os.getenv('APP_ID_AGEDYS', '3'))
+        self.app_id_brass = int(os.getenv('APP_ID_BRASS', '6'))
+        self.app_id_riesgos = int(os.getenv('APP_ID_RIESGOS', '5'))
+        self.app_id_noconformidades = int(os.getenv('APP_ID_NOCONFORMIDADES', '8'))
+        self.app_id_expedientes = int(os.getenv('APP_ID_EXPEDIENTES', '19'))
+        
         # Crear directorios necesarios
         self._ensure_directories()
         
@@ -85,6 +96,10 @@ class Config:
             return self.db_tareas_path
         elif db_type == 'correos':
             return self.db_correos_path
+        elif db_type == 'riesgos':
+            return self.db_riesgos_path
+        elif db_type == 'expedientes':
+            return self.db_expedientes_path
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
         
@@ -102,6 +117,14 @@ class Config:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_correos_path};PWD={self.db_password};"
         else:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_correos_path};"
+
+    def get_db_riesgos_connection_string(self) -> str:
+        """Retorna la cadena de conexión para la base de datos de Riesgos"""
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_riesgos_path};PWD={self.db_password};"
+
+    def get_db_expedientes_connection_string(self) -> str:
+        """Retorna la cadena de conexión para la base de datos de Expedientes"""
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_expedientes_path};PWD={self.db_password};"
 
 
 # Instancia global de configuración

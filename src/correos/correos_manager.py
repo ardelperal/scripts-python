@@ -4,7 +4,6 @@ Adaptación del script legacy EnviarCorreoNoEnviado.vbs
 """
 import smtplib
 import logging
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from email.mime.multipart import MIMEMultipart
@@ -29,6 +28,9 @@ class CorreosManager:
         self.smtp_user = config.smtp_user
         self.smtp_password = getattr(config, 'smtp_password', None)
         self.smtp_tls = getattr(config, 'smtp_tls', False)
+        
+        # Conexión a base de datos Access
+        self.db_conn = AccessDatabase(config.get_db_correos_connection_string())
 
     def _enviar_correo_individual(self, correo: Dict[str, Any]) -> bool:
         """
@@ -71,15 +73,12 @@ class CorreosManager:
         """
         correos_enviados = 0
         try:
-            db_path = self._get_db_path()
-            logger.info(f"Ruta de base de datos usada: {db_path}")
+            self.db_conn.connect()
+            logger.info("Conectado a base de datos Access de correos")
             
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row  # Para acceso por nombre de columna
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM TbCorreosEnviados WHERE FechaEnvio IS NULL")
-            rows = cursor.fetchall()
-            correos_pendientes = [dict(row) for row in rows]
+            # Obtener correos pendientes
+            query = "SELECT * FROM TbCorreosEnviados WHERE FechaEnvio IS NULL"
+            correos_pendientes = self.db_conn.execute_query(query)
             
             if not correos_pendientes:
                 logger.info("No hay correos pendientes de envío")
@@ -91,7 +90,7 @@ class CorreosManager:
                 logger.info(f"Procesando correo ID {correo['IDCorreo']} - Asunto: {correo['Asunto']}")
                 try:
                     if self._enviar_correo_individual(correo):
-                        self._marcar_correo_enviado(conn, correo['IDCorreo'], datetime.now())
+                        self._marcar_correo_enviado(correo['IDCorreo'], datetime.now())
                         correos_enviados += 1
                         logger.info(f"Correo enviado: ID {correo['IDCorreo']} - {correo['Asunto']}")
                     else:
@@ -99,16 +98,12 @@ class CorreosManager:
                 except Exception as e:
                     logger.error(f"Error procesando correo {correo.get('IDCorreo', 'N/A')}: {e}")
             
-            conn.close()
+            self.db_conn.disconnect()
             return correos_enviados
             
         except Exception as e:
             logger.error(f"Error en enviar_correos_no_enviados: {e}")
             return 0
-
-    def _get_db_path(self):
-        """Obtener la ruta de la base de datos SQLite"""
-        return str(self.config.sqlite_dir / 'correos_datos.sqlite')
     
     def _adjuntar_archivo(self, msg: MIMEMultipart, archivo_path: Path):
         """Adjuntar archivo al mensaje de correo"""
@@ -134,39 +129,22 @@ class CorreosManager:
             logger.error(f"Error enviando correo por SMTP: {e}")
             return False
 
-    def _marcar_correo_enviado(self, conn: sqlite3.Connection, id_correo: int, fecha_envio: datetime):
-        """Marcar correo como enviado en la base de datos"""
+    def _marcar_correo_enviado(self, id_correo: int, fecha_envio: datetime):
+        """Marcar correo como enviado en la base de datos Access"""
         try:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE TbCorreosEnviados SET FechaEnvio = ? WHERE IDCorreo = ?",
-                (fecha_envio.strftime('%Y-%m-%d %H:%M:%S'), id_correo)
-            )
-            conn.commit()
-        except Exception as e:
-            logger.error(f"Error marcando correo como enviado: {e}")
-
-    def sync_databases(self):
-        """Sincronizar bases de datos Access y SQLite (placeholder)"""
-        try:
-            logger.info("Sincronización de bases de datos no disponible en modo Access-only")
-            # En modo Access-only, no hay sincronización
-            return True
+            update_data = {
+                "FechaEnvio": fecha_envio
+            }
+            where_clause = f"IDCorreo = {id_correo}"
+            
+            success = self.db_conn.update_record("TbCorreosEnviados", update_data, where_clause)
+            if success:
+                logger.info(f"Correo ID {id_correo} marcado como enviado")
+            else:
+                logger.error(f"Error marcando correo ID {id_correo} como enviado")
                 
         except Exception as e:
-            logger.error(f"Error sincronizando bases de datos: {e}")
-            return False
-
-    def sync_back_to_access(self):
-        """Sincronizar cambios de vuelta a Access (placeholder)"""
-        try:
-            logger.info("Sincronización de vuelta a Access no necesaria en modo Access-only")
-            # En modo Access-only, no hay sincronización
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error sincronizando de vuelta a Access: {e}")
-            return False
+            logger.error(f"Error marcando correo como enviado: {e}")
 
     def execute_daily_task(self) -> bool:
         """
@@ -178,15 +156,8 @@ class CorreosManager:
         try:
             logger.info("Iniciando tarea diaria de envío de correos")
             
-            # Sincronizar desde Access
-            self.sync_databases()
-            
             # Enviar correos pendientes
             enviados = self.enviar_correos_no_enviados()
-            
-            # Sincronizar de vuelta a Access
-            if enviados > 0:
-                self.sync_back_to_access()
             
             logger.info(f"Tarea diaria completada. Total de correos enviados: {enviados}")
             return True
