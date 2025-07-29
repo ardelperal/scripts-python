@@ -11,9 +11,11 @@ from dataclasses import dataclass
 from collections import defaultdict
 
 from ..common.database import get_database_instance
-from ..common.email_sender import EmailSender
 from ..common.config import Config
-from ..common.logger import setup_logger
+from ..common.utils import (
+    should_execute_task, get_admin_emails_string, get_quality_emails_string,
+    register_task_completion, send_email, setup_logging
+)
 
 
 @dataclass
@@ -52,17 +54,12 @@ class NoConformidadesManager:
     
     def __init__(self):
         self.config = Config()
-        self.logger = setup_logger(__name__)
-        self.email_sender = EmailSender()
+        setup_logging()
+        self.logger = logging.getLogger(__name__)
         
         # Bases de datos
         self.db_nc = None
         self.db_tareas = None
-        
-        # Colecciones de usuarios
-        self.usuarios_administradores: List[Usuario] = []
-        self.usuarios_calidad: List[Usuario] = []
-        self.usuarios_tecnicos: List[Usuario] = []
         
         # Configuración de días
         self.dias_alerta_arapc = 15
@@ -96,51 +93,18 @@ class NoConformidadesManager:
         except Exception as e:
             self.logger.error(f"Error cerrando conexiones: {e}")
     
-    def cargar_usuarios(self):
-        """Carga los usuarios del sistema por categorías"""
-        try:
-            # Cargar usuarios administradores
-            sql_admin = """
-                SELECT UsuarioRed, Nombre, CorreoUsuario 
-                FROM TbUsuarios 
-                WHERE EsAdministrador = True
-            """
-            admin_records = self.db_nc.execute_query(sql_admin)
-            self.usuarios_administradores = [
-                Usuario(record[0], record[1], record[2]) 
-                for record in admin_records
-            ]
-            
-            # Cargar usuarios de calidad
-            sql_calidad = """
-                SELECT UsuarioRed, Nombre, CorreoUsuario 
-                FROM TbUsuarios 
-                WHERE EsCalidad = True
-            """
-            calidad_records = self.db_nc.execute_query(sql_calidad)
-            self.usuarios_calidad = [
-                Usuario(record[0], record[1], record[2]) 
-                for record in calidad_records
-            ]
-            
-            # Cargar usuarios técnicos
-            sql_tecnicos = """
-                SELECT UsuarioRed, Nombre, CorreoUsuario 
-                FROM TbUsuarios 
-                WHERE EsTecnico = True
-            """
-            tecnicos_records = self.db_nc.execute_query(sql_tecnicos)
-            self.usuarios_tecnicos = [
-                Usuario(record[0], record[1], record[2]) 
-                for record in tecnicos_records
-            ]
-            
-            self.logger.info(f"Usuarios cargados: {len(self.usuarios_administradores)} admin, "
-                           f"{len(self.usuarios_calidad)} calidad, {len(self.usuarios_tecnicos)} técnicos")
-            
-        except Exception as e:
-            self.logger.error(f"Error cargando usuarios: {e}")
-            raise
+    def __enter__(self):
+        """Context manager entry - conecta a las bases de datos"""
+        self.conectar_bases_datos()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - desconecta de las bases de datos"""
+        self.desconectar_bases_datos()
+        if exc_type:
+            self.logger.error(f"Error en context manager: {exc_val}")
+    
+
     
     def obtener_nc_resueltas_pendientes_eficacia(self) -> List[NoConformidad]:
         """Obtiene NCs resueltas pendientes de control de eficacia"""
@@ -280,94 +244,406 @@ class NoConformidadesManager:
             self.logger.error(f"Error obteniendo NCs sin acciones: {e}")
             return []
     
-    def determinar_si_requiere_tarea_calidad(self) -> bool:
-        """Determina si se requiere ejecutar la tarea de calidad"""
+    def obtener_usuarios_arapc_por_caducar(self) -> Dict[str, List[str]]:
+        """Obtiene usuarios con ARAPs próximas a caducar agrupadas por tipo de alerta"""
         try:
-            # Verificar última ejecución de tarea de calidad
-            sql = """
-                SELECT MAX(FechaEjecucion) 
-                FROM TbTareas 
-                WHERE NombreTarea = 'NoConformidadesCalidad'
+            usuarios_alertas = {
+                '15': [],  # 8-15 días
+                '7': [],   # 1-7 días  
+                '0': []    # Vencidas (<=0 días)
+            }
+            
+            # Base SQL común
+            sql_base = """
+                SELECT DISTINCT nc.RESPONSABLETELEFONICA
+                FROM TbNoConformidades nc
+                INNER JOIN TbNCAccionCorrectivas ac ON nc.IDNoConformidad = ac.IDNoConformidad
+                INNER JOIN TbNCAccionesRealizadas ar ON ac.IDAccionCorrectiva = ar.IDAccionCorrectiva
+                LEFT JOIN TbNCARAvisos av ON ar.IDAccionRealizada = av.IDAR
+                WHERE ar.FechaFinReal IS NULL
             """
             
-            result = self.db_tareas.execute_query(sql)
-            if result and result[0] and result[0][0]:
-                ultima_ejecucion = result[0][0]
-                dias_desde_ultima = (datetime.now() - ultima_ejecucion).days
-                
-                # Ejecutar cada 7 días
-                requiere = dias_desde_ultima >= 7
-                self.logger.info(f"Última ejecución tarea calidad: {ultima_ejecucion}, "
-                               f"días transcurridos: {dias_desde_ultima}, requiere: {requiere}")
-                return requiere
-            else:
-                # Si no hay registro previo, ejecutar
-                self.logger.info("No hay registro previo de tarea de calidad, se requiere ejecutar")
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error determinando si requiere tarea calidad: {e}")
-            return True
-    
-    def determinar_si_requiere_tarea_tecnica(self) -> bool:
-        """Determina si se requiere ejecutar la tarea técnica"""
-        try:
-            # Verificar última ejecución de tarea técnica
-            sql = """
-                SELECT MAX(FechaEjecucion) 
-                FROM TbTareas 
-                WHERE NombreTarea = 'NoConformidadesTecnica'
+            # Alertas de 15 días (8-15 días para vencer)
+            sql_15 = sql_base + """
+                AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) BETWEEN 8 AND 15
+                AND av.IDCorreo15 IS NULL
+                AND nc.RESPONSABLETELEFONICA IS NOT NULL
             """
             
-            result = self.db_tareas.execute_query(sql)
-            if result and result[0] and result[0][0]:
-                ultima_ejecucion = result[0][0]
-                dias_desde_ultima = (datetime.now() - ultima_ejecucion).days
-                
-                # Ejecutar cada 3 días
-                requiere = dias_desde_ultima >= 3
-                self.logger.info(f"Última ejecución tarea técnica: {ultima_ejecucion}, "
-                               f"días transcurridos: {dias_desde_ultima}, requiere: {requiere}")
-                return requiere
+            records = self.db_nc.execute_query(sql_15)
+            usuarios_alertas['15'] = [record[0] for record in records if record[0]]
+            
+            # Alertas de 7 días (1-7 días para vencer)
+            sql_7 = sql_base + """
+                AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) BETWEEN 1 AND 7
+                AND av.IDCorreo7 IS NULL
+                AND nc.RESPONSABLETELEFONICA IS NOT NULL
+            """
+            
+            records = self.db_nc.execute_query(sql_7)
+            usuarios_alertas['7'] = [record[0] for record in records if record[0]]
+            
+            # Alertas de vencimiento (<=0 días)
+            sql_0 = sql_base + """
+                AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) <= 0
+                AND av.IDCorreo0 IS NULL
+                AND nc.RESPONSABLETELEFONICA IS NOT NULL
+            """
+            
+            records = self.db_nc.execute_query(sql_0)
+            usuarios_alertas['0'] = [record[0] for record in records if record[0]]
+            
+            total_usuarios = sum(len(usuarios) for usuarios in usuarios_alertas.values())
+            self.logger.info(f"Encontrados {total_usuarios} usuarios con ARAPs por caducar")
+            
+            return usuarios_alertas
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo usuarios con ARAPs por caducar: {e}")
+            return {'15': [], '7': [], '0': []}
+    
+    def obtener_arapc_usuario_por_tipo(self, usuario: str, tipo_alerta: str) -> List[Dict]:
+        """Obtiene las ARAPs de un usuario específico por tipo de alerta"""
+        try:
+            sql_base = """
+                SELECT DISTINCT nc.CodigoNoConformidad, ac.AccionCorrectiva, ar.AccionRealizada,
+                       ar.FechaInicio, ar.FechaFinPrevista, DATEDIFF('d', NOW(), ar.FechaFinPrevista) AS DiasParaCaducar,
+                       u.Nombre, exp.Nemotecnico, ar.IDAccionRealizada
+                FROM TbNoConformidades nc
+                LEFT JOIN TbUsuariosAplicaciones u ON nc.RESPONSABLECALIDAD = u.UsuarioRed
+                INNER JOIN TbNCAccionCorrectivas ac ON nc.IDNoConformidad = ac.IDNoConformidad
+                INNER JOIN TbNCAccionesRealizadas ar ON ac.IDAccionCorrectiva = ar.IDAccionCorrectiva
+                LEFT JOIN TbNCARAvisos av ON ar.IDAccionRealizada = av.IDAR
+                LEFT JOIN TbExpedientes exp ON nc.IDExpediente = exp.IDExpediente
+                WHERE ar.FechaFinReal IS NULL
+                AND nc.RESPONSABLETELEFONICA = ?
+            """
+            
+            if tipo_alerta == "15":
+                sql_where = " AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) BETWEEN 8 AND 15 AND av.IDCorreo15 IS NULL"
+            elif tipo_alerta == "7":
+                sql_where = " AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) BETWEEN 1 AND 7 AND av.IDCorreo7 IS NULL"
+            elif tipo_alerta == "0":
+                sql_where = " AND DATEDIFF('d', NOW(), ar.FechaFinPrevista) <= 0 AND av.IDCorreo0 IS NULL"
             else:
-                # Si no hay registro previo, ejecutar
-                self.logger.info("No hay registro previo de tarea técnica, se requiere ejecutar")
-                return True
+                return []
+            
+            sql = sql_base + sql_where
+            records = self.db_nc.execute_query(sql, [usuario])
+            
+            arapcs = []
+            for record in records:
+                arapc_data = {
+                    'codigo_nc': record[0] or "",
+                    'accion_correctiva': record[1] or "",
+                    'accion_realizada': record[2] or "",
+                    'fecha_inicio': record[3],
+                    'fecha_fin_prevista': record[4],
+                    'dias_para_caducar': record[5] if record[5] is not None else 0,
+                    'responsable_calidad': record[6] or "",
+                    'nemotecnico': record[7] or "",
+                    'id_accion_realizada': record[8]
+                }
+                arapcs.append(arapc_data)
+            
+            return arapcs
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo ARAPs del usuario {usuario} tipo {tipo_alerta}: {e}")
+            return []
+    
+    def obtener_correo_usuario(self, usuario_red: str) -> str:
+        """Obtiene el correo electrónico de un usuario"""
+        try:
+            sql = """
+                SELECT CorreoUsuario
+                FROM TbUsuariosAplicaciones
+                WHERE UsuarioRed = ?
+            """
+            
+            records = self.db_nc.execute_query(sql, [usuario_red])
+            if records and records[0] and records[0][0]:
+                return records[0][0]
+            
+            return ""
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo correo del usuario {usuario_red}: {e}")
+            return ""
+    
+    def obtener_correo_calidad_nc(self, codigo_nc: str) -> str:
+        """Obtiene el correo del responsable de calidad de una NC"""
+        try:
+            sql = """
+                SELECT u.CorreoUsuario
+                FROM TbNoConformidades nc
+                LEFT JOIN TbUsuariosAplicaciones u ON nc.RESPONSABLECALIDAD = u.UsuarioRed
+                WHERE nc.CodigoNoConformidad = ?
+            """
+            
+            records = self.db_nc.execute_query(sql, [codigo_nc])
+            if records and records[0] and records[0][0]:
+                return records[0][0]
+            
+            return ""
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo correo de calidad para NC {codigo_nc}: {e}")
+            return ""
+    
+    def obtener_correos_calidad_multiples(self, arapcs_15: List[Dict], arapcs_0: List[Dict]) -> str:
+        """Obtiene los correos de calidad únicos de múltiples ARAPs"""
+        try:
+            correos_unicos = set()
+            
+            # Procesar ARAPs de 15 días
+            for arapc in arapcs_15:
+                correo = self.obtener_correo_calidad_nc(arapc.get('codigo_nc', ''))
+                if correo:
+                    correos_unicos.add(correo)
+            
+            # Procesar ARAPs vencidas
+            for arapc in arapcs_0:
+                correo = self.obtener_correo_calidad_nc(arapc.get('codigo_nc', ''))
+                if correo:
+                    correos_unicos.add(correo)
+            
+            return ";".join(correos_unicos) if correos_unicos else ""
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo correos de calidad múltiples: {e}")
+            return ""
+    
+    def marcar_aviso_arapc_enviado(self, id_accion_realizada: int, tipo_alerta: str, id_correo: int):
+        """Marca un aviso ARAPC como enviado"""
+        try:
+            # Verificar si ya existe el registro
+            sql_check = "SELECT ID FROM TbNCARAvisos WHERE IDAR = ?"
+            records = self.db_nc.execute_query(sql_check, [id_accion_realizada])
+            
+            if records:
+                # Actualizar registro existente
+                if tipo_alerta == "15":
+                    sql_update = "UPDATE TbNCARAvisos SET IDCorreo15 = ? WHERE IDAR = ?"
+                elif tipo_alerta == "7":
+                    sql_update = "UPDATE TbNCARAvisos SET IDCorreo7 = ? WHERE IDAR = ?"
+                elif tipo_alerta == "0":
+                    sql_update = "UPDATE TbNCARAvisos SET IDCorreo0 = ? WHERE IDAR = ?"
+                else:
+                    return
                 
+                self.db_nc.execute_query(sql_update, [id_correo, id_accion_realizada])
+            else:
+                # Crear nuevo registro
+                nuevo_id = self.obtener_siguiente_id_avisos()
+                sql_insert = "INSERT INTO TbNCARAvisos (ID, IDAR"
+                values = [nuevo_id, id_accion_realizada]
+                
+                if tipo_alerta == "15":
+                    sql_insert += ", IDCorreo15"
+                    values.append(id_correo)
+                elif tipo_alerta == "7":
+                    sql_insert += ", IDCorreo7"
+                    values.append(id_correo)
+                elif tipo_alerta == "0":
+                    sql_insert += ", IDCorreo0"
+                    values.append(id_correo)
+                
+                sql_insert += ") VALUES (" + ",".join(["?"] * len(values)) + ")"
+                self.db_nc.execute_query(sql_insert, values)
+            
+            self.logger.info(f"Aviso ARAPC marcado como enviado: ID={id_accion_realizada}, Tipo={tipo_alerta}")
+            
         except Exception as e:
-            self.logger.error(f"Error determinando si requiere tarea técnica: {e}")
+            self.logger.error(f"Error marcando aviso ARAPC como enviado: {e}")
+    
+    def obtener_siguiente_id_correo(self) -> int:
+        """Obtiene el siguiente ID disponible para correos"""
+        try:
+            sql = "SELECT MAX(IDCorreo) AS Maximo FROM TbCorreosEnviados"
+            records = self.db_tareas.execute_query(sql)
+            
+            if records and records[0] and records[0][0] is not None:
+                return records[0][0] + 1
+            
+            return 1
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo siguiente ID de correo: {e}")
+            return 1
+    
+    def obtener_siguiente_id_avisos(self) -> int:
+        """Obtiene el siguiente ID disponible para avisos"""
+        try:
+            sql = "SELECT MAX(ID) AS Maximo FROM TbNCARAvisos"
+            records = self.db_nc.execute_query(sql)
+            
+            if records and records[0] and records[0][0] is not None:
+                return records[0][0] + 1
+            
+            return 1
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo siguiente ID de avisos: {e}")
+            return 1
+    
+    def registrar_correo_enviado(self, asunto: str, cuerpo: str, destinatarios: str, 
+                                correo_calidad: str = "") -> int:
+        """Registra un correo como enviado en la base de datos"""
+        try:
+            id_correo = self.obtener_siguiente_id_correo()
+            
+            sql = """
+                INSERT INTO TbCorreosEnviados 
+                (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosConCopiaOculta, FechaGrabacion)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            admin_emails = get_admin_emails_string()
+            
+            self.db_tareas.execute_query(sql, [
+                id_correo,
+                "NC",
+                asunto,
+                cuerpo,
+                destinatarios if "@" in destinatarios else "",
+                admin_emails,
+                datetime.now()
+            ])
+            
+            self.logger.info(f"Correo registrado con ID: {id_correo}")
+            return id_correo
+            
+        except Exception as e:
+            self.logger.error(f"Error registrando correo enviado: {e}")
+            return 0
+    
+    def es_dia_entre_semana(self) -> bool:
+        """Verifica si hoy es día entre semana (lunes a viernes)"""
+        hoy = datetime.now().weekday()  # 0=lunes, 6=domingo
+        return 0 <= hoy <= 4  # lunes a viernes
+    
+    def requiere_tarea_calidad(self) -> bool:
+        """Determina si se requiere ejecutar la tarea de calidad (lunes)"""
+        try:
+            hoy = datetime.now()
+            
+            # Verificar si es lunes (weekday 0)
+            if hoy.weekday() != 0:
+                return False
+            
+            # Verificar última ejecución
+            ultima_ejecucion = self.obtener_ultima_ejecucion_calidad()
+            
+            if not ultima_ejecucion:
+                return True
+            
+            # Si ya se ejecutó hoy, no ejecutar
+            if ultima_ejecucion.date() == hoy.date():
+                return False
+            
             return True
-    
-    def obtener_cadena_correos_administradores(self) -> str:
-        """Obtiene la cadena de correos de administradores separados por ;"""
-        if not self.usuarios_administradores:
-            return ""
-        
-        correos = [usuario.correo for usuario in self.usuarios_administradores if usuario.correo]
-        return ";".join(correos)
-    
-    def obtener_cadena_correos_calidad(self) -> str:
-        """Obtiene la cadena de correos de calidad separados por ;"""
-        if not self.usuarios_calidad:
-            return ""
-        
-        correos = [usuario.correo for usuario in self.usuarios_calidad if usuario.correo]
-        return ";".join(correos)
-    
-    def registrar_tarea_calidad(self):
-        """Registra la ejecución de la tarea de calidad"""
-        try:
-            from ..common.task_manager import register_task_completion
-            register_task_completion("NoConformidadesCalidad")
-            self.logger.info("Tarea de calidad registrada correctamente")
+            
         except Exception as e:
-            self.logger.error(f"Error registrando tarea de calidad: {e}")
+            self.logger.error(f"Error verificando si requiere tarea de calidad: {e}")
+            return False
     
-    def registrar_tarea_tecnica(self):
-        """Registra la ejecución de la tarea técnica"""
+    def requiere_tarea_tecnica(self) -> bool:
+        """Determina si se requiere ejecutar la tarea técnica (cada cierto número de días)"""
         try:
-            from ..common.task_manager import register_task_completion
-            register_task_completion("NoConformidadesTecnica")
-            self.logger.info("Tarea técnica registrada correctamente")
+            dias_necesarios = 7  # Configurar según necesidades
+            
+            ultima_ejecucion = self.obtener_ultima_ejecucion_tecnica()
+            
+            if not ultima_ejecucion:
+                return True
+            
+            dias_transcurridos = (datetime.now() - ultima_ejecucion).days
+            
+            return dias_transcurridos >= dias_necesarios
+            
         except Exception as e:
-            self.logger.error(f"Error registrando tarea técnica: {e}")
+            self.logger.error(f"Error verificando si requiere tarea técnica: {e}")
+            return False
+    
+    def obtener_ultima_ejecucion_calidad(self) -> Optional[datetime]:
+        """Obtiene la fecha de la última ejecución de tarea de calidad"""
+        try:
+            sql = """
+                SELECT MAX(FechaEjecucion)
+                FROM TbEjecucionesTareas
+                WHERE TipoTarea = 'CALIDAD_NC'
+            """
+            
+            records = self.db_tareas.execute_query(sql)
+            if records and records[0] and records[0][0]:
+                return records[0][0]
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo última ejecución de calidad: {e}")
+            return None
+    
+    def obtener_ultima_ejecucion_tecnica(self) -> Optional[datetime]:
+        """Obtiene la fecha de la última ejecución de tarea técnica"""
+        try:
+            sql = """
+                SELECT MAX(FechaEjecucion)
+                FROM TbEjecucionesTareas
+                WHERE TipoTarea = 'TECNICA_NC'
+            """
+            
+            records = self.db_tareas.execute_query(sql)
+            if records and records[0] and records[0][0]:
+                return records[0][0]
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo última ejecución técnica: {e}")
+            return None
+    
+    def obtener_estadisticas_nc(self) -> Dict[str, int]:
+        """Obtiene estadísticas de NCs para reportes"""
+        try:
+            estadisticas = {}
+            
+            # NCs cerradas en los últimos 30 días
+            sql_cerradas = """
+                SELECT COUNT(nc.IDNoConformidad) AS Cuenta
+                FROM TbNoConformidades nc
+                INNER JOIN TbNCAccionCorrectivas ac ON nc.IDNoConformidad = ac.IDNoConformidad
+                INNER JOIN TbNCAccionesRealizadas ar ON ac.IDAccionCorrectiva = ar.IDAccionCorrectiva
+                WHERE ar.FechaFinReal IS NOT NULL
+                AND DATEDIFF('d', nc.FECHACIERRE, NOW()) BETWEEN 0 AND 30
+            """
+            
+            records = self.db_nc.execute_query(sql_cerradas)
+            estadisticas['nc_cerradas'] = records[0][0] if records and records[0] else 0
+            
+            # NCs abiertas en los últimos 30 días
+            sql_abiertas = """
+                SELECT COUNT(IDNoConformidad) AS Cuenta
+                FROM TbNoConformidades
+                WHERE DATEDIFF('d', FECHAAPERTURA, NOW()) BETWEEN 0 AND 30
+            """
+            
+            records = self.db_nc.execute_query(sql_abiertas)
+            estadisticas['nc_abiertas'] = records[0][0] if records and records[0] else 0
+            
+            # Replanificaciones en los últimos 30 días
+            sql_replanif = """
+                SELECT COUNT(IDReplanificacion) AS Cuenta
+                FROM TbReplanificacionesProyecto
+                WHERE DATEDIFF('d', FechaReprogramacion, NOW()) BETWEEN 0 AND 30
+            """
+            
+            records = self.db_nc.execute_query(sql_replanif)
+            estadisticas['replanificaciones'] = records[0][0] if records and records[0] else 0
+            
+            return estadisticas
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estadísticas de NC: {e}")
+            return {'nc_cerradas': 0, 'nc_abiertas': 0, 'replanificaciones': 0}

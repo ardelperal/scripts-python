@@ -7,19 +7,15 @@ import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 
-from ..common.email_sender import EmailSender
-from ..common.logger import setup_logger
+from ..common.base_email_manager import BaseEmailNotificationManager
 from .no_conformidades_manager import NoConformidad, ARAPC, Usuario
-from .html_report_generator import HTMLReportGenerator
 
 
-class EmailNotificationManager:
+class EmailNotificationManager(BaseEmailNotificationManager):
     """Gestor de notificaciones por email para No Conformidades"""
     
     def __init__(self):
-        self.email_sender = EmailSender()
-        self.html_generator = HTMLReportGenerator()
-        self.logger = setup_logger(__name__)
+        super().__init__("No Conformidades")
     
     def enviar_notificacion_calidad(self, 
                                   ncs_eficacia: List[NoConformidad],
@@ -29,8 +25,8 @@ class EmailNotificationManager:
                                   destinatarios_admin: str) -> bool:
         """Envía notificación de calidad con el reporte de NCs"""
         try:
-            # Generar el reporte HTML
-            html_content = self.html_generator.generar_reporte_completo(
+            # Generar el reporte HTML usando la funcionalidad común
+            html_content = self.generate_module_report(
                 ncs_eficacia=ncs_eficacia,
                 arapcs=[],  # No incluir ARAPs en reporte de calidad
                 ncs_caducar=ncs_caducar,
@@ -41,7 +37,6 @@ class EmailNotificationManager:
             # Preparar el asunto
             fecha_actual = datetime.now().strftime("%d/%m/%Y")
             total_items = len(ncs_eficacia) + len(ncs_caducar) + len(ncs_sin_acciones)
-            
             asunto = f"Reporte Calidad NC - {fecha_actual} ({total_items} elementos)"
             
             # Preparar destinatarios
@@ -54,24 +49,12 @@ class EmailNotificationManager:
             # Limpiar destinatarios vacíos
             destinatarios = [d.strip() for d in destinatarios if d.strip()]
             
-            if not destinatarios:
-                self.logger.warning("No hay destinatarios para el reporte de calidad")
-                return False
-            
-            # Enviar el email
-            resultado = self.email_sender.send_email(
+            # Usar la funcionalidad común para enviar el reporte
+            return self.send_html_report(
                 to_addresses=destinatarios,
                 subject=asunto,
-                body=html_content,
-                is_html=True
+                html_content=html_content
             )
-            
-            if resultado:
-                self.logger.info(f"Reporte de calidad enviado a {len(destinatarios)} destinatarios")
-                return True
-            else:
-                self.logger.error("Error enviando reporte de calidad")
-                return False
                 
         except Exception as e:
             self.logger.error(f"Error enviando notificación de calidad: {e}")
@@ -83,8 +66,8 @@ class EmailNotificationManager:
                                   destinatarios_admin: str) -> bool:
         """Envía notificación técnica con ARAPs próximas a vencer"""
         try:
-            # Generar el reporte HTML solo con ARAPs
-            html_content = self.html_generator.generar_reporte_completo(
+            # Generar el reporte HTML usando la funcionalidad común
+            html_content = self.generate_module_report(
                 ncs_eficacia=[],
                 arapcs=arapcs,
                 ncs_caducar=[],
@@ -114,24 +97,12 @@ class EmailNotificationManager:
             # Limpiar destinatarios vacíos
             destinatarios = [d.strip() for d in destinatarios if d.strip()]
             
-            if not destinatarios:
-                self.logger.warning("No hay destinatarios para el reporte técnico")
-                return False
-            
-            # Enviar el email
-            resultado = self.email_sender.send_email(
+            # Usar la funcionalidad común para enviar el reporte
+            return self.send_html_report(
                 to_addresses=destinatarios,
                 subject=asunto,
-                body=html_content,
-                is_html=True
+                html_content=html_content
             )
-            
-            if resultado:
-                self.logger.info(f"Reporte técnico enviado a {len(destinatarios)} destinatarios")
-                return True
-            else:
-                self.logger.error("Error enviando reporte técnico")
-                return False
                 
         except Exception as e:
             self.logger.error(f"Error enviando notificación técnica: {e}")
@@ -140,7 +111,7 @@ class EmailNotificationManager:
     def enviar_notificacion_individual_arapc(self, 
                                            arapc: ARAPC, 
                                            usuario_responsable: Usuario) -> bool:
-        """Envía notificación individual a responsable de ARAPC"""
+        """Envía notificación individual a responsable de ARAPC usando funciones comunes"""
         try:
             if not usuario_responsable.correo:
                 self.logger.warning(f"Usuario {usuario_responsable.nombre} no tiene correo configurado")
@@ -149,7 +120,7 @@ class EmailNotificationManager:
             # Calcular días restantes
             dias_restantes = (arapc.fecha_fin_prevista - datetime.now()).days if arapc.fecha_fin_prevista else 0
             
-            # Preparar el contenido del email
+            # Preparar el contenido del email usando funciones comunes
             if dias_restantes < 0:
                 estado = f"VENCIDA hace {abs(dias_restantes)} días"
                 urgencia = "🔴 URGENTE - "
@@ -164,62 +135,43 @@ class EmailNotificationManager:
             
             fecha_fin = arapc.fecha_fin_prevista.strftime("%d/%m/%Y") if arapc.fecha_fin_prevista else "No definida"
             
-            body = f"""
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; }}
-                    .header {{ background-color: #4472C4; color: white; padding: 15px; text-align: center; }}
-                    .content {{ padding: 20px; }}
-                    .alert {{ background-color: #FFE6E6; border-left: 4px solid #FF0000; padding: 15px; margin: 15px 0; }}
-                    .warning {{ background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 15px; margin: 15px 0; }}
-                    .info {{ background-color: #D1ECF1; border-left: 4px solid #17A2B8; padding: 15px; margin: 15px 0; }}
-                    .details {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h2>Notificación de Acción Correctiva/Preventiva</h2>
-                </div>
+            # Usar el generador HTML común para crear el contenido
+            html_content = self.html_generator.generar_header_html("Notificación de Acción Correctiva/Preventiva")
+            
+            # Agregar contenido específico
+            tipo_alerta = "alert" if dias_restantes < 0 else "warning" if dias_restantes <= 3 else "info"
+            html_content += f"""
                 <div class="content">
                     <p>Estimado/a {usuario_responsable.nombre},</p>
                     
-                    {'<div class="alert">' if dias_restantes < 0 else '<div class="warning">' if dias_restantes <= 3 else '<div class="info">'}
+                    <div class="{tipo_alerta}">
                         <strong>Su acción correctiva/preventiva {estado.upper()}</strong>
                     </div>
                     
-                    <div class="details">
-                        <h3>Detalles de la Acción:</h3>
-                        <p><strong>ID Acción:</strong> {arapc.id_accion}</p>
-                        <p><strong>No Conformidad:</strong> {arapc.codigo_nc}</p>
-                        <p><strong>Descripción:</strong> {arapc.descripcion}</p>
-                        <p><strong>Fecha Fin Prevista:</strong> {fecha_fin}</p>
-                        <p><strong>Estado:</strong> {estado}</p>
-                    </div>
+                    <div class="section-title">Detalles de la Acción</div>
+                    <table class="table">
+                        <tr><td><strong>ID Acción:</strong></td><td>{arapc.id_accion}</td></tr>
+                        <tr><td><strong>No Conformidad:</strong></td><td>{arapc.codigo_nc}</td></tr>
+                        <tr><td><strong>Descripción:</strong></td><td>{arapc.descripcion}</td></tr>
+                        <tr><td><strong>Fecha Fin Prevista:</strong></td><td>{fecha_fin}</td></tr>
+                        <tr><td><strong>Estado:</strong></td><td>{estado}</td></tr>
+                    </table>
                     
                     <p>Por favor, tome las acciones necesarias para completar esta tarea.</p>
                     
                     <p>Saludos cordiales,<br>
                     Sistema de Gestión de No Conformidades</p>
                 </div>
-            </body>
-            </html>
             """
             
-            # Enviar el email
-            resultado = self.email_sender.send_email(
+            html_content += self.html_generator.generar_footer_html()
+            
+            # Usar la funcionalidad común para enviar el email
+            return self.send_html_report(
                 to_addresses=[usuario_responsable.correo],
                 subject=asunto,
-                body=body,
-                is_html=True
+                html_content=html_content
             )
-            
-            if resultado:
-                self.logger.info(f"Notificación individual enviada a {usuario_responsable.correo} para ARAPC {arapc.id_accion}")
-                return True
-            else:
-                self.logger.error(f"Error enviando notificación individual a {usuario_responsable.correo}")
-                return False
                 
         except Exception as e:
             self.logger.error(f"Error enviando notificación individual ARAPC: {e}")
@@ -259,17 +211,51 @@ class EmailNotificationManager:
         
         return resultados
     
-    def marcar_email_como_enviado(self, tipo_email: str, fecha: datetime = None) -> bool:
-        """Marca un email como enviado en el sistema de control"""
+    # Implementación de métodos abstractos de la clase base
+    def get_admin_emails(self) -> List[str]:
+        """Obtiene la lista de emails de administradores para No Conformidades"""
         try:
-            if fecha is None:
-                fecha = datetime.now()
+            from ..common.utils import get_admin_users
+            from .no_conformidades_manager import NoConformidadesManager
             
-            # Aquí se podría implementar un sistema de control de emails enviados
-            # Por ahora solo registramos en el log
-            self.logger.info(f"Email marcado como enviado: {tipo_email} - {fecha}")
-            return True
+            # Crear instancia temporal del manager para obtener conexión a BD
+            manager = NoConformidadesManager()
+            manager.conectar_bases_datos()
+            
+            try:
+                # Usar la funcionalidad común para obtener usuarios administradores
+                admin_users = get_admin_users(manager.db_tareas)
+                emails = [user['CorreoUsuario'] for user in admin_users if user.get('CorreoUsuario')]
+                
+                self.logger.info(f"Obtenidos {len(emails)} emails de administradores")
+                return emails
+                
+            finally:
+                manager.desconectar_bases_datos()
+                
+        except Exception as e:
+            self.logger.error(f"Error obteniendo emails de administradores: {e}")
+            return []
+
+    def generate_module_report(self, **kwargs) -> str:
+        """Genera un reporte HTML específico para No Conformidades usando funciones comunes"""
+        try:
+            # Extraer datos de los argumentos
+            ncs_eficacia = kwargs.get('ncs_eficacia', [])
+            arapcs = kwargs.get('arapcs', [])
+            ncs_caducar = kwargs.get('ncs_caducar', [])
+            ncs_sin_acciones = kwargs.get('ncs_sin_acciones', [])
+            titulo = kwargs.get('titulo', 'Reporte de No Conformidades')
+            
+            # Usar el generador HTML común para crear el reporte completo
+            return self.html_generator.generar_reporte_completo(
+                ncs_eficacia=ncs_eficacia,
+                arapcs=arapcs,
+                ncs_caducar=ncs_caducar,
+                ncs_sin_acciones=ncs_sin_acciones,
+                titulo=titulo
+            )
             
         except Exception as e:
-            self.logger.error(f"Error marcando email como enviado: {e}")
-            return False
+            self.logger.error(f"Error generando reporte del módulo: {e}")
+            return f"<html><body><h1>Error generando reporte</h1><p>{e}</p></body></html>"

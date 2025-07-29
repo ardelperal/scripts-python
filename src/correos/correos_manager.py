@@ -11,8 +11,8 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from typing import Any, Dict, List
 
-from common import config
-from common.database import AccessDatabase
+from ..common import config
+from ..common.database import AccessDatabase
 
 logger = logging.getLogger(__name__)
 

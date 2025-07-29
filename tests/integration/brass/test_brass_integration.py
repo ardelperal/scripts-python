@@ -1,16 +1,22 @@
-"""
-Test de integración para el módulo BRASS
-Prueba el funcionamiento completo del sistema de gestión de equipos de medida
+"""Tests de integración para el módulo BRASS
 """
 import pytest
 import sys
-from pathlib import Path
+import os
 from unittest.mock import patch, MagicMock
-from datetime import date
+from datetime import date, datetime
 
-# Añadir src al path
-src_path = Path(__file__).parent.parent.parent.parent / "src"
-sys.path.insert(0, str(src_path))
+# Agregar el directorio src al path para imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+src_dir = os.path.join(project_root, 'src')
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+from common.config import config
+from common.database import AccessDatabase
+from common.utils import load_css_content
+from brass.brass_manager import BrassManager
 
 
 class TestBrassIntegration:
@@ -18,8 +24,6 @@ class TestBrassIntegration:
     
     def test_brass_config_loading(self):
         """Test BRASS: carga correcta de configuración para equipos de medida"""
-        from common.config import config
-        
         assert config.environment in ['local', 'oficina']
         assert config.db_password == 'dpddpd'
         assert 'Gestion_Brass_Gestion_Datos.accdb' in str(config.db_brass_path)
@@ -27,8 +31,6 @@ class TestBrassIntegration:
     
     def test_brass_database_connection_strings(self):
         """Test BRASS: generación correcta de cadenas de conexión para bases de datos de equipos"""
-        from common.config import config
-        
         brass_conn = config.get_db_brass_connection_string()
         tareas_conn = config.get_db_tareas_connection_string()
         
@@ -47,7 +49,6 @@ class TestBrassIntegration:
         mock_db_class.return_value = mock_db
         
         with patch('common.utils.load_css_content', return_value="/* CSS test */"):
-            from brass.brass_manager import BrassManager
             manager = BrassManager()
             
             # Verificar que se creó el manager correctamente
@@ -65,7 +66,6 @@ class TestBrassIntegration:
         with patch('common.utils.load_css_content') as mock_css:
             mock_css.return_value = "body { margin: 0; }"
             
-            from brass.brass_manager import BrassManager
             manager = BrassManager()
             
             # Mock de todos los métodos principales de BRASS

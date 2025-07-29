@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from expedientes.expedientes_manager import ExpedientesManager
-from common.config import config
+from src.common.config import config
 
 # Configurar logging
 logging.basicConfig(

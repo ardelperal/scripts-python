@@ -92,7 +92,6 @@ class TestModuleStructure(unittest.TestCase):
         archivos_requeridos = [
             "__init__.py",
             "no_conformidades_manager.py",
-            "html_report_generator.py",
             "email_notifications.py"
         ]
         
@@ -141,7 +140,6 @@ class TestFileContent(unittest.TestCase):
             
             # Verificar que contiene las importaciones principales
             self.assertIn("NoConformidadesManager", contenido)
-            self.assertIn("HTMLReportGenerator", contenido)
             self.assertIn("EmailNotificationManager", contenido)
     
     def test_contenido_env_no_conformidades(self):

@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
-from common import config
-from common.database import AccessDatabase
-from common.utils import (
+from ..common import config
+from ..common.database import AccessDatabase
+from ..common.utils import (
     format_date, 
     send_email,
     register_email_in_database,

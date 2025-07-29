@@ -166,6 +166,7 @@ def generar_reporte_demo():
         ]
         
         # Generar reporte
+        from src.common.html_report_generator import HTMLReportGenerator
         html_generator = HTMLReportGenerator()
         
         html_completo = html_generator.generar_reporte_completo(

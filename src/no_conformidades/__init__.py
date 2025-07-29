@@ -3,7 +3,7 @@ Archivo __init__.py para el módulo de No Conformidades
 """
 
 from .no_conformidades_manager import NoConformidadesManager, NoConformidad, ARAPC, Usuario
-from .html_report_generator import HTMLReportGenerator
+from ..common.html_report_generator import HTMLReportGenerator
 from .email_notifications import EmailNotificationManager
 
 __all__ = [

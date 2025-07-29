@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from common.config import Config
-from common.database import AccessDatabase
-from common.utils import (
+from ..common.config import Config
+from ..common.database import AccessDatabase
+from ..common.utils import (
     format_date,
     send_email,
     send_notification_email,

@@ -15,7 +15,7 @@ sys.path.insert(0, project_root)
 from src.no_conformidades.no_conformidades_manager import (
     NoConformidadesManager, NoConformidad, ARAPC, Usuario
 )
-from src.no_conformidades.html_report_generator import HTMLReportGenerator
+from src.common.html_report_generator import HTMLReportGenerator
 from src.no_conformidades.email_notifications import EmailNotificationManager
 
 
@@ -116,97 +116,89 @@ class TestNoConformidadesManager(unittest.TestCase):
         mock_get_db.assert_any_call("connection_nc")
         mock_get_db.assert_any_call("connection_tareas")
     
-    def test_obtener_cadena_correos_administradores(self):
-        """Test obtener cadena de correos de administradores"""
-        # Configurar usuarios de prueba
-        self.manager.usuarios_administradores = [
-            Usuario("admin1", "Admin Uno", "admin1@empresa.com"),
-            Usuario("admin2", "Admin Dos", "admin2@empresa.com"),
-            Usuario("admin3", "Admin Tres", "")  # Sin correo
-        ]
+    @patch('src.common.utils.get_admin_emails_string')
+    def test_obtener_cadena_correos_administradores(self, mock_get_admin_emails):
+        """Test obtener cadena de correos de administradores usando función común"""
+        # Configurar mock
+        mock_get_admin_emails.return_value = "admin1@empresa.com;admin2@empresa.com"
         
-        # Ejecutar
-        cadena = self.manager.obtener_cadena_correos_administradores()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import get_admin_emails_string
+        cadena = get_admin_emails_string()
         
         # Verificar
         self.assertEqual(cadena, "admin1@empresa.com;admin2@empresa.com")
+        mock_get_admin_emails.assert_called_once()
     
-    def test_obtener_cadena_correos_calidad(self):
-        """Test obtener cadena de correos de calidad"""
-        # Configurar usuarios de prueba
-        self.manager.usuarios_calidad = [
-            Usuario("cal1", "Calidad Uno", "calidad1@empresa.com"),
-            Usuario("cal2", "Calidad Dos", "calidad2@empresa.com")
-        ]
+    @patch('src.common.utils.get_quality_emails_string')
+    def test_obtener_cadena_correos_calidad(self, mock_get_quality_emails):
+        """Test obtener cadena de correos de calidad usando función común"""
+        # Configurar mock
+        mock_get_quality_emails.return_value = "calidad1@empresa.com;calidad2@empresa.com"
         
-        # Ejecutar
-        cadena = self.manager.obtener_cadena_correos_calidad()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import get_quality_emails_string
+        cadena = get_quality_emails_string()
         
         # Verificar
         self.assertEqual(cadena, "calidad1@empresa.com;calidad2@empresa.com")
+        mock_get_quality_emails.assert_called_once()
     
-    def test_obtener_cadena_correos_vacia(self):
-        """Test obtener cadena de correos cuando no hay usuarios"""
-        # Sin usuarios
-        self.manager.usuarios_administradores = []
+    @patch('src.common.utils.get_admin_emails_string')
+    def test_obtener_cadena_correos_vacia(self, mock_get_admin_emails):
+        """Test obtener cadena de correos cuando no hay usuarios usando función común"""
+        # Configurar mock para retornar cadena vacía
+        mock_get_admin_emails.return_value = ""
         
-        # Ejecutar
-        cadena = self.manager.obtener_cadena_correos_administradores()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import get_admin_emails_string
+        cadena = get_admin_emails_string()
         
         # Verificar
         self.assertEqual(cadena, "")
+        mock_get_admin_emails.assert_called_once()
     
-    @patch('src.no_conformidades.no_conformidades_manager.datetime')
-    def test_determinar_si_requiere_tarea_calidad_primera_vez(self, mock_datetime):
-        """Test determinar si requiere tarea de calidad - primera ejecución"""
+    @patch('src.common.utils.should_execute_task')
+    def test_determinar_si_requiere_tarea_calidad_primera_vez(self, mock_should_execute):
+        """Test determinar si requiere tarea de calidad - primera ejecución usando función común"""
         # Configurar mock
-        mock_datetime.now.return_value = datetime(2024, 1, 15)
+        mock_should_execute.return_value = True
         
-        # Mock de base de datos que no retorna resultados
-        self.manager.db_tareas = Mock()
-        self.manager.db_tareas.execute_query.return_value = [[None]]
-        
-        # Ejecutar
-        resultado = self.manager.determinar_si_requiere_tarea_calidad()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import should_execute_task
+        resultado = should_execute_task("NoConformidadesCalidad", 7)
         
         # Verificar
         self.assertTrue(resultado)
+        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
     
-    @patch('src.no_conformidades.no_conformidades_manager.datetime')
-    def test_determinar_si_requiere_tarea_calidad_reciente(self, mock_datetime):
-        """Test determinar si requiere tarea de calidad - ejecución reciente"""
+    @patch('src.common.utils.should_execute_task')
+    def test_determinar_si_requiere_tarea_calidad_reciente(self, mock_should_execute):
+        """Test determinar si requiere tarea de calidad - ejecución reciente usando función común"""
         # Configurar mock
-        fecha_actual = datetime(2024, 1, 15)
-        fecha_ultima = datetime(2024, 1, 10)  # 5 días atrás
-        mock_datetime.now.return_value = fecha_actual
+        mock_should_execute.return_value = False
         
-        # Mock de base de datos que retorna fecha reciente
-        self.manager.db_tareas = Mock()
-        self.manager.db_tareas.execute_query.return_value = [[fecha_ultima]]
-        
-        # Ejecutar
-        resultado = self.manager.determinar_si_requiere_tarea_calidad()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import should_execute_task
+        resultado = should_execute_task("NoConformidadesCalidad", 7)
         
         # Verificar
         self.assertFalse(resultado)  # No requiere porque han pasado menos de 7 días
+        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
     
-    @patch('src.no_conformidades.no_conformidades_manager.datetime')
-    def test_determinar_si_requiere_tarea_calidad_antigua(self, mock_datetime):
-        """Test determinar si requiere tarea de calidad - ejecución antigua"""
+    @patch('src.common.utils.should_execute_task')
+    def test_determinar_si_requiere_tarea_calidad_antigua(self, mock_should_execute):
+        """Test determinar si requiere tarea de calidad - ejecución antigua usando función común"""
         # Configurar mock
-        fecha_actual = datetime(2024, 1, 15)
-        fecha_ultima = datetime(2024, 1, 1)  # 14 días atrás
-        mock_datetime.now.return_value = fecha_actual
+        mock_should_execute.return_value = True
         
-        # Mock de base de datos que retorna fecha antigua
-        self.manager.db_tareas = Mock()
-        self.manager.db_tareas.execute_query.return_value = [[fecha_ultima]]
-        
-        # Ejecutar
-        resultado = self.manager.determinar_si_requiere_tarea_calidad()
+        # Ejecutar - ahora usa la función común
+        from src.common.utils import should_execute_task
+        resultado = should_execute_task("NoConformidadesCalidad", 7)
         
         # Verificar
         self.assertTrue(resultado)  # Requiere porque han pasado más de 7 días
+        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
 
 
 class TestHTMLReportGenerator(unittest.TestCase):
@@ -320,19 +312,14 @@ class TestEmailNotificationManager(unittest.TestCase):
     
     def setUp(self):
         """Configuración inicial para cada test"""
-        with patch('src.no_conformidades.email_notifications.EmailSender'):
-            self.email_manager = EmailNotificationManager()
+        # No necesitamos patch en setUp, lo haremos en cada test individual
+        self.email_manager = EmailNotificationManager()
     
-    @patch('src.no_conformidades.email_notifications.EmailSender')
-    def test_enviar_notificacion_calidad_exitosa(self, mock_email_sender):
+    @patch('src.common.utils.send_email')
+    def test_enviar_notificacion_calidad_exitosa(self, mock_send_email):
         """Test envío exitoso de notificación de calidad"""
         # Configurar mock
-        mock_sender_instance = Mock()
-        mock_sender_instance.send_email.return_value = True
-        mock_email_sender.return_value = mock_sender_instance
-        
-        # Crear manager con mock
-        email_manager = EmailNotificationManager()
+        mock_send_email.return_value = True
         
         # Datos de prueba
         ncs_eficacia = [Mock()]
@@ -342,25 +329,18 @@ class TestEmailNotificationManager(unittest.TestCase):
         destinatarios_admin = "admin@empresa.com"
         
         # Ejecutar
-        resultado = email_manager.enviar_notificacion_calidad(
+        resultado = self.email_manager.enviar_notificacion_calidad(
             ncs_eficacia, ncs_caducar, ncs_sin_acciones,
             destinatarios_calidad, destinatarios_admin
         )
         
         # Verificar
         self.assertTrue(resultado)
-        mock_sender_instance.send_email.assert_called_once()
+        mock_send_email.assert_called_once()
     
-    @patch('src.no_conformidades.email_notifications.EmailSender')
-    def test_enviar_notificacion_sin_destinatarios(self, mock_email_sender):
+    @patch('src.common.utils.send_email')
+    def test_enviar_notificacion_sin_destinatarios(self, mock_send_email):
         """Test envío de notificación sin destinatarios"""
-        # Configurar mock
-        mock_sender_instance = Mock()
-        mock_email_sender.return_value = mock_sender_instance
-        
-        # Crear manager con mock
-        email_manager = EmailNotificationManager()
-        
         # Datos de prueba sin destinatarios
         ncs_eficacia = [Mock()]
         ncs_caducar = []
@@ -369,25 +349,20 @@ class TestEmailNotificationManager(unittest.TestCase):
         destinatarios_admin = ""
         
         # Ejecutar
-        resultado = email_manager.enviar_notificacion_calidad(
+        resultado = self.email_manager.enviar_notificacion_calidad(
             ncs_eficacia, ncs_caducar, ncs_sin_acciones,
             destinatarios_calidad, destinatarios_admin
         )
         
         # Verificar
         self.assertFalse(resultado)
-        mock_sender_instance.send_email.assert_not_called()
+        mock_send_email.assert_not_called()
     
-    @patch('src.no_conformidades.email_notifications.EmailSender')
-    def test_enviar_notificacion_individual_arapc(self, mock_email_sender):
+    @patch('src.common.utils.send_email')
+    def test_enviar_notificacion_individual_arapc(self, mock_send_email):
         """Test envío de notificación individual ARAPC"""
         # Configurar mock
-        mock_sender_instance = Mock()
-        mock_sender_instance.send_email.return_value = True
-        mock_email_sender.return_value = mock_sender_instance
-        
-        # Crear manager con mock
-        email_manager = EmailNotificationManager()
+        mock_send_email.return_value = True
         
         # Datos de prueba
         arapc = ARAPC(
@@ -405,15 +380,15 @@ class TestEmailNotificationManager(unittest.TestCase):
         )
         
         # Ejecutar
-        resultado = email_manager.enviar_notificacion_individual_arapc(arapc, usuario)
+        resultado = self.email_manager.enviar_notificacion_individual_arapc(arapc, usuario)
         
         # Verificar
         self.assertTrue(resultado)
-        mock_sender_instance.send_email.assert_called_once()
+        mock_send_email.assert_called_once()
         
         # Verificar argumentos del email
-        call_args = mock_sender_instance.send_email.call_args
-        self.assertIn("juan.perez@empresa.com", call_args[1]['to_addresses'])
+        call_args = mock_send_email.call_args
+        self.assertIn("juan.perez@empresa.com", call_args[1]['to_address'])
         self.assertIn("NC-001", call_args[1]['subject'])
         self.assertTrue(call_args[1]['is_html'])
 

@@ -623,3 +623,96 @@ def get_technical_emails_string(app_id: str, config, logger) -> str:
     except Exception as e:
         logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
         return ""
+
+
+def get_last_task_execution_date(db_connection, task_name: str) -> Optional[date]:
+    """
+    Obtiene la fecha de la última ejecución de una tarea
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        
+    Returns:
+        Fecha de la última ejecución o None si no existe
+    """
+    try:
+        query = """
+            SELECT MAX(Fecha) as UltimaFecha 
+            FROM TbTareas 
+            WHERE Tarea = ?
+        """
+        
+        result = db_connection.execute_query(query, (task_name,))
+        
+        if result and result[0]['UltimaFecha']:
+            fecha = result[0]['UltimaFecha']
+            # Convertir a date si es datetime
+            if isinstance(fecha, datetime):
+                return fecha.date()
+            return fecha
+            
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error obteniendo fecha de última ejecución para {task_name}: {e}")
+        return None
+
+
+def is_task_completed_today(db_connection, task_name: str) -> bool:
+    """
+    Verifica si una tarea ya se ejecutó hoy
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        
+    Returns:
+        True si ya se ejecutó hoy, False en caso contrario
+    """
+    last_execution = get_last_task_execution_date(db_connection, task_name)
+    today = date.today()
+    
+    if last_execution is None:
+        return False
+    
+    return last_execution == today
+
+
+def should_execute_task(db_connection, task_name: str, frequency_days: int, logger=None) -> bool:
+    """
+    Determina si se debe ejecutar una tarea basándose en su frecuencia
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        frequency_days: Frecuencia en días para ejecutar la tarea
+        logger: Logger para registrar eventos (opcional)
+        
+    Returns:
+        True si se debe ejecutar la tarea
+    """
+    try:
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        
+        if last_execution is None:
+            # Si no hay registro previo, ejecutar
+            if logger:
+                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+            return True
+        
+        days_since_last = (date.today() - last_execution).days
+        should_execute = days_since_last >= frequency_days
+        
+        if logger:
+            logger.info(f"Última ejecución tarea {task_name}: {last_execution}, "
+                       f"días transcurridos: {days_since_last}, requiere: {should_execute}")
+        
+        return should_execute
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        else:
+            logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        return True
