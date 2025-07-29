@@ -5,7 +5,7 @@ Convierte los datos de no conformidades en reportes HTML formateados
 
 from datetime import datetime
 from typing import List, Dict
-from ..no_conformidades.no_conformidades_manager import NoConformidad, ARAPC, Usuario
+from no_conformidades.no_conformidades_manager import NoConformidad, ARAPC, Usuario
 
 
 class HTMLReportGenerator:

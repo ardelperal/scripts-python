@@ -50,6 +50,29 @@ class RiesgosManager:
         self.logger = logging.getLogger(__name__)
         self.db = AccessDatabase(config.get_db_riesgos_connection_string())
         
+    def _formatear_fecha_access(self, fecha) -> str:
+        """
+        Formatea una fecha para uso en consultas SQL de Access
+        Convierte fecha a formato #MM/dd/yyyy#
+        """
+        if isinstance(fecha, str):
+            # Si ya es string, intentar parsearlo
+            try:
+                fecha = datetime.strptime(fecha, '%Y-%m-%d').date()
+            except ValueError:
+                try:
+                    fecha = datetime.strptime(fecha, '%m/%d/%Y').date()
+                except ValueError:
+                    self.logger.error(f"Formato de fecha no reconocido: {fecha}")
+                    return "#01/01/1900#"
+        elif isinstance(fecha, datetime):
+            fecha = fecha.date()
+        elif hasattr(fecha, 'date'):
+            fecha = fecha.date()
+        
+        # Formatear en formato Access #MM/dd/yyyy#
+        return f"#{fecha.strftime('%m/%d/%Y')}#"
+        
     def connect(self) -> bool:
         """
         Establece conexión con la base de datos.
@@ -192,7 +215,15 @@ class RiesgosManager:
     
     def _get_editions_need_publication_proposal_query(self) -> str:
         """Consulta para ediciones que necesitan propuesta de publicación."""
-        return """
+        from datetime import datetime, timedelta
+        
+        # Calcular fecha límite (15 días desde hoy)
+        fecha_hoy = datetime.now().date()
+        fecha_limite = fecha_hoy + timedelta(days=15)
+        fecha_limite_str = self._formatear_fecha_access(fecha_limite)
+        fecha_hoy_str = self._formatear_fecha_access(fecha_hoy)
+        
+        return f"""
             SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, 
                    TbUsuariosAplicaciones.Nombre, 
                    TbUsuariosAplicaciones.CorreoUsuario
@@ -203,7 +234,8 @@ class RiesgosManager:
             WHERE TbProyectos.ParaInformeAvisos <> 'No'
             AND TbProyectos.FechaCierre IS NULL
             AND TbProyectosEdiciones.FechaPublicacion IS NULL
-            AND DATEDIFF('d', NOW(), TbProyectos.FechaMaxProximaPublicacion) <= 15
+            AND TbProyectos.FechaMaxProximaPublicacion <= {fecha_limite_str}
+            AND TbProyectos.FechaMaxProximaPublicacion > {fecha_hoy_str}
             AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
             AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
             AND TbProyectosEdiciones.FechaPreparadaParaPublicar IS NULL
@@ -316,7 +348,13 @@ class RiesgosManager:
     
     def _get_risks_mitigation_actions_reschedule_query(self) -> str:
         """Consulta para riesgos con acciones de mitigación para replanificar."""
-        return """
+        from datetime import datetime
+        
+        # Calcular fecha actual
+        fecha_hoy = datetime.now().date()
+        fecha_hoy_str = self._formatear_fecha_access(fecha_hoy)
+        
+        return f"""
             SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, 
                    TbUsuariosAplicaciones.Nombre, 
                    TbUsuariosAplicaciones.CorreoUsuario
@@ -336,12 +374,18 @@ class RiesgosManager:
             AND TbRiesgos.FechaRetirado IS NULL
             AND TbRiesgos.Mitigacion <> 'Aceptar'
             AND TbRiesgosPlanMitigacionDetalle.FechaFinReal IS NULL
-            AND TbRiesgosPlanMitigacionDetalle.FechaFinPrevista <= DATE()
+            AND TbRiesgosPlanMitigacionDetalle.FechaFinPrevista <= {fecha_hoy_str}
         """
     
     def _get_risks_contingency_actions_reschedule_query(self) -> str:
         """Consulta para riesgos con acciones de contingencia para replanificar."""
-        return """
+        from datetime import datetime
+        
+        # Calcular fecha actual
+        fecha_hoy = datetime.now().date()
+        fecha_hoy_str = self._formatear_fecha_access(fecha_hoy)
+        
+        return f"""
             SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, 
                    TbUsuariosAplicaciones.Nombre, 
                    TbUsuariosAplicaciones.CorreoUsuario
@@ -361,7 +405,7 @@ class RiesgosManager:
             AND TbRiesgos.FechaRetirado IS NULL
             AND TbRiesgos.Mitigacion <> 'Aceptar'
             AND TbRiesgosPlanContingenciaDetalle.FechaFinReal IS NULL
-            AND TbRiesgosPlanContingenciaDetalle.FechaFinPrevista <= DATE()
+            AND TbRiesgosPlanContingenciaDetalle.FechaFinPrevista <= {fecha_hoy_str}
         """
     
     def get_css_styles(self) -> str:
@@ -599,7 +643,7 @@ class RiesgosManager:
         # Agregar secciones del reporte
         sections = [
             ("Ediciones que necesitan propuesta de publicación", self._get_editions_need_publication_data(user_id)),
-            ("Ediciones con propuestas de publicación rechazadas", self._get_editions_rejected_proposals_data(user_id)),
+            ("Ediciones con propuestas de publicación rechazadas", self._get_editions_with_rejected_proposals_data(user_id)),
             ("Riesgos aceptados no motivados", self._get_accepted_risks_unmotivated_data(user_id)),
             ("Riesgos aceptados rechazados", self._get_accepted_risks_rejected_data(user_id)),
             ("Riesgos retirados no motivados", self._get_retired_risks_unmotivated_data(user_id)),
@@ -795,7 +839,7 @@ class RiesgosManager:
         except:
             return []
     
-    def _get_editions_rejected_proposals_data(self, user_id: str) -> List[Dict]:
+    def _get_editions_with_rejected_proposals_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de ediciones con propuestas rechazadas."""
         try:
             query = self._get_editions_with_rejected_proposals_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
@@ -855,19 +899,26 @@ class RiesgosManager:
     def _get_editions_about_to_expire(self) -> List[Dict]:
         """Obtiene ediciones a punto de caducar (próximos 15 días)."""
         try:
-            query = """
+            from datetime import datetime, timedelta
+            
+            # Calcular fechas límite
+            fecha_hoy = datetime.now().date()
+            fecha_limite = fecha_hoy + timedelta(days=15)
+            fecha_limite_str = self._formatear_fecha_access(fecha_limite)
+            fecha_hoy_str = self._formatear_fecha_access(fecha_hoy)
+            
+            query = f"""
             SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,
                    TbProyectos.FechaPrevistaCierre, TbProyectosEdiciones.IDEdicion,
                    TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion,
-                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad,
-                   DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS Dias
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad
             FROM TbProyectos INNER JOIN TbProyectosEdiciones 
                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto
             WHERE TbProyectos.ParaInformeAvisos <> 'No'
               AND TbProyectos.FechaCierre IS NULL
               AND TbProyectosEdiciones.FechaPublicacion IS NULL
-              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) <= 15
-              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) > -1
+              AND TbProyectosEdiciones.FechaMaxProximaPublicacion <= {fecha_limite_str}
+              AND TbProyectosEdiciones.FechaMaxProximaPublicacion > {fecha_hoy_str}
             """
             return self.db.execute_query(query)
         except:
@@ -876,18 +927,23 @@ class RiesgosManager:
     def _get_expired_editions(self) -> List[Dict]:
         """Obtiene ediciones con fecha de publicación superada."""
         try:
-            query = """
+            from datetime import datetime
+            
+            # Calcular fecha actual
+            fecha_hoy = datetime.now().date()
+            fecha_hoy_str = self._formatear_fecha_access(fecha_hoy)
+            
+            query = f"""
             SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,
                    TbProyectos.FechaPrevistaCierre, TbProyectosEdiciones.IDEdicion,
                    TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion,
-                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad,
-                   DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS Dias
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad
             FROM TbProyectos INNER JOIN TbProyectosEdiciones 
                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto
             WHERE TbProyectos.ParaInformeAvisos <> 'No'
               AND TbProyectos.FechaCierre IS NULL
               AND TbProyectosEdiciones.FechaPublicacion IS NULL
-              AND DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) < 0
+              AND TbProyectosEdiciones.FechaMaxProximaPublicacion < {fecha_hoy_str}
             """
             return self.db.execute_query(query)
         except:

@@ -36,6 +36,44 @@ class ExpedientesManager:
         # Inicializar conexiones
         self._init_connections()
     
+    def _formatear_fecha_access(self, fecha):
+        """
+        Formatear fecha para consultas de Access
+        
+        Args:
+            fecha: Fecha a formatear (datetime.date, datetime.datetime o string)
+            
+        Returns:
+            str: Fecha formateada como #MM/dd/yyyy# para Access
+        """
+        from datetime import datetime, date
+        
+        if fecha is None:
+            return None
+            
+        # Si es string, intentar parsearlo
+        if isinstance(fecha, str):
+            try:
+                # Intentar formato YYYY-MM-DD
+                fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+            except ValueError:
+                try:
+                    # Intentar formato MM/DD/YYYY
+                    fecha_obj = datetime.strptime(fecha, '%m/%d/%Y').date()
+                except ValueError:
+                    logger.error(f"No se pudo parsear la fecha: {fecha}")
+                    return None
+        elif isinstance(fecha, datetime):
+            fecha_obj = fecha.date()
+        elif isinstance(fecha, date):
+            fecha_obj = fecha
+        else:
+            logger.error(f"Tipo de fecha no soportado: {type(fecha)}")
+            return None
+        
+        # Formatear para Access: #MM/dd/yyyy#
+        return f"#{fecha_obj.strftime('%m/%d/%Y')}#"
+
     def _init_connections(self):
         """Inicializar conexiones a las bases de datos"""
         try:
@@ -82,8 +120,9 @@ class ExpedientesManager:
         try:
             # Fecha límite
             limit_date = datetime.now() + timedelta(days=days_threshold)
+            limit_date_str = self._formatear_fecha_access(limit_date)
             
-            query = """
+            query = f"""
                 SELECT 
                     Expediente,
                     FechaFinalizacion,
@@ -91,13 +130,13 @@ class ExpedientesManager:
                     Responsable,
                     Descripcion
                 FROM Expedientes 
-                WHERE FechaFinalizacion <= ? 
+                WHERE FechaFinalizacion <= {limit_date_str}
                 AND Estado NOT IN ('Finalizado', 'Cancelado')
                 ORDER BY FechaFinalizacion ASC
             """
             
             cursor = self.expedientes_conn.get_cursor()
-            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
+            cursor.execute(query)
             results = cursor.fetchall()
             
             expedientes = []
@@ -130,8 +169,9 @@ class ExpedientesManager:
         try:
             # Fecha límite
             limit_date = datetime.now() + timedelta(days=days_threshold)
+            limit_date_str = self._formatear_fecha_access(limit_date)
             
-            query = """
+            query = f"""
                 SELECT 
                     h.IdHito,
                     h.Expediente,
@@ -141,13 +181,13 @@ class ExpedientesManager:
                     e.Responsable
                 FROM Hitos h
                 INNER JOIN Expedientes e ON h.Expediente = e.Expediente
-                WHERE h.FechaLimite <= ? 
+                WHERE h.FechaLimite <= {limit_date_str}
                 AND h.Estado NOT IN ('Completado', 'Cancelado')
                 ORDER BY h.FechaLimite ASC
             """
             
             cursor = self.expedientes_conn.get_cursor()
-            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
+            cursor.execute(query)
             results = cursor.fetchall()
             
             hitos = []
@@ -224,8 +264,9 @@ class ExpedientesManager:
         try:
             # Fecha límite
             limit_date = datetime.now() - timedelta(days=days_threshold)
+            limit_date_str = self._formatear_fecha_access(limit_date)
             
-            query = """
+            query = f"""
                 SELECT 
                     Expediente,
                     FechaInicioOferta,
@@ -234,12 +275,12 @@ class ExpedientesManager:
                     Descripcion
                 FROM Expedientes 
                 WHERE Estado = 'En Oferta'
-                AND FechaInicioOferta <= ?
+                AND FechaInicioOferta <= {limit_date_str}
                 ORDER BY FechaInicioOferta ASC
             """
             
             cursor = self.expedientes_conn.get_cursor()
-            cursor.execute(query, [limit_date.strftime('%Y-%m-%d')])
+            cursor.execute(query)
             results = cursor.fetchall()
             
             expedientes = []

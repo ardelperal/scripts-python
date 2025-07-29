@@ -13,17 +13,18 @@ import sys
 import os
 import argparse
 from datetime import datetime
+from pathlib import Path
 
-# Agregar el directorio padre al path para importar módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Agregar el directorio src al path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from src.common.logger import setup_logger
-from src.common.utils import (
+from common.logger import setup_logger
+from common.utils import (
     should_execute_task, get_admin_emails_string, get_quality_emails_string, 
     register_task_completion
 )
-from src.no_conformidades.no_conformidades_manager import NoConformidadesManager
-from src.no_conformidades.email_notifications import EmailNotificationManager
+from no_conformidades.no_conformidades_manager import NoConformidadesManager
+from no_conformidades.email_notifications import EmailNotificationManager
 
 
 def parse_arguments():
@@ -200,7 +201,7 @@ def ejecutar_tarea_tecnica(dry_run=False):
                 # Enviar notificaciones individuales a responsables
                 logger.info("Enviando notificaciones individuales a responsables...")
                 # Obtener usuarios técnicos usando función común
-                from src.common.utils import get_technical_users
+                from common.utils import get_technical_users
                 usuarios_tecnicos = get_technical_users(nc_manager.db_nc, 1)  # App ID 1 para NC
                 
                 if dry_run:

@@ -1,261 +1,393 @@
 """
-Módulo de notificaciones por email para No Conformidades
-Maneja el envío de notificaciones y reportes por correo electrónico
+Módulo para el manejo de notificaciones por correo electrónico
+Implementa el patrón legacy de registro en base de datos
 """
-
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from ..common.base_email_manager import BaseEmailNotificationManager
-from .no_conformidades_manager import NoConformidad, ARAPC, Usuario
+from src.common.html_report_generator import HTMLReportGenerator
+from src.common.database import AccessDatabase
+from src.common.config import config
+
+logger = logging.getLogger(__name__)
 
 
-class EmailNotificationManager(BaseEmailNotificationManager):
-    """Gestor de notificaciones por email para No Conformidades"""
+class EmailNotificationManager:
+    """Manager para notificaciones de email de no conformidades"""
     
     def __init__(self):
-        super().__init__("No Conformidades")
+        self.html_generator = HTMLReportGenerator()
     
-    def enviar_notificacion_calidad(self, 
-                                  ncs_eficacia: List[NoConformidad],
-                                  ncs_caducar: List[NoConformidad],
-                                  ncs_sin_acciones: List[NoConformidad],
-                                  destinatarios_calidad: str,
-                                  destinatarios_admin: str) -> bool:
-        """Envía notificación de calidad con el reporte de NCs"""
-        try:
-            # Generar el reporte HTML usando la funcionalidad común
-            html_content = self.generate_module_report(
-                ncs_eficacia=ncs_eficacia,
-                arapcs=[],  # No incluir ARAPs en reporte de calidad
-                ncs_caducar=ncs_caducar,
-                ncs_sin_acciones=ncs_sin_acciones,
-                titulo="Reporte de Calidad - No Conformidades"
-            )
-            
-            # Preparar el asunto
-            fecha_actual = datetime.now().strftime("%d/%m/%Y")
-            total_items = len(ncs_eficacia) + len(ncs_caducar) + len(ncs_sin_acciones)
-            asunto = f"Reporte Calidad NC - {fecha_actual} ({total_items} elementos)"
-            
-            # Preparar destinatarios
-            destinatarios = []
-            if destinatarios_calidad:
-                destinatarios.extend(destinatarios_calidad.split(';'))
-            if destinatarios_admin:
-                destinatarios.extend(destinatarios_admin.split(';'))
-            
-            # Limpiar destinatarios vacíos
-            destinatarios = [d.strip() for d in destinatarios if d.strip()]
-            
-            # Usar la funcionalidad común para enviar el reporte
-            return self.send_html_report(
-                to_addresses=destinatarios,
-                subject=asunto,
-                html_content=html_content
-            )
-                
-        except Exception as e:
-            self.logger.error(f"Error enviando notificación de calidad: {e}")
-            return False
-    
-    def enviar_notificacion_tecnica(self, 
-                                  arapcs: List[ARAPC],
-                                  destinatarios_tecnicos: str,
-                                  destinatarios_admin: str) -> bool:
-        """Envía notificación técnica con ARAPs próximas a vencer"""
-        try:
-            # Generar el reporte HTML usando la funcionalidad común
-            html_content = self.generate_module_report(
-                ncs_eficacia=[],
-                arapcs=arapcs,
-                ncs_caducar=[],
-                ncs_sin_acciones=[],
-                titulo="Reporte Técnico - Acciones Correctivas/Preventivas"
-            )
-            
-            # Preparar el asunto
-            fecha_actual = datetime.now().strftime("%d/%m/%Y")
-            total_arapcs = len(arapcs)
-            arapcs_vencidas = sum(1 for arapc in arapcs 
-                                if arapc.fecha_fin_prevista and 
-                                (arapc.fecha_fin_prevista - datetime.now()).days < 0)
-            
-            if arapcs_vencidas > 0:
-                asunto = f"🔴 URGENTE - ARAPs Vencidas - {fecha_actual} ({arapcs_vencidas}/{total_arapcs})"
-            else:
-                asunto = f"Reporte Técnico ARAPs - {fecha_actual} ({total_arapcs} elementos)"
-            
-            # Preparar destinatarios
-            destinatarios = []
-            if destinatarios_tecnicos:
-                destinatarios.extend(destinatarios_tecnicos.split(';'))
-            if destinatarios_admin:
-                destinatarios.extend(destinatarios_admin.split(';'))
-            
-            # Limpiar destinatarios vacíos
-            destinatarios = [d.strip() for d in destinatarios if d.strip()]
-            
-            # Usar la funcionalidad común para enviar el reporte
-            return self.send_html_report(
-                to_addresses=destinatarios,
-                subject=asunto,
-                html_content=html_content
-            )
-                
-        except Exception as e:
-            self.logger.error(f"Error enviando notificación técnica: {e}")
-            return False
-    
-    def enviar_notificacion_individual_arapc(self, 
-                                           arapc: ARAPC, 
-                                           usuario_responsable: Usuario) -> bool:
-        """Envía notificación individual a responsable de ARAPC usando funciones comunes"""
-        try:
-            if not usuario_responsable.correo:
-                self.logger.warning(f"Usuario {usuario_responsable.nombre} no tiene correo configurado")
-                return False
-            
-            # Calcular días restantes
-            dias_restantes = (arapc.fecha_fin_prevista - datetime.now()).days if arapc.fecha_fin_prevista else 0
-            
-            # Preparar el contenido del email usando funciones comunes
-            if dias_restantes < 0:
-                estado = f"VENCIDA hace {abs(dias_restantes)} días"
-                urgencia = "🔴 URGENTE - "
-            elif dias_restantes <= 3:
-                estado = f"vence en {dias_restantes} días"
-                urgencia = "⚠️ IMPORTANTE - "
-            else:
-                estado = f"vence en {dias_restantes} días"
-                urgencia = ""
-            
-            asunto = f"{urgencia}Acción Correctiva/Preventiva {estado} - NC {arapc.codigo_nc}"
-            
-            fecha_fin = arapc.fecha_fin_prevista.strftime("%d/%m/%Y") if arapc.fecha_fin_prevista else "No definida"
-            
-            # Usar el generador HTML común para crear el contenido
-            html_content = self.html_generator.generar_header_html("Notificación de Acción Correctiva/Preventiva")
-            
-            # Agregar contenido específico
-            tipo_alerta = "alert" if dias_restantes < 0 else "warning" if dias_restantes <= 3 else "info"
-            html_content += f"""
-                <div class="content">
-                    <p>Estimado/a {usuario_responsable.nombre},</p>
-                    
-                    <div class="{tipo_alerta}">
-                        <strong>Su acción correctiva/preventiva {estado.upper()}</strong>
-                    </div>
-                    
-                    <div class="section-title">Detalles de la Acción</div>
-                    <table class="table">
-                        <tr><td><strong>ID Acción:</strong></td><td>{arapc.id_accion}</td></tr>
-                        <tr><td><strong>No Conformidad:</strong></td><td>{arapc.codigo_nc}</td></tr>
-                        <tr><td><strong>Descripción:</strong></td><td>{arapc.descripcion}</td></tr>
-                        <tr><td><strong>Fecha Fin Prevista:</strong></td><td>{fecha_fin}</td></tr>
-                        <tr><td><strong>Estado:</strong></td><td>{estado}</td></tr>
-                    </table>
-                    
-                    <p>Por favor, tome las acciones necesarias para completar esta tarea.</p>
-                    
-                    <p>Saludos cordiales,<br>
-                    Sistema de Gestión de No Conformidades</p>
-                </div>
-            """
-            
-            html_content += self.html_generator.generar_footer_html()
-            
-            # Usar la funcionalidad común para enviar el email
-            return self.send_html_report(
-                to_addresses=[usuario_responsable.correo],
-                subject=asunto,
-                html_content=html_content
-            )
-                
-        except Exception as e:
-            self.logger.error(f"Error enviando notificación individual ARAPC: {e}")
-            return False
-    
-    def enviar_notificaciones_individuales_arapcs(self, 
-                                                arapcs: List[ARAPC],
-                                                usuarios_tecnicos: List[Usuario]) -> Dict[str, bool]:
-        """Envía notificaciones individuales a todos los responsables de ARAPs"""
-        resultados = {}
-        
-        # Crear diccionario de usuarios por nombre/código
-        usuarios_dict = {usuario.usuario_red.lower(): usuario for usuario in usuarios_tecnicos}
-        usuarios_dict.update({usuario.nombre.lower(): usuario for usuario in usuarios_tecnicos})
-        
-        for arapc in arapcs:
-            if not arapc.responsable:
-                continue
-            
-            # Buscar el usuario responsable
-            responsable_key = arapc.responsable.lower()
-            usuario_responsable = usuarios_dict.get(responsable_key)
-            
-            if not usuario_responsable:
-                self.logger.warning(f"No se encontró usuario para responsable: {arapc.responsable}")
-                resultados[f"ARAPC_{arapc.id_accion}"] = False
-                continue
-            
-            # Enviar notificación individual
-            resultado = self.enviar_notificacion_individual_arapc(arapc, usuario_responsable)
-            resultados[f"ARAPC_{arapc.id_accion}"] = resultado
-        
-        # Log resumen
-        exitosos = sum(1 for r in resultados.values() if r)
-        total = len(resultados)
-        self.logger.info(f"Notificaciones individuales ARAPs: {exitosos}/{total} enviadas correctamente")
-        
-        return resultados
-    
-    # Implementación de métodos abstractos de la clase base
     def get_admin_emails(self) -> List[str]:
-        """Obtiene la lista de emails de administradores para No Conformidades"""
+        """Obtiene los emails de administradores"""
         try:
-            from ..common.utils import get_admin_users
-            from .no_conformidades_manager import NoConformidadesManager
+            db_path = config.get_database_path('tareas')
+            connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+            db = AccessDatabase(connection_string)
             
-            # Crear instancia temporal del manager para obtener conexión a BD
-            manager = NoConformidadesManager()
-            manager.conectar_bases_datos()
-            
-            try:
-                # Usar la funcionalidad común para obtener usuarios administradores
-                admin_users = get_admin_users(manager.db_tareas)
-                emails = [user['CorreoUsuario'] for user in admin_users if user.get('CorreoUsuario')]
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT Correo 
+                    FROM TbUsuarios 
+                    WHERE EsAdmin = True AND Correo IS NOT NULL AND Correo <> ''
+                """)
                 
-                self.logger.info(f"Obtenidos {len(emails)} emails de administradores")
-                return emails
-                
-            finally:
-                manager.desconectar_bases_datos()
+                result = cursor.fetchall()
+                return [row[0] for row in result if row[0]]
                 
         except Exception as e:
-            self.logger.error(f"Error obteniendo emails de administradores: {e}")
+            logger.error(f"Error obteniendo emails de administradores: {e}")
+            return []
+    
+    def get_quality_emails(self) -> List[str]:
+        """Obtiene los emails del departamento de calidad"""
+        try:
+            db_path = config.get_database_path('tareas')
+            connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+            db = AccessDatabase(connection_string)
+            
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT Correo 
+                    FROM TbUsuarios 
+                    WHERE Departamento = 'Calidad' AND Correo IS NOT NULL AND Correo <> ''
+                """)
+                
+                result = cursor.fetchall()
+                return [row[0] for row in result if row[0]]
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo emails de calidad: {e}")
+            return []
+    
+    def get_technical_emails(self) -> List[str]:
+        """Obtiene los emails del departamento técnico"""
+        try:
+            db_path = config.get_database_path('tareas')
+            connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+            db = AccessDatabase(connection_string)
+            
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT Correo 
+                    FROM TbUsuarios 
+                    WHERE Departamento = 'Técnico' AND Correo IS NOT NULL AND Correo <> ''
+                """)
+                
+                result = cursor.fetchall()
+                return [row[0] for row in result if row[0]]
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo emails técnicos: {e}")
             return []
 
-    def generate_module_report(self, **kwargs) -> str:
-        """Genera un reporte HTML específico para No Conformidades usando funciones comunes"""
-        try:
-            # Extraer datos de los argumentos
-            ncs_eficacia = kwargs.get('ncs_eficacia', [])
-            arapcs = kwargs.get('arapcs', [])
-            ncs_caducar = kwargs.get('ncs_caducar', [])
-            ncs_sin_acciones = kwargs.get('ncs_sin_acciones', [])
-            titulo = kwargs.get('titulo', 'Reporte de No Conformidades')
+
+def _register_email_nc(application: str, subject: str, body: str, recipients: str, admin_emails: str = "") -> Optional[int]:
+    """
+    Registra un email en TbCorreosEnviados siguiendo el patrón legacy
+    
+    Args:
+        application: Aplicación que envía el email
+        subject: Asunto del email
+        body: Cuerpo del email en HTML
+        recipients: Destinatarios principales
+        admin_emails: Emails de administradores (opcional)
+    
+    Returns:
+        IDCorreo si se registra exitosamente, None en caso de error
+    """
+    try:
+        # Obtener conexión a la base de datos de correos
+        db_path = config.get_database_path('correos')
+        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+        db = AccessDatabase(connection_string)
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
             
-            # Usar el generador HTML común para crear el reporte completo
-            return self.html_generator.generar_reporte_completo(
-                ncs_eficacia=ncs_eficacia,
-                arapcs=arapcs,
-                ncs_caducar=ncs_caducar,
-                ncs_sin_acciones=ncs_sin_acciones,
-                titulo=titulo
+            # Obtener el siguiente IDCorreo usando la función existente
+            next_id = db.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
+            
+            # Preparar datos para inserción con formato de fecha para Access
+            fecha_actual = datetime.now().strftime("#%m/%d/%Y %H:%M:%S#")
+            
+            # Insertar el registro
+            insert_query = """
+                INSERT INTO TbCorreosEnviados 
+                (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosCC, DestinatariosBCC, Fecha)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            cursor.execute(insert_query, (
+                next_id,
+                application,
+                subject,
+                body,
+                recipients,
+                admin_emails,  # CC
+                "",           # BCC
+                fecha_actual
+            ))
+            
+            conn.commit()
+            logger.info(f"Email registrado en TbCorreosEnviados con ID: {next_id}")
+            return next_id
+            
+    except Exception as e:
+        logger.error(f"Error registrando email en base de datos: {e}")
+        return None
+
+
+def _register_arapc_notification(id_correo: int, arapcs_15: List[int], arapcs_7: List[int], arapcs_0: List[int]) -> bool:
+    """
+    Registra las notificaciones ARAPC en TbNCARAvisos siguiendo el patrón legacy
+    
+    Args:
+        id_correo: ID del correo registrado
+        arapcs_15: Lista de IDs de acciones con 15 días
+        arapcs_7: Lista de IDs de acciones con 7 días  
+        arapcs_0: Lista de IDs de acciones con 0 días
+    
+    Returns:
+        True si se registra exitosamente, False en caso de error
+    """
+    try:
+        # Obtener conexión a la base de datos de no conformidades
+        db_path = config.get_database_path('no_conformidades')
+        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+        db = AccessDatabase(connection_string)
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Registrar cada ARAPC notificada
+            all_arapcs = [
+                (arapcs_15, 15),
+                (arapcs_7, 7), 
+                (arapcs_0, 0)
+            ]
+            
+            for arapc_list, dias in all_arapcs:
+                for id_accion in arapc_list:
+                    insert_query = """
+                        INSERT INTO TbNCARAvisos (IDAccion, IDCorreo, DiasAviso, FechaAviso)
+                        VALUES (?, ?, ?, ?)
+                    """
+                    
+                    cursor.execute(insert_query, (
+                        id_accion,
+                        id_correo,
+                        dias,
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+            
+            conn.commit()
+            logger.info(f"Notificaciones ARAPC registradas para correo ID: {id_correo}")
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error registrando notificaciones ARAPC: {e}")
+        return False
+
+
+def enviar_notificacion_calidad(datos_calidad: Dict[str, Any]) -> bool:
+    """
+    Registra notificación de calidad en la base de datos siguiendo el patrón legacy
+    
+    Args:
+        datos_calidad: Diccionario con datos para generar el reporte
+    
+    Returns:
+        True si se registra exitosamente, False en caso contrario
+    """
+    try:
+        # Crear instancia del manager para obtener destinatarios
+        manager = EmailNotificationManager()
+        
+        # Obtener destinatarios
+        destinatarios_calidad = manager.get_quality_emails()
+        destinatarios_admin = manager.get_admin_emails()
+        
+        # Verificar que hay destinatarios
+        if not destinatarios_calidad and not destinatarios_admin:
+            logger.warning("No hay destinatarios para la notificación de calidad")
+            return False
+        
+        # Generar contenido HTML
+        html_generator = HTMLReportGenerator()
+        cuerpo_html = html_generator.generar_reporte_calidad(datos_calidad)
+        
+        # Preparar destinatarios
+        todos_destinatarios = destinatarios_calidad + destinatarios_admin
+        destinatarios_str = "; ".join(todos_destinatarios)
+        admin_str = "; ".join(destinatarios_admin) if destinatarios_admin else ""
+        
+        # Registrar email en base de datos
+        id_correo = _register_email_nc(
+            application="NoConformidades",
+            subject="Reporte de Calidad - No Conformidades",
+            body=cuerpo_html,
+            recipients=destinatarios_str,
+            admin_emails=admin_str
+        )
+        
+        return id_correo is not None
+        
+    except Exception as e:
+        logger.error(f"Error enviando notificación de calidad: {e}")
+        return False
+
+
+def enviar_notificacion_tecnica(datos_tecnicos: Dict[str, Any]) -> bool:
+    """
+    Registra notificación técnica en la base de datos siguiendo el patrón legacy
+    
+    Args:
+        datos_tecnicos: Diccionario con datos técnicos para el reporte
+    
+    Returns:
+        True si se registra exitosamente, False en caso contrario
+    """
+    try:
+        # Crear instancia del manager para obtener destinatarios
+        manager = EmailNotificationManager()
+        
+        # Obtener destinatarios técnicos
+        destinatarios_tecnicos = manager.get_technical_emails()
+        destinatarios_admin = manager.get_admin_emails()
+        
+        # Verificar que hay destinatarios
+        if not destinatarios_tecnicos and not destinatarios_admin:
+            logger.warning("No hay destinatarios para la notificación técnica")
+            return False
+        
+        # Generar contenido HTML
+        html_generator = HTMLReportGenerator()
+        cuerpo_html = html_generator.generar_reporte_tecnico(datos_tecnicos)
+        
+        # Preparar destinatarios
+        todos_destinatarios = destinatarios_tecnicos + destinatarios_admin
+        destinatarios_str = "; ".join(todos_destinatarios)
+        admin_str = "; ".join(destinatarios_admin) if destinatarios_admin else ""
+        
+        # Registrar email en base de datos
+        id_correo = _register_email_nc(
+            application="NoConformidades",
+            subject="Reporte Técnico - No Conformidades",
+            body=cuerpo_html,
+            recipients=destinatarios_str,
+            admin_emails=admin_str
+        )
+        
+        # Si hay datos de ARAPC, registrar las notificaciones
+        if id_correo and 'arapcs' in datos_tecnicos:
+            arapcs_data = datos_tecnicos['arapcs']
+            _register_arapc_notification(
+                id_correo,
+                arapcs_data.get('15_dias', []),
+                arapcs_data.get('7_dias', []),
+                arapcs_data.get('0_dias', [])
             )
+        
+        return id_correo is not None
+        
+    except Exception as e:
+        logger.error(f"Error enviando notificación técnica: {e}")
+        return False
+
+
+def enviar_notificacion_individual_arapc(arapc_data: Dict[str, Any], usuario_responsable: Dict[str, str]) -> bool:
+    """
+    Registra notificación individual ARAPC en la base de datos
+    
+    Args:
+        arapc_data: Datos de la acción correctiva
+        usuario_responsable: Datos del usuario responsable
+    
+    Returns:
+        True si se registra exitosamente, False en caso contrario
+    """
+    try:
+        # Generar contenido HTML
+        html_generator = HTMLReportGenerator()
+        cuerpo_html = html_generator.generar_notificacion_individual_arapc(arapc_data, usuario_responsable)
+        
+        # Preparar destinatarios
+        destinatario_principal = usuario_responsable.get('correo', '')
+        if not destinatario_principal:
+            logger.warning("No hay correo para el usuario responsable")
+            return False
+        
+        # Obtener emails de administradores
+        manager = EmailNotificationManager()
+        destinatarios_admin = manager.get_admin_emails()
+        admin_str = "; ".join(destinatarios_admin) if destinatarios_admin else ""
+        
+        # Registrar email en base de datos
+        id_correo = _register_email_nc(
+            application="NoConformidades",
+            subject=f"Acción Correctiva Pendiente - {arapc_data.get('codigo_nc', 'N/A')}",
+            body=cuerpo_html,
+            recipients=destinatario_principal,
+            admin_emails=admin_str
+        )
+        
+        # Registrar la notificación ARAPC individual
+        if id_correo:
+            dias_restantes = arapc_data.get('dias_restantes', 0)
+            if dias_restantes <= 0:
+                dias_categoria = 0
+            elif dias_restantes <= 7:
+                dias_categoria = 7
+            else:
+                dias_categoria = 15
             
-        except Exception as e:
-            self.logger.error(f"Error generando reporte del módulo: {e}")
-            return f"<html><body><h1>Error generando reporte</h1><p>{e}</p></body></html>"
+            # Crear listas según la categoría
+            arapcs_15 = [arapc_data['id_accion']] if dias_categoria == 15 else []
+            arapcs_7 = [arapc_data['id_accion']] if dias_categoria == 7 else []
+            arapcs_0 = [arapc_data['id_accion']] if dias_categoria == 0 else []
+            
+            _register_arapc_notification(id_correo, arapcs_15, arapcs_7, arapcs_0)
+        
+        return id_correo is not None
+        
+    except Exception as e:
+        logger.error(f"Error enviando notificación individual ARAPC: {e}")
+        return False
+
+
+def enviar_notificaciones_individuales_arapcs(arapcs_data: List[Dict[str, Any]], usuarios_responsables: Dict[str, Dict[str, str]]) -> bool:
+    """
+    Registra múltiples notificaciones individuales ARAPC
+    
+    Args:
+        arapcs_data: Lista de datos de acciones correctivas
+        usuarios_responsables: Diccionario de usuarios responsables por ID
+    
+    Returns:
+        True si todas se registran exitosamente, False en caso contrario
+    """
+    try:
+        exito_total = True
+        
+        for arapc in arapcs_data:
+            responsable_id = arapc.get('responsable_id')
+            if responsable_id and responsable_id in usuarios_responsables:
+                usuario = usuarios_responsables[responsable_id]
+                exito = enviar_notificacion_individual_arapc(arapc, usuario)
+                if not exito:
+                    exito_total = False
+                    logger.error(f"Error enviando notificación para ARAPC {arapc.get('id_accion')}")
+            else:
+                logger.warning(f"No se encontró usuario responsable para ARAPC {arapc.get('id_accion')}")
+                exito_total = False
+        
+        return exito_total
+        
+    except Exception as e:
+        logger.error(f"Error enviando notificaciones individuales ARAPC: {e}")
+        return False
