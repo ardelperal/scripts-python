@@ -9,7 +9,7 @@ import sys
 import os
 
 # Agregar el directorio raíz al path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, project_root)
 
 # Importar solo las clases de datos que no dependen de otros módulos
