@@ -2,6 +2,27 @@
 
 Este proyecto es una migración del sistema legacy VBS a Python que implementa un **sistema de monitoreo continuo** para la gestión automatizada de tareas empresariales. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
 
+## Migración de VBS a Python
+
+Este proyecto representa la migración completa del sistema de automatización VBS legacy a Python moderno, manteniendo toda la funcionalidad original mientras se mejora la robustez, mantenibilidad y capacidades de testing.
+
+### 🎯 Objetivos de la Migración
+- **Modernización**: Migrar de VBS legacy a Python 3.11+
+- **Robustez**: Implementar manejo de errores robusto y logging detallado
+- **Testing**: Cobertura de tests >80% con tests unitarios, integración y funcionales
+- **Mantenibilidad**: Código modular, documentado y siguiendo mejores prácticas
+- **Configuración**: Sistema de configuración flexible multi-entorno
+- **Monitoreo**: Herramientas de monitoreo y debugging avanzadas
+
+### ✅ Estado de la Migración
+- **AGEDYS**: ✅ Completamente migrado y funcional
+- **BRASS**: ✅ Completamente migrado y funcional
+- **Expedientes**: ✅ Completamente migrado y funcional
+- **Correos**: ✅ Completamente migrado y funcional
+- **No Conformidades**: ✅ Completamente migrado y funcional
+- **Riesgos**: ✅ Completamente migrado y funcional
+- **Script Maestro**: ✅ Completamente migrado y funcional
+
 ## 🎯 Objetivo Principal
 
 El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza al legacy `script-continuo.vbs`. Funciona como un **servicio continuo** que:
@@ -13,6 +34,15 @@ El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza a
 - ⚙️ **Ajusta tiempos de ciclo** según horario y tipo de día
 - 📊 **Genera logs detallados** y archivos de estado
 - 🛡️ **Manejo robusto de errores** y recuperación automática
+
+### 📋 Módulos Integrados en el Script Maestro
+
+1. **AGEDYS** (`run_agedys.py`): Sistema de gestión de facturas y visados técnicos
+2. **BRASS** (`run_brass.py`): Sistema de gestión de tareas BRASS  
+3. **Expedientes** (`run_expedientes.py`): Gestión de expedientes y documentación
+4. **No Conformidades** (`run_no_conformidades.py`): Gestión de no conformidades
+5. **Riesgos** (`run_riesgos.py`): Gestión de riesgos empresariales
+6. **Correos** (`run_correos.py`): Sistema de envío de correos (tarea continua)
 
 ### Tiempos de Ciclo del Master Runner
 
@@ -51,15 +81,19 @@ scripts-python/
 ├── config/                      # Configuración del proyecto
 │   └── .env.example            # Plantilla de variables de entorno
 ├── scripts/                     # Scripts principales de ejecución
+│   ├── run_master.py           # Script maestro - daemon principal
+│   ├── run_agedys.py           # Script para módulo AGEDYS
 │   ├── run_brass.py            # Script principal para módulo BRASS
 │   ├── run_expedientes.py      # Script para módulo expedientes
-│   ├── run_EnviarCorreo.py     # Script para módulo correos
-│   ├── run_riesgos.py          # Script para módulo de riesgos
-│   └── run_tests.py            # Script principal de testing
-├── tools/                       # Herramientas de desarrollo
+│   ├── run_correos.py          # Script para módulo correos
+│   ├── run_no_conformidades.py # Script para no conformidades
+│   └── run_riesgos.py          # Script para módulo de riesgos
+├── tools/                       # Herramientas de desarrollo y utilidades
 │   ├── setup_local_environment.py  # Configuración entorno local
 │   ├── generate_coverage_report.py # Generador reportes de cobertura
-│   └── continuous_runner.py        # Ejecución continua de tests
+│   ├── continuous_runner.py        # Ejecución continua de tests
+│   ├── check_email_status.py       # Verificación estado emails
+│   └── check_email_structure.py    # Verificación estructura emails
 ├── src/                         # Código fuente
 │   ├── __init__.py
 │   ├── common/                  # Utilidades compartidas
@@ -67,7 +101,15 @@ scripts-python/
 │   │   ├── config.py           # Configuración multi-entorno
 │   │   ├── database.py         # Capa abstracción bases datos Access
 │   │   ├── database_adapter.py # Adaptador de bases de datos
+│   │   ├── base_email_manager.py # Gestor base para emails
+│   │   ├── html_report_generator.py # Generador reportes HTML
+│   │   ├── logger.py           # Sistema de logging
+│   │   ├── notifications.py    # Sistema de notificaciones
+│   │   ├── user_adapter.py     # Adaptador de usuarios
 │   │   └── utils.py           # Utilidades HTML, logging, fechas
+│   ├── agedys/                 # Módulo AGEDYS (migrado)
+│   │   ├── __init__.py
+│   │   └── agedys_manager.py   # Gestor principal AGEDYS
 │   ├── brass/                  # Módulo BRASS (migrado)
 │   │   ├── __init__.py
 │   │   └── brass_manager.py    # Gestor principal BRASS
@@ -77,10 +119,14 @@ scripts-python/
 │   ├── expedientes/            # Módulo de expedientes
 │   │   ├── __init__.py
 │   │   └── expedientes_manager.py # Gestor de expedientes
+│   ├── no_conformidades/       # Módulo de no conformidades
+│   │   ├── __init__.py
+│   │   ├── no_conformidades_manager.py # Gestor principal
+│   │   └── email_notifications.py     # Notificaciones email
 │   └── riesgos/                # Módulo de gestión de riesgos
 │       ├── __init__.py
 │       └── riesgos_manager.py  # Gestor de riesgos
-├── tests/                      # Tests automatizados (279 tests, 81% cobertura)
+├── tests/                      # Tests automatizados (cobertura >80%)
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
 │   ├── conftest.py            # Configuración global pytest
@@ -91,63 +137,85 @@ scripts-python/
 │   │   ├── create_demo_databases.py
 │   │   ├── create_test_emails_demo.py
 │   │   └── setup_smtp_local.py
-│   ├── unit/                   # Tests unitarios por módulo (233 tests)
+│   ├── unit/                   # Tests unitarios por módulo
 │   │   ├── __init__.py
 │   │   ├── common/             # Tests módulos comunes
+│   │   ├── agedys/             # Tests específicos AGEDYS
 │   │   ├── brass/              # Tests específicos BRASS
 │   │   ├── correos/            # Tests del módulo de correos
 │   │   ├── expedientes/        # Tests del módulo de expedientes
+│   │   ├── no_conformidades/   # Tests no conformidades
 │   │   └── riesgos/            # Tests del módulo de riesgos
-│   ├── integration/            # Tests de integración (46 tests)
+│   ├── integration/            # Tests de integración
 │   │   ├── __init__.py
+│   │   ├── agedys/             # Integración del sistema AGEDYS
 │   │   ├── brass/              # Integración del sistema brass
 │   │   ├── correos/            # Integración del sistema de correos
 │   │   └── database/           # Integración con bases de datos
 │   ├── functional/             # Tests funcionales
 │   │   ├── access_sync/        # Sincronización con Access
 │   │   └── correos_workflows/  # Flujos completos de correos
-│   └── manual/                 # Tests manuales y de desarrollo
-│       ├── test_com_access.py  # Test de conectividad COM Access
-│       ├── test_correos_*.py   # Tests específicos de correos
-│       ├── test_env_config.py  # Test de configuración de entorno
-│       ├── test_network_verification.py # Test de verificación de red
-│       ├── test_relink_tables.py       # Test de reenlace de tablas
-│       ├── test_smtp_riesgos.py        # Test SMTP para riesgos
-│       └── test_user_functions.py      # Test de funciones de usuario
+│   └── manual/                 # Tests manuales esenciales
+│       ├── test_agedys_manual.py       # Test manual AGEDYS
+│       ├── test_env_config.py          # Test configuración entorno
+│       ├── test_network_verification.py # Test verificación red
+│       ├── test_smtp_riesgos.py        # Test SMTP riesgos
+│       └── test_user_functions.py      # Test funciones usuario
 ├── templates/                  # Plantillas HTML
-├── logs/                       # Archivos de log
-├── dbs-locales/               # Bases de datos locales (13 archivos .accdb)
-├── htmlcov/                   # Reportes HTML de cobertura
-├── herramientas/              # Archivos de configuración (CSS, etc.)
+├── dbs-locales/               # Bases de datos locales
+├── herramientas/              # Archivos de configuración
+│   ├── CSS1.css               # Estilos CSS principales
+│   └── Festivos.txt           # Archivo de días festivos
 ├── docs/                      # Documentación
 │   ├── coverage_setup_summary.md # Resumen configuración coverage
 │   ├── htmlcov_usage_guide.md     # Guía uso reportes HTML
-│   ├── docker_guia.md             # Guía completa de Docker
 │   ├── panel_control_guia.md      # Guía del panel de control
 │   ├── smtp_config_changes.md     # Cambios configuración SMTP
+│   ├── smtp_override_config.md    # Configuración override SMTP
 │   ├── riesgos.md                 # Documentación módulo de riesgos
-│   └── migracion_riesgos.md       # Guía migración GestionRiesgos.vbs
+│   ├── migracion_riesgos.md       # Guía migración GestionRiesgos.vbs
+│   └── NO_CONFORMIDADES.md        # Documentación no conformidades
 ├── examples/                    # Ejemplos y demos
-│   ├── smtp_config_demo.py      # Demo configuración SMTP
-│   └── ejemplo_riesgos.py       # Ejemplo uso módulo riesgos
+│   ├── README.md               # Documentación de ejemplos
+│   ├── database_connectivity_demo.py # Demo conectividad BD
+│   ├── smtp_config_demo.py     # Demo configuración SMTP
+│   ├── smtp_override_demo.py   # Demo override SMTP
+│   └── ejemplo_riesgos.py      # Ejemplo uso módulo riesgos
 └── legacy/                    # Sistema VBS original
+    ├── AGEDYS.VBS             # Sistema AGEDYS original
+    ├── BRASS.vbs              # Sistema BRASS original
+    ├── Expedientes.vbs        # Sistema expedientes original
+    ├── GestionRiesgos.vbs     # Sistema riesgos original
+    ├── NoConformidades.vbs    # Sistema no conformidades original
+    ├── EnviarCorreoNoEnviado.vbs # Sistema correos original
+    ├── EnviarCorreoTareas.vbs    # Sistema tareas original
+    └── script-continuo.vbs       # Script continuo original
 ```
 
 ## Características Implementadas
 
-### ✅ Módulos Migrados
-- **BRASS**: Sistema de gestión de tareas migrado completamente
-- **Correos**: Sistema de envío de correos HTML
-- **Expedientes**: Gestión de expedientes (en desarrollo)
-- **Riesgos**: Sistema de gestión de riesgos migrado completamente
+### ✅ Módulos Migrados y Funcionales
+- **AGEDYS**: Sistema completo de gestión de facturas y visados técnicos
+- **BRASS**: Sistema completo de gestión de tareas BRASS
+- **Expedientes**: Gestión de expedientes y documentación
+- **Correos**: Sistema de envío y gestión de correos electrónicos
+- **No Conformidades**: Gestión de no conformidades y seguimiento
+- **Riesgos**: Gestión completa de riesgos empresariales
 
-### 🔧 Infraestructura
-- **Multi-entorno**: Soporte para local/oficina con detección automática
-- **Base de datos**: Abstracción para Access con ODBC
-- **Logging**: Sistema de logs estructurado
-- **Testing**: 289 tests organizados con cobertura del 82%
-- **Coverage**: Reportes HTML interactivos con coverage.py
-- **SMTP**: Configuración sin autenticación para entorno oficina
+### 🔧 Infraestructura y Herramientas
+- **Sistema de Testing**: Tests automatizados con cobertura >80%
+- **Configuración Multi-entorno**: Desarrollo, testing y producción
+- **Logging Avanzado**: Sistema de logs estructurado y configurable
+- **Base de Datos**: Capa de abstracción para Microsoft Access
+- **Reportes HTML**: Generación automática de reportes visuales
+- **Herramientas de Desarrollo**: Scripts de setup, testing y monitoreo
+
+### 📊 Calidad y Testing
+- **Cobertura de Código**: >80% con reportes HTML detallados
+- **Tests Unitarios**: Tests completos para todos los módulos
+- **Tests de Integración**: Tests de integración con bases de datos
+- **Tests Funcionales**: Validación de flujos completos
+- **Tests Manuales**: Herramientas para testing manual y debugging
 
 ### 🔒 Seguridad
 - **Enmascaramiento de contraseñas** en logs y salidas de consola
@@ -155,12 +223,13 @@ scripts-python/
 - **Función utilitaria** `hide_password_in_connection_string` para logging seguro
 - **Validación de seguridad** con tests automatizados
 
-### 🚀 Mejoras Implementadas
-- Manejo robusto de errores
-- Configuración centralizada
-- Estructura modular
-- Documentación completa
-- CI/CD preparado
+### 🚀 Características Avanzadas
+- **Configuración SMTP Flexible**: Soporte para múltiples proveedores
+- **Gestión de Usuarios**: Adaptador unificado para diferentes sistemas
+- **Notificaciones**: Sistema de notificaciones por email
+- **Plantillas HTML**: Sistema de plantillas para reportes y emails
+- **Manejo de Errores**: Sistema robusto de manejo de excepciones
+- **Migración Completa**: Todos los sistemas VBS migrados a Python
 
 ## Configuración de Entornos
 
@@ -407,19 +476,37 @@ python server.py
 
 **Ejecutar Módulos Individuales:**
 ```bash
-# Ejecutar tarea BRASS
-python scripts/run_brass.py
+# AGEDYS - Gestión de facturas y visados técnicos
+python scripts/run_agedys.py                    # Ejecución normal (verifica horarios)
+python scripts/run_agedys.py --force            # Fuerza ejecución independientemente del horario
+python scripts/run_agedys.py --dry-run          # Simula ejecución sin enviar emails
 
-# Ejecutar módulo de correos
-python scripts/run_EnviarCorreo.py
+# BRASS - Gestión de tareas BRASS
+python scripts/run_brass.py                     # Ejecución normal
+python scripts/run_brass.py --force             # Fuerza ejecución
+python scripts/run_brass.py --dry-run           # Modo simulación
 
-# Ejecutar módulo de expedientes
-python scripts/run_expedientes.py
+# Expedientes - Gestión de expedientes
+python scripts/run_expedientes.py               # Ejecución normal
+python scripts/run_expedientes.py --force       # Fuerza ejecución
+python scripts/run_expedientes.py --dry-run     # Modo simulación
 
-# Ejecutar módulo de riesgos
-python scripts/run_riesgos.py
+# No Conformidades - Gestión de no conformidades
+python scripts/run_no_conformidades.py          # Ejecución normal
+python scripts/run_no_conformidades.py --force  # Fuerza ejecución
+python scripts/run_no_conformidades.py --dry-run # Modo simulación
 
-# Ejecutar tests
+# Riesgos - Gestión de riesgos empresariales
+python scripts/run_riesgos.py                   # Ejecución normal
+python scripts/run_riesgos.py --force           # Fuerza ejecución
+python scripts/run_riesgos.py --dry-run         # Modo simulación
+
+# Correos - Sistema de envío de correos
+python scripts/run_EnviarCorreo.py              # Ejecución normal
+python scripts/run_EnviarCorreo.py --force      # Fuerza ejecución
+python scripts/run_EnviarCorreo.py --dry-run    # Modo simulación
+
+# Tests
 python scripts/run_tests.py
 ```
 

@@ -1,6 +1,0 @@
-body {color:#003366;font-size:1em; font-family: Verdana,Arial , Helvetica, 'sans - serif'; }
-a { text-decoration: none; padding: 1px 3px; }
-a:hover { background: #ccc; }
-table {border-collapse: collapse;width: 100%;}
-td {border: 1px solid #ddd;padding: 8px;text-align: left;}
-th {background-color: #f0f0f0;text-align: center;}

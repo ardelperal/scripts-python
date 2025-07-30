@@ -22,6 +22,7 @@ class Config:
         
         # Configuración de rutas según el entorno
         if self.environment == 'local':
+            self.db_agedys_path = self.root_dir / os.getenv('LOCAL_DB_AGEDYS', 'dbs-locales/AGEDYS_DATOS.accdb')
             self.db_brass_path = self.root_dir / os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb')
             self.db_tareas_path = self.root_dir / os.getenv('LOCAL_DB_TAREAS', 'dbs-locales/Tareas_datos1.accdb')
             self.db_correos_path = self.root_dir / os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb')
@@ -30,6 +31,7 @@ class Config:
             self.db_no_conformidades_path = self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_datos.accdb')
             self.css_file_path = self.root_dir / os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt')
         else:  # oficina
+            self.db_agedys_path = Path(os.getenv('OFFICE_DB_AGEDYS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb'))
             self.db_brass_path = Path(os.getenv('OFFICE_DB_BRASS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Gestion_Brass_Gestion_Datos.accdb'))
             self.db_tareas_path = Path(os.getenv('OFFICE_DB_TAREAS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb'))
             self.db_correos_path = Path(os.getenv('OFFICE_DB_CORREOS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\correos_datos.accdb'))
@@ -90,9 +92,30 @@ class Config:
         """Crea directorios necesarios si no existen"""
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         
+    def get_local_db_path(self, db_type: str) -> Path:
+        """Retorna siempre la ruta local de la base de datos, independientemente del entorno"""
+        if db_type == 'agedys':
+            return self.root_dir / os.getenv('LOCAL_DB_AGEDYS', 'dbs-locales/AGEDYS_DATOS.accdb')
+        elif db_type == 'brass':
+            return self.root_dir / os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb')
+        elif db_type == 'tareas':
+            return self.root_dir / os.getenv('LOCAL_DB_TAREAS', 'dbs-locales/Tareas_datos1.accdb')
+        elif db_type == 'correos':
+            return self.root_dir / os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb')
+        elif db_type == 'riesgos':
+            return self.root_dir / os.getenv('LOCAL_DB_RIESGOS', 'dbs-locales/Gestion_Riesgos_Datos.accdb')
+        elif db_type == 'expedientes':
+            return self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
+        elif db_type == 'no_conformidades':
+            return self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_datos.accdb')
+        else:
+            raise ValueError(f"Tipo de BD no soportado: {db_type}")
+    
     def get_database_path(self, db_type: str) -> Path:
         """Retorna la ruta apropiada según el tipo de BD"""
-        if db_type == 'brass':
+        if db_type == 'agedys':
+            return self.db_agedys_path
+        elif db_type == 'brass':
             return self.db_brass_path
         elif db_type == 'tareas':
             return self.db_tareas_path
@@ -106,6 +129,10 @@ class Config:
             return self.db_no_conformidades_path
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
+        
+    def get_db_agedys_connection_string(self) -> str:
+        """Retorna la cadena de conexión para la base de datos AGEDYS"""
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_agedys_path};PWD={self.db_password};"
         
     def get_db_brass_connection_string(self) -> str:
         """Retorna la cadena de conexión para la base de datos BRASS"""

@@ -76,11 +76,12 @@ class MasterRunner:
             'brass': 'run_brass.py', 
             'expedientes': 'run_expedientes.py',
             'riesgos': 'run_riesgos.py',
-            'no_conformidades': 'run_no_conformidades.py'
+            'no_conformidades': 'run_no_conformidades.py',
+            'agedys': 'run_agedys.py'
         }
         
         # Scripts de tareas diarias (orden de ejecución)
-        self.daily_scripts = ['riesgos', 'brass', 'expedientes', 'no_conformidades']
+        self.daily_scripts = ['riesgos', 'brass', 'expedientes', 'no_conformidades', 'agedys']
         
         # Scripts de tareas continuas
         self.continuous_scripts = ['correos']
@@ -356,9 +357,7 @@ class MasterRunner:
             
             # No hay delay entre scripts - ejecución secuencial inmediata
         
-        # Tareas no implementadas aún (solo log informativo)
-        self.logger_adapter.info("📋 NoConformidades - No implementado aún")
-        self.logger_adapter.info("📋 AGEDYS - No implementado aún")
+        # Nota: AGEDYS pendiente de implementación
         
         tiempo_total = (datetime.now() - tiempo_inicio).total_seconds()
         
