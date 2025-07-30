@@ -1,6 +1,31 @@
 # Sistema de Gestión de Tareas - Migración de VBS a Python
 
-Este proyecto es una migración del sistema legacy VBS a Python, implementando mejores prácticas de desarrollo, testing automatizado, seguridad mejorada y soporte para múltiples entornos.
+Este proyecto es una migración del sistema legacy VBS a Python que implementa un **sistema de monitoreo continuo** para la gestión automatizada de tareas empresariales. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
+
+## 🎯 Objetivo Principal
+
+El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza al legacy `script-continuo.vbs`. Funciona como un **servicio continuo** que:
+
+- 🔄 **Monitorea continuamente** todos los sistemas involucrados
+- ⏰ **Ejecuta tareas diarias** una vez por día laborable (después de las 7 AM)
+- 📧 **Ejecuta tareas continuas** (correos) en cada ciclo
+- 📅 **Respeta días festivos** y horarios laborables
+- ⚙️ **Ajusta tiempos de ciclo** según horario y tipo de día
+- 📊 **Genera logs detallados** y archivos de estado
+- 🛡️ **Manejo robusto de errores** y recuperación automática
+
+### Tiempos de Ciclo del Master Runner
+
+El sistema ajusta automáticamente los tiempos de espera entre ciclos según el contexto:
+
+| Contexto | Tiempo de Ciclo | Descripción |
+|----------|----------------|-------------|
+| **Día Laborable - Día** | 5 minutos | Monitoreo intensivo en horario laboral |
+| **Día Laborable - Noche** | 60 minutos | Monitoreo reducido fuera de horario |
+| **Día No Laborable - Día** | 60 minutos | Monitoreo básico en fines de semana |
+| **Día No Laborable - Noche** | 120 minutos | Monitoreo mínimo en noches de fin de semana |
+
+*Horario nocturno: 20:00 - 07:00*
 
 ## 📋 Tabla de Contenidos
 
@@ -139,45 +164,121 @@ scripts-python/
 
 ## Configuración de Entornos
 
-El sistema soporta dos entornos configurables mediante el archivo `.env`:
+El sistema soporta dos entornos configurables mediante el archivo `.env` con **separación completa de configuraciones**:
 
 ### Configuración inicial
 ```bash
 # Copiar plantilla de configuración
-cp .env.example .env
+cp config/.env.example .env
 
-# Editar configuraciones específicas
+# Editar configuraciones específicas (NUNCA incluir contraseñas reales en el README)
 nano .env  # o tu editor preferido
 ```
 
 ### Entorno Local (`ENVIRONMENT=local`)
 - **Bases de datos**: Archivos `.accdb` en `dbs-locales/`
 - **Archivos CSS**: `herramientas/CSS.txt`
+- **SMTP**: MailHog local (localhost:1025)
 - **Uso**: Desarrollo, testing, trabajo sin red corporativa
 - **Ventajas**: No requiere conexión de red, datos de prueba
 
 ### Entorno Oficina (`ENVIRONMENT=oficina`)
 - **Bases de datos**: Rutas de red `\\servidor\aplicaciones\...`
 - **Archivos CSS**: Rutas de red corporativas
+- **SMTP**: Servidor corporativo (10.73.54.85:25)
 - **Uso**: Producción, datos reales, integración completa
 - **Requisitos**: Acceso a red corporativa, permisos ODBC
 
-### Variables de entorno importantes
+### Variables de Entorno Completas
+
+**⚠️ IMPORTANTE**: Nunca incluir contraseñas reales en documentación. Usar el archivo `.env` para valores sensibles.
+
+#### Configuración General
 ```bash
 ENVIRONMENT=local|oficina          # Seleccionar entorno
-DB_PASSWORD=contraseña_bd          # Contraseña bases datos
+DB_PASSWORD=***                    # Contraseña bases datos (configurar en .env)
 DEFAULT_RECIPIENT=email@empresa.com # Destinatario notificaciones
 LOG_LEVEL=INFO|DEBUG|ERROR         # Nivel de logging
+```
 
-# Configuración SMTP (Entorno Oficina)
-SMTP_SERVER=10.73.54.85           # Servidor SMTP oficina
-SMTP_PORT=25                      # Puerto SMTP (sin autenticación)
-SMTP_FROM=noreply@empresa.com     # Email remitente
+#### Bases de Datos - Entorno LOCAL
+```bash
+LOCAL_DB_AGEDYS=dbs-locales/AGEDYS_DATOS.accdb
+LOCAL_DB_EXPEDIENTES=dbs-locales/Expedientes_datos.accdb
+LOCAL_DB_SOLICITUDES_HPS=dbs-locales/Solicitudes_HPS_datos.accdb
+LOCAL_DB_BRASS=dbs-locales/Gestion_Brass_Gestion_Datos.accdb
+LOCAL_DB_TAREAS=dbs-locales/Tareas_datos1.accdb
+LOCAL_DB_CORREOS=dbs-locales/correos_datos.accdb
+LOCAL_DB_RIESGOS=dbs-locales/Gestion_Riesgos_Datos.accdb
+LOCAL_DB_HPST=dbs-locales/HPST.accdb
+LOCAL_DB_REGISTRO_ENT_SALIDA_DATOS=dbs-locales/Registro_Ent_Salida_Datos.accdb
+LOCAL_DB_AGEDO20_DATOS=dbs-locales/AGEDO20_Datos.accdb
+LOCAL_DB_REGISTRO_DATOS=dbs-locales/Registro_Datos.accdb
+LOCAL_CSS_FILE=herramientas/CSS.txt
+```
 
-# Configuración SMTP (Entorno Local)
-SMTP_SERVER=localhost             # MailHog local
-SMTP_PORT=1025                    # Puerto MailHog
-SMTP_FROM=test@example.com        # Email de prueba
+#### Bases de Datos - Entorno OFICINA
+```bash
+OFFICE_DB_AGEDYS=\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb
+OFFICE_DB_EXPEDIENTES=\\datoste\Aplicaciones_dys\Aplicaciones PpD\EXPEDIENTES\Expedientes_datos.accdb
+OFFICE_DB_SOLICITUDES_HPS=\\datoste\Aplicaciones_dys\Aplicaciones PpD\SOLICITUDES HPS\Solicitudes_HPS_datos.accdb
+OFFICE_DB_BRASS=\\datoste\aplicaciones_dys\Aplicaciones PpD\BRASS\Gestion_Brass_Gestion_Datos.accdb
+OFFICE_DB_TAREAS=\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb
+OFFICE_DB_CORREOS=\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\correos_datos.accdb
+OFFICE_DB_RIESGOS=\\datoste\Aplicaciones_dys\Aplicaciones PpD\GESTION RIESGOS\Gestion_Riesgos_Datos.accdb
+OFFICE_DB_HPST=\\datoste\Aplicaciones_dys\Aplicaciones PpD\HPS\HPST.accdb
+OFFICE_DB_REGISTRO_ENT_SALIDA_DATOS=\\datoste\aplicaciones_dys\Aplicaciones PpD\REGISTROS\Registro_Ent_Salida_Datos.accdb
+OFFICE_DB_AGEDO20_DATOS=\\datoste\aplicaciones_Dys\Aplicaciones PpD\AGEDO\AGEDO20_Datos.accdb
+OFFICE_DB_REGISTRO_DATOS=\\datoste\Aplicaciones_dys\Aplicaciones PpD\REGISTROS\Registro_Datos.accdb
+OFFICE_CSS_FILE=\\datoste\Aplicaciones_dys\Aplicaciones PpD\CSS.txt
+```
+
+#### Configuración SMTP - Entorno LOCAL
+```bash
+LOCAL_SMTP_SERVER=localhost        # MailHog local
+LOCAL_SMTP_PORT=1025              # Puerto MailHog
+LOCAL_SMTP_USER=test@example.com  # Email de prueba
+LOCAL_SMTP_PASSWORD=              # Sin contraseña
+LOCAL_SMTP_TLS=false              # Sin TLS
+```
+
+#### Configuración SMTP - Entorno OFICINA
+```bash
+OFFICE_SMTP_SERVER=10.73.54.85    # Servidor SMTP oficina
+OFFICE_SMTP_PORT=25               # Puerto SMTP (sin autenticación)
+OFFICE_SMTP_USER=                 # Sin usuario
+OFFICE_SMTP_PASSWORD=             # Sin contraseña
+OFFICE_SMTP_TLS=false             # Sin TLS
+```
+
+#### IDs de Aplicaciones
+```bash
+APP_ID_AGEDYS=3
+APP_ID_BRASS=6
+APP_ID_RIESGOS=5
+APP_ID_NOCONFORMIDADES=8
+APP_ID_EXPEDIENTES=19
+APP_ID_HPST=17
+APP_ID_REGISTRO_ENT_SALIDA_DATOS=10
+APP_ID_AGEDO20_DATOS=4
+```
+
+#### Configuración del Master Runner
+```bash
+# Tiempos de espera entre ciclos completos (en minutos)
+MASTER_CYCLE_LABORABLE_DIA=5      # Día laborable - horario diurno
+MASTER_CYCLE_LABORABLE_NOCHE=60   # Día laborable - horario nocturno
+MASTER_CYCLE_NO_LABORABLE_DIA=60  # Fin de semana - horario diurno
+MASTER_CYCLE_NO_LABORABLE_NOCHE=120 # Fin de semana - horario nocturno
+
+# Timeout para scripts individuales (en segundos)
+MASTER_SCRIPT_TIMEOUT=1800        # 30 minutos máximo por script
+
+# Archivos de configuración
+MASTER_FESTIVOS_FILE=herramientas/Festivos.txt
+MASTER_LOG_LEVEL=INFO
+MASTER_LOG_FILE=logs/run_master.log
+MASTER_STATUS_FILE=logs/run_master_status.json
 ```
 
 ### 📧 Configuración SMTP
@@ -268,7 +369,26 @@ python scripts/run_tests.py
 
 ## Uso
 
-### 🌐 Panel de Control Web (Recomendado)
+### 🚀 Ejecución del Script Maestro (Recomendado)
+
+**El script maestro es la forma principal de ejecutar el sistema en producción:**
+
+```bash
+# Ejecutar el script maestro (daemon de producción)
+python scripts/run_master.py
+```
+
+**Características del Master Runner:**
+- 🔄 **Ejecución continua** con ciclos automáticos
+- ⏰ **Tareas diarias**: Ejecutadas una vez por día laborable después de las 7 AM
+- 📧 **Tareas continuas**: Correos ejecutados en cada ciclo
+- 📅 **Respeta festivos** definidos en `herramientas/Festivos.txt`
+- 🕐 **Ajuste automático** de tiempos según horario y tipo de día
+- 📊 **Logs detallados** en `logs/run_master.log`
+- 📈 **Archivo de estado** en `logs/run_master_status.json`
+- 🛑 **Parada limpia** con Ctrl+C
+
+### 🌐 Panel de Control Web (Alternativo)
 ```bash
 # Iniciar servidor web del panel de control
 python server.py
@@ -283,9 +403,9 @@ python server.py
 - 🔄 Soporte multi-entorno (Local/Oficina)
 - 📝 Consola integrada con logs detallados
 
-### 🔧 Línea de Comandos (Alternativo)
+### 🔧 Línea de Comandos (Desarrollo)
 
-**Ejecutar Módulos:**
+**Ejecutar Módulos Individuales:**
 ```bash
 # Ejecutar tarea BRASS
 python scripts/run_brass.py
@@ -442,16 +562,25 @@ start htmlcov\index.html
 
 ## Variables de Entorno Principales
 
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
+**⚠️ SEGURIDAD**: Las contraseñas y datos sensibles deben configurarse únicamente en el archivo `.env`, nunca en documentación.
+
+| Variable | Descripción | Ejemplo Seguro |
+|----------|-------------|----------------|
 | `ENVIRONMENT` | Entorno (local/oficina) | `local` |
-| `DB_PASSWORD` | Contraseña bases de datos | `dpddpd` |
+| `DB_PASSWORD` | Contraseña bases de datos | `***` (configurar en .env) |
 | `LOCAL_DB_BRASS` | Ruta local BD BRASS | `dbs-locales/Brass.accdb` |
 | `OFFICE_DB_BRASS` | Ruta oficina BD BRASS | `\\servidor\aplicaciones\Brass.accdb` |
 | `DEFAULT_RECIPIENT` | Correo por defecto | `user@domain.com` |
-| `SMTP_SERVER` | Servidor SMTP | `10.73.54.85` |
-| `SMTP_PORT` | Puerto SMTP | `25` |
+| `OFFICE_SMTP_SERVER` | Servidor SMTP oficina | `10.73.54.85` |
+| `OFFICE_SMTP_PORT` | Puerto SMTP oficina | `25` |
+| `LOCAL_SMTP_SERVER` | Servidor SMTP local | `localhost` |
+| `LOCAL_SMTP_PORT` | Puerto SMTP local | `1025` |
 | `LOG_LEVEL` | Nivel de logging | `INFO` |
+| `MASTER_CYCLE_LABORABLE_DIA` | Ciclo día laborable (min) | `5` |
+| `MASTER_CYCLE_LABORABLE_NOCHE` | Ciclo noche laborable (min) | `60` |
+| `MASTER_CYCLE_NO_LABORABLE_DIA` | Ciclo día no laborable (min) | `60` |
+| `MASTER_CYCLE_NO_LABORABLE_NOCHE` | Ciclo noche no laborable (min) | `120` |
+| `MASTER_SCRIPT_TIMEOUT` | Timeout scripts (seg) | `1800` |
 
 ## Arquitectura
 

@@ -76,24 +76,32 @@ class TestExpedientesManager:
     def test_get_expedientes_about_to_finish_access(self, expedientes_manager):
         """Test obtener expedientes próximos a finalizar - Access"""
         mock_cursor = Mock()
+        # Datos de prueba con fechas que estarán dentro del umbral
+        future_date = datetime.now() + timedelta(days=10)
+        fecha_inicio = datetime.now() - timedelta(days=30)
+        fecha_certificacion = datetime.now() - timedelta(days=5)
+        fecha_fin_garantia = datetime.now() + timedelta(days=365)
+        
+        # Estructura: IDExpediente, CodExp, Nemotecnico, Titulo, FechaInicioContrato, 
+        #            FechaFinContrato, FECHACERTIFICACION, GARANTIAMESES, FechaFinGarantia, Nombre
         mock_results = [
-            ('EXP001', '2024-02-01', 'En Proceso', 'Juan Pérez', 'Descripción 1'),
-            ('EXP002', '2024-02-05', 'En Proceso', 'María García', 'Descripción 2')
+            (1, 'EXP001', 'NEM001', 'Título 1', fecha_inicio, future_date, fecha_certificacion, 12, fecha_fin_garantia, 'Juan Pérez'),
+            (2, 'EXP002', 'NEM002', 'Título 2', fecha_inicio, future_date, fecha_certificacion, 24, fecha_fin_garantia, 'María García')
         ]
         mock_cursor.fetchall.return_value = mock_results
-        expedientes_manager.expedientes_conn.get_cursor.return_value = mock_cursor
+        expedientes_manager.expedientes_conn.cursor.return_value = mock_cursor
         
-        result = expedientes_manager.get_expedientes_about_to_finish(30)
+        result = expedientes_manager.get_expedientes_about_to_finish(15)
         
         assert len(result) == 2
-        assert result[0]['expediente'] == 'EXP001'
-        assert result[0]['estado'] == 'En Proceso'
-        assert result[1]['expediente'] == 'EXP002'
+        assert result[0]['codigo_exp'] == 'EXP001'
+        assert result[0]['nemotecnico'] == 'NEM001'
+        assert result[1]['codigo_exp'] == 'EXP002'
         mock_cursor.execute.assert_called_once()
     
     def test_get_expedientes_about_to_finish_exception(self, expedientes_manager):
         """Test obtener expedientes próximos a finalizar con excepción"""
-        expedientes_manager.expedientes_conn.get_cursor.side_effect = Exception("DB Error")
+        expedientes_manager.expedientes_conn.cursor.side_effect = Exception("DB Error")
         
         result = expedientes_manager.get_expedientes_about_to_finish()
         
@@ -102,24 +110,26 @@ class TestExpedientesManager:
     def test_get_hitos_about_to_finish_access(self, expedientes_manager):
         """Test obtener hitos próximos a finalizar - Access"""
         mock_cursor = Mock()
+        # Datos de prueba con fechas que estarán dentro del umbral
+        future_date = datetime.now() + timedelta(days=10)
         mock_results = [
-            (1, 'EXP001', 'Hito 1', '2024-02-01', 'Pendiente', 'Juan Pérez'),
-            (2, 'EXP002', 'Hito 2', '2024-02-05', 'Pendiente', 'María García')
+            (1, 'EXP001', 'NEM001', 'Título 1', 'Juan Pérez', future_date, 'Descripción Hito 1'),
+            (2, 'EXP002', 'NEM002', 'Título 2', 'María García', future_date, 'Descripción Hito 2')
         ]
         mock_cursor.fetchall.return_value = mock_results
-        expedientes_manager.expedientes_conn.get_cursor.return_value = mock_cursor
+        expedientes_manager.expedientes_conn.cursor.return_value = mock_cursor
         
         result = expedientes_manager.get_hitos_about_to_finish(15)
         
         assert len(result) == 2
-        assert result[0]['id_hito'] == 1
-        assert result[0]['expediente'] == 'EXP001'
-        assert result[1]['id_hito'] == 2
+        assert result[0]['id_expediente'] == 1
+        assert result[0]['codigo_exp'] == 'EXP001'
+        assert result[1]['id_expediente'] == 2
         mock_cursor.execute.assert_called_once()
     
     def test_get_hitos_about_to_finish_exception(self, expedientes_manager):
         """Test obtener hitos próximos a finalizar con excepción"""
-        expedientes_manager.expedientes_conn.get_cursor.side_effect = Exception("DB Error")
+        expedientes_manager.expedientes_conn.cursor.side_effect = Exception("DB Error")
         
         result = expedientes_manager.get_hitos_about_to_finish()
         
@@ -128,24 +138,25 @@ class TestExpedientesManager:
     def test_get_expedientes_sin_cods4h_access(self, expedientes_manager):
         """Test obtener expedientes sin CodS4H - Access"""
         mock_cursor = Mock()
+        # Estructura: IDExpediente, CodExp, Nemotecnico, Titulo, Nombre, CadenaJuridicas, FECHAADJUDICACION, CodS4H
         mock_results = [
-            ('TSOL001', '2024-01-15', 50000.0, 'Proveedor A', 'Adjudicado'),
-            ('TSOL002', '2024-01-20', 75000.0, 'Proveedor B', 'Adjudicado')
+            (1, 'TSOL001', 'NEM001', 'Título 1', 'Juan Pérez', 'TSOL', '2024-01-15', None),
+            (2, 'TSOL002', 'NEM002', 'Título 2', 'María García', 'TSOL', '2024-01-20', None)
         ]
         mock_cursor.fetchall.return_value = mock_results
-        expedientes_manager.expedientes_conn.get_cursor.return_value = mock_cursor
+        expedientes_manager.expedientes_conn.cursor.return_value = mock_cursor
         
         result = expedientes_manager.get_expedientes_sin_cods4h()
         
         assert len(result) == 2
-        assert result[0]['expediente'] == 'TSOL001'
-        assert result[0]['importe'] == 50000.0
-        assert result[1]['expediente'] == 'TSOL002'
+        assert result[0]['codigo_exp'] == 'TSOL001'
+        assert result[0]['nemotecnico'] == 'NEM001'
+        assert result[1]['codigo_exp'] == 'TSOL002'
         mock_cursor.execute.assert_called_once()
     
     def test_get_expedientes_sin_cods4h_exception(self, expedientes_manager):
         """Test obtener expedientes sin CodS4H con excepción"""
-        expedientes_manager.expedientes_conn.get_cursor.side_effect = Exception("DB Error")
+        expedientes_manager.expedientes_conn.cursor.side_effect = Exception("DB Error")
         
         result = expedientes_manager.get_expedientes_sin_cods4h()
         
@@ -154,24 +165,26 @@ class TestExpedientesManager:
     def test_get_expedientes_fase_oferta_largo_tiempo_access(self, expedientes_manager):
         """Test obtener expedientes en fase de oferta por mucho tiempo - Access"""
         mock_cursor = Mock()
+        # Datos de prueba con fechas que estarán fuera del umbral (más de 45 días atrás)
+        old_date = datetime.now() - timedelta(days=60)
         mock_results = [
-            ('EXP001', '2023-11-01', 'En Oferta', 'Juan Pérez', 'Descripción 1'),
-            ('EXP002', '2023-10-15', 'En Oferta', 'María García', 'Descripción 2')
+            (1, 'EXP001', 'NEM001', 'Título 1', '2024-01-01', old_date, 'Juan Pérez'),
+            (2, 'EXP002', 'NEM002', 'Título 2', '2024-01-01', old_date, 'María García')
         ]
         mock_cursor.fetchall.return_value = mock_results
-        expedientes_manager.expedientes_conn.get_cursor.return_value = mock_cursor
+        expedientes_manager.expedientes_conn.cursor.return_value = mock_cursor
         
-        result = expedientes_manager.get_expedientes_fase_oferta_largo_tiempo(60)
+        result = expedientes_manager.get_expedientes_fase_oferta_largo_tiempo(45)
         
         assert len(result) == 2
-        assert result[0]['expediente'] == 'EXP001'
-        assert result[0]['estado'] == 'En Oferta'
-        assert result[1]['expediente'] == 'EXP002'
+        assert result[0]['codigo_exp'] == 'EXP001'
+        assert result[0]['nemotecnico'] == 'NEM001'
+        assert result[1]['codigo_exp'] == 'EXP002'
         mock_cursor.execute.assert_called_once()
     
     def test_get_expedientes_fase_oferta_largo_tiempo_exception(self, expedientes_manager):
         """Test obtener expedientes en fase de oferta con excepción"""
-        expedientes_manager.expedientes_conn.get_cursor.side_effect = Exception("DB Error")
+        expedientes_manager.expedientes_conn.cursor.side_effect = Exception("DB Error")
         
         result = expedientes_manager.get_expedientes_fase_oferta_largo_tiempo()
         
