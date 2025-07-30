@@ -72,14 +72,15 @@ class MasterRunner:
         
         # Scripts disponibles y sus configuraciones
         self.available_scripts = {
-            'correos': 'run_EnviarCorreo.py',
+            'correos': 'run_correos.py',
             'brass': 'run_brass.py', 
             'expedientes': 'run_expedientes.py',
-            'riesgos': 'run_riesgos.py'
+            'riesgos': 'run_riesgos.py',
+            'no_conformidades': 'run_no_conformidades.py'
         }
         
         # Scripts de tareas diarias (orden de ejecución)
-        self.daily_scripts = ['riesgos', 'brass', 'expedientes']
+        self.daily_scripts = ['riesgos', 'brass', 'expedientes', 'no_conformidades']
         
         # Scripts de tareas continuas
         self.continuous_scripts = ['correos']
