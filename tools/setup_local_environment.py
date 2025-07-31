@@ -871,13 +871,15 @@ class LocalEnvironmentSetup:
                     access_app.DoCmd.SetWarnings(True)
                     access_app.CloseCurrentDatabase()
                     access_app.Quit()
-            except:
+            except Exception:
+                # Ignorar errores al cerrar la aplicación Access
                 pass
             
             # Limpiar COM
             try:
                 pythoncom.CoUninitialize()
-            except:
+            except Exception:
+                # Ignorar errores al limpiar COM
                 pass
         
         return linked_tables
@@ -944,13 +946,15 @@ class LocalEnvironmentSetup:
                     access_app.DoCmd.SetWarnings(True)
                     access_app.CloseCurrentDatabase()
                     access_app.Quit()
-            except:
+            except Exception:
+                # Ignorar errores al cerrar la aplicación Access
                 pass
             
             # Limpiar COM
             try:
                 pythoncom.CoUninitialize()
-            except:
+            except Exception:
+                # Ignorar errores al limpiar COM
                 pass
     
     def update_database_links(self, db_path: str) -> tuple[bool, list[str], list[dict]]:
@@ -1092,13 +1096,15 @@ class LocalEnvironmentSetup:
                     access_app.DoCmd.SetWarnings(True)
                     access_app.CloseCurrentDatabase()
                     access_app.Quit()
-            except:
+            except Exception:
+                # Ignorar errores al cerrar la aplicación Access
                 pass
             
             # Limpiar COM
             try:
                 pythoncom.CoUninitialize()
-            except:
+            except Exception:
+                # Ignorar errores al limpiar COM
                 pass
     
     def _convert_to_local_path(self, remote_path: str) -> str:

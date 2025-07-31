@@ -153,7 +153,7 @@ class BaseEmailNotificationManager(ABC):
         Returns:
             Lista de emails de administradores
         """
-        pass
+        raise NotImplementedError("Subclases deben implementar get_admin_emails()")
     
     @abstractmethod
     def generate_module_report(self, **kwargs) -> str:
@@ -164,7 +164,7 @@ class BaseEmailNotificationManager(ABC):
         Returns:
             Contenido HTML del reporte
         """
-        pass
+        raise NotImplementedError("Subclases deben implementar generate_module_report()")
     
     def log_email_sent(self, to_addresses: List[str], subject: str, success: bool):
         """

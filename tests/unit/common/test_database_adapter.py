@@ -236,6 +236,7 @@ class TestAccessAdapter:
             with AccessAdapter(mock_db_path) as adapter:
                 raise ValueError("Test exception")
         except ValueError:
+            # Se espera que se capture la excepción y se cierre la conexión
             pass
         
         mock_conn.close.assert_called_once()

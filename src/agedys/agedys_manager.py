@@ -411,19 +411,15 @@ class AgedysManager:
     
     def get_dpds_fin_agenda_tecnica_por_recepcionar(self) -> List[Dict[str, Any]]:
         """Obtiene DPDs con fin de agenda técnica pendientes de recepción por economía"""
-        # Basado en getDPDsFinAgendaTecnicaPorRecepcionar del VBS
-        # Calculamos la fecha objetivo en lugar de usar DATEDIFF
-        fecha_objetivo = datetime.now().strftime('%Y-%m-%d')
-        
+        # Basado en getDPDsConFinAgendaTecnicaPorRecepcionaEconomia del VBS
         query = """
-        SELECT TbProyectos.CODPROYECTOS, TbProyectos.DESCRIPCION, TbProyectos.PETICIONARIO, 
-               TbProyectos.FECHAPETICION, TbExpedientes.CodExp, TbProyectos.FechaFinAgendaTecnica,
-               TbProyectos.ImporteEstimado
-        FROM TbProyectos INNER JOIN TbExpedientes ON TbProyectos.IDExpediente = TbExpedientes.IdExpediente
-        WHERE TbExpedientes.Pecal <> 'No' 
+        SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION, 
+               TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION
+        FROM TbProyectos
+        WHERE TbProyectos.ELIMINADO = False 
+        AND TbProyectos.FECHARECEPCIONECONOMICA IS NULL
         AND TbProyectos.FechaFinAgendaTecnica IS NOT NULL
-        AND TbProyectos.FechaFinAgendaTecnica <= #{}#
-        """.format(fecha_objetivo)
+        """
         
         try:
             return self.db.execute_query(query)
@@ -450,23 +446,21 @@ class AgedysManager:
             logger.error(f"Error obteniendo usuarios tareas: {e}")
             return []
     
-    def get_dpds_sin_pedido(self, usuario: str) -> List[Dict[str, Any]]:
-        """Obtiene DPDs sin pedido para un usuario"""
-        # Basado en la consulta del VBS original para DPDs sin pedido
+    def get_dpds_sin_pedido(self) -> List[Dict[str, Any]]:
+        """Obtiene DPDs sin pedido"""
+        # Basado en getDPDsSinPedido del VBS
         query = """
-        SELECT NumeroDPD, Descripcion, FechaAprobacionCalidad, ResponsableCalidad,
-               Expediente, ImporteEstimado
-        FROM DPDs
-        WHERE ResponsableTecnico = ?
-        AND EstadoPedido = 'SinPedido'
-        AND EstadoCalidad = 'Aprobado'
-        ORDER BY FechaAprobacionCalidad ASC
+        SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.FECHAPETICION, 
+               TbProyectos.EXPEDIENTE, TbProyectos.DESCRIPCION
+        FROM TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD
+        WHERE TbProyectos.ELIMINADO = False 
+        AND TbNPedido.NPEDIDO IS NULL
         """
         
         try:
-            return self.db.execute_query(query, (usuario,))
+            return self.db.execute_query(query)
         except Exception as e:
-            logger.error(f"Error obteniendo DPDs sin pedido para {usuario}: {e}")
+            logger.error(f"Error obteniendo DPDs sin pedido: {e}")
             return []
     
     def generate_facturas_html_table(self, facturas: List[Dict[str, Any]]) -> str:
@@ -637,8 +631,8 @@ class AgedysManager:
         html_content += generate_html_footer()
         
         for usuario_economia in usuarios_economia:
-            email = usuario_economia.get('CorreoUsuario')  # Cambiar de 'Email' a 'CorreoUsuario'
-            usuario = usuario_economia.get('Nombre')       # Cambiar de 'Usuario' a 'Nombre'
+            email = usuario_economia.get('CorreoUsuario')  
+            usuario = usuario_economia.get('UsuarioRed')   # Cambiar de 'Nombre' a 'UsuarioRed'
             
             if email:
                 try:
@@ -677,12 +671,12 @@ class AgedysManager:
     def execute_task(self, force=False, dry_run=False):
         """Ejecuta las tareas de AGEDYS con control de frecuencia"""
         try:
+            # Obtener conexión a la base de datos de tareas
+            from common.database import AccessDatabase
+            tareas_db = AccessDatabase(config.get_db_tareas_connection_string())
+            
             # Verificar si debe ejecutarse (a menos que sea forzado)
             if not force:
-                # Obtener conexión a la base de datos de tareas para verificar frecuencia
-                from common.database import AccessDatabase
-                tareas_db = AccessDatabase(config.get_db_tareas_connection_string())
-                
                 # Convertir frecuencia a días
                 frequency_days = 1 if TASK_FREQUENCY == 'daily' else 7 if TASK_FREQUENCY == 'weekly' else 30
                 
@@ -724,8 +718,8 @@ class AgedysManager:
             usuarios_facturas = self.get_usuarios_facturas_pendientes_visado_tecnico()
             
             for usuario_data in usuarios_facturas:
-                usuario = usuario_data.get('Nombre')        # Cambiar de 'Usuario' a 'Nombre'
-                email = usuario_data.get('CorreoUsuario')   # Cambiar de 'Email' a 'CorreoUsuario'
+                usuario = usuario_data.get('UsuarioRed')    # Usar UsuarioRed que es lo que devuelve la consulta
+                email = usuario_data.get('CorreoUsuario')   
                 
                 if usuario and email:
                     facturas = self.get_facturas_pendientes_visado_tecnico(usuario)
@@ -736,8 +730,8 @@ class AgedysManager:
             usuarios_dpds_calidad = self.get_usuarios_dpds_sin_visado_calidad()
             
             for usuario_data in usuarios_dpds_calidad:
-                usuario = usuario_data.get('Nombre')        # Cambiar de 'Usuario' a 'Nombre'
-                email = usuario_data.get('CorreoUsuario')   # Cambiar de 'Email' a 'CorreoUsuario'
+                usuario = usuario_data.get('UsuarioRed')    # Usar UsuarioRed que es lo que devuelve la consulta
+                email = usuario_data.get('CorreoUsuario')   
                 
                 if usuario and email:
                     dpds = self.get_dpds_sin_visado_calidad(usuario)
@@ -748,8 +742,8 @@ class AgedysManager:
             usuarios_dpds_rechazados = self.get_usuarios_dpds_rechazados_calidad()
             
             for usuario_data in usuarios_dpds_rechazados:
-                usuario = usuario_data.get('Nombre')        # Cambiar de 'Usuario' a 'Nombre'
-                email = usuario_data.get('CorreoUsuario')   # Cambiar de 'Email' a 'CorreoUsuario'
+                usuario = usuario_data.get('UsuarioRed')    # Usar UsuarioRed que es lo que devuelve la consulta
+                email = usuario_data.get('CorreoUsuario')   
                 
                 if usuario and email:
                     dpds = self.get_dpds_rechazados_calidad(usuario)
@@ -765,15 +759,28 @@ class AgedysManager:
             
             # 5. DPDs sin pedido
             logger.info("Procesando DPDs sin pedido...")
-            usuarios_tareas = self.get_usuarios_tareas()
+            dpds_sin_pedido = self.get_dpds_sin_pedido()
             
-            for usuario_data in usuarios_tareas:
-                usuario = usuario_data.get('Nombre')        # Cambiar de 'Usuario' a 'Nombre'
-                email = usuario_data.get('CorreoUsuario')   # Cambiar de 'Email' a 'CorreoUsuario'
-                
-                if usuario and email:
-                    dpds = self.get_dpds_sin_pedido(usuario)
-                    self.send_dpds_sin_pedido_email(usuario, email, dpds, dry_run)
+            # Agrupar DPDs por usuario (PETICIONARIO)
+            dpds_por_usuario = {}
+            for dpd in dpds_sin_pedido:
+                peticionario = dpd.get('PETICIONARIO')
+                if peticionario:
+                    if peticionario not in dpds_por_usuario:
+                        dpds_por_usuario[peticionario] = []
+                    dpds_por_usuario[peticionario].append(dpd)
+            
+            # Obtener usuarios técnicos para enviar emails
+            usuarios_tareas = self.get_usuarios_tareas()
+            usuarios_dict = {u.get('UsuarioRed'): u for u in usuarios_tareas}
+            
+            # Enviar emails a cada usuario con sus DPDs
+            for peticionario, dpds in dpds_por_usuario.items():
+                if peticionario in usuarios_dict:
+                    usuario_data = usuarios_dict[peticionario]
+                    email = usuario_data.get('CorreoUsuario')
+                    if email:
+                        self.send_dpds_sin_pedido_email(peticionario, email, dpds, dry_run)
             
             logger.info("Proceso AGEDYS completado exitosamente")
             return True

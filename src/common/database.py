@@ -9,6 +9,7 @@ from datetime import datetime, date
 
 # Importar adaptadores
 from .database_adapter import AccessAdapter
+from .utils import hide_password_in_connection_string
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,9 @@ class AccessDatabase:
                 raise ImportError("pyodbc es requerido para conexiones Access")
             
             self._connection = pyodbc.connect(self.connection_string)
-            logger.info(f"Conexión establecida con Access")
+            # Usar función para ocultar contraseña en logs
+            safe_conn_str = hide_password_in_connection_string(self.connection_string)
+            logger.info(f"Conexión establecida con Access: {safe_conn_str}")
             return self._connection
         except Exception as e:
             logger.error(f"Error al conectar con la base de datos: {e}")

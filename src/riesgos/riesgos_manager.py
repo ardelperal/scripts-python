@@ -830,69 +830,227 @@ class RiesgosManager:
         
         return html if html else "<div class='section'><h3>Métricas Mensuales</h3><p>No hay elementos para mostrar.</p></div>"
     
-    # Métodos para obtener datos específicos (implementar según necesidades)
+    # Métodos para obtener datos específicos
     def _get_editions_need_publication_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de ediciones que necesitan propuesta de publicación."""
         try:
-            query = self._get_editions_need_publication_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbProyectosEdiciones.Edicion, TbProyectosEdiciones.IDEdicion,
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad,
+                   TbProyectosEdiciones.FechaPreparadaParaPublicar, 
+                   DateDiff('d', Now(), TbProyectosEdiciones.FechaMaxProximaPublicacion) AS Dias
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN TbProyectosEdiciones ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+              AND TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND DateDiff('d', Now(), TbProyectosEdiciones.FechaMaxProximaPublicacion) <= 15
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbProyectosEdiciones.FechaPreparadaParaPublicar IS NULL
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo ediciones que necesitan propuesta de publicación: {e}")
             return []
     
     def _get_editions_with_rejected_proposals_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de ediciones con propuestas rechazadas."""
         try:
-            query = self._get_editions_with_rejected_proposals_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbProyectosEdiciones.Edicion, TbProyectosEdiciones.IDEdicion,
+                   TbProyectosEdiciones.FechaMaxProximaPublicacion, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad,
+                   TbProyectosEdiciones.FechaPreparadaParaPublicar, TbProyectosEdiciones.PropuestaRechazadaPorCalidadFecha,
+                   TbProyectosEdiciones.PropuestaRechazadaPorCalidadMotivo
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN TbProyectosEdiciones ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+              AND TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbProyectosEdiciones.FechaPreparadaParaPublicar IS NOT NULL
+              AND TbProyectosEdiciones.PropuestaRechazadaPorCalidadFecha IS NOT NULL
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo ediciones con propuestas rechazadas: {e}")
             return []
     
     def _get_accepted_risks_unmotivated_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de riesgos aceptados no motivados."""
         try:
-            query = self._get_accepted_risks_unmotivated_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbRiesgos.Mitigacion = 'Aceptar'
+              AND TbRiesgos.FechaJustificacionAceptacionRiesgo IS NULL
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo riesgos aceptados no motivados: {e}")
             return []
     
     def _get_accepted_risks_rejected_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de riesgos aceptados rechazados."""
         try:
-            query = self._get_accepted_risks_rejected_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbRiesgos.FechaRechazoAceptacionPorCalidad, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbRiesgos.Mitigacion = 'Aceptar'
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+              AND TbRiesgos.FechaRechazoAceptacionPorCalidad IS NOT NULL
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo riesgos aceptados rechazados: {e}")
             return []
     
     def _get_retired_risks_unmotivated_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de riesgos retirados no motivados."""
         try:
-            query = self._get_retired_risks_unmotivated_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbRiesgos.FechaRetirado, TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbRiesgos.Mitigacion = 'Retirar'
+              AND TbRiesgos.FechaJustificacionRetiroRiesgo IS NULL
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo riesgos retirados no motivados: {e}")
             return []
     
     def _get_retired_risks_rejected_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de riesgos retirados rechazados."""
         try:
-            query = self._get_retired_risks_rejected_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbRiesgos.FechaRetirado, TbRiesgos.FechaRechazoRetiroPorCalidad,
+                   TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM ((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                  INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                  INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                  INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                  ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbRiesgos.Mitigacion = 'Retirar'
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+              AND TbRiesgos.FechaRechazoRetiroPorCalidad IS NOT NULL
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo riesgos retirados rechazados: {e}")
             return []
     
     def _get_mitigation_actions_reschedule_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de acciones de mitigación para replanificar."""
         try:
-            query = self._get_risks_mitigation_actions_reschedule_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbAccionesMitigacion.FechaFinalizacion, TbAccionesMitigacion.Descripcion AS AccionDescripcion,
+                   TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM (((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                   INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                   INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                   INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                   ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                  INNER JOIN TbAccionesMitigacion ON TbRiesgos.IDRiesgo = TbAccionesMitigacion.IDRiesgo)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbAccionesMitigacion.FechaFinalizacion < Now()
+              AND TbAccionesMitigacion.FechaRealFinalizacion IS NULL
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo acciones de mitigación para replanificar: {e}")
             return []
     
     def _get_contingency_actions_reschedule_data(self, user_id: str) -> List[Dict]:
         """Obtiene datos de acciones de contingencia para replanificar."""
         try:
-            query = self._get_risks_contingency_actions_reschedule_query() + f" AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'"
+            query = f"""
+            SELECT DISTINCT TbExpedientes1.Nemotecnico, TbRiesgos.IDRiesgo, TbRiesgos.CodigoRiesgo, TbRiesgos.Descripcion,
+                   TbRiesgos.CausaRaiz, TbAccionesContingencia.FechaFinalizacion, TbAccionesContingencia.Descripcion AS AccionDescripcion,
+                   TbUsuariosAplicaciones_1.Nombre AS UsuarioCalidad
+            FROM (((((TbProyectos INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente)
+                   INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente)
+                   INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id)
+                   INNER JOIN (TbProyectosEdiciones INNER JOIN TbRiesgos ON TbProyectosEdiciones.IDEdicion = TbRiesgos.IDEdicion)
+                   ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto)
+                  INNER JOIN TbAccionesContingencia ON TbRiesgos.IDRiesgo = TbAccionesContingencia.IDRiesgo)
+                 LEFT JOIN TbUsuariosAplicaciones AS TbUsuariosAplicaciones_1 ON TbExpedientes1.IDResponsableCalidad = TbUsuariosAplicaciones_1.Id
+            WHERE TbProyectos.ParaInformeAvisos <> 'No'
+              AND TbProyectos.FechaCierre IS NULL
+              AND TbProyectosEdiciones.FechaPublicacion IS NULL
+              AND TbExpedientesResponsables.EsJefeProyecto = 'Sí'
+              AND TbExpedientesResponsables.CorreoSiempre = 'Sí'
+              AND TbUsuariosAplicaciones.FechaBaja IS NULL
+              AND TbAccionesContingencia.FechaFinalizacion < Now()
+              AND TbAccionesContingencia.FechaRealFinalizacion IS NULL
+              AND TbUsuariosAplicaciones.UsuarioRed = '{user_id}'
+            """
             return self.db.execute_query(query)
-        except:
+        except Exception as e:
+            self.logger.error(f"Error obteniendo acciones de contingencia para replanificar: {e}")
             return []
     
     # Métodos auxiliares para métricas de calidad

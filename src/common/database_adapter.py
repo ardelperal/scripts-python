@@ -6,6 +6,7 @@ import pyodbc
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from .utils import hide_password_in_connection_string
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,9 @@ class AccessAdapter:
             if self.password:
                 conn_str += f"PWD={self.password};"
             self.connection = pyodbc.connect(conn_str)
-            logger.info(f"Conectado a Access: {self.db_path}")
+            # Usar función para ocultar contraseña en logs
+            safe_conn_str = hide_password_in_connection_string(conn_str)
+            logger.info(f"Conectado a Access: {safe_conn_str}")
         except Exception as e:
             logger.error(f"Error conectando a Access {self.db_path}: {e}")
             raise
@@ -118,12 +121,12 @@ if __name__ == "__main__":
         db_path = Path("dbs-locales/Tareas_datos1.accdb")
         with AccessAdapter(db_path) as db:
             tables = db.get_tables()
-            print(f"📊 Tablas disponibles: {tables}")
+            logger.info(f"Tablas disponibles: {tables}")
             
             if tables:
                 # Ejemplo de consulta
                 results = db.execute_query(f"SELECT TOP 5 * FROM {tables[0]}")
-                print(f"🔍 Primeras 5 filas de {tables[0]}: {len(results)} registros")
+                logger.info(f"Primeras 5 filas de {tables[0]}: {len(results)} registros")
                 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"Error en ejemplo: {e}")

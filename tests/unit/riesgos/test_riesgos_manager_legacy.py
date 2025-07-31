@@ -309,7 +309,7 @@ class TestRiesgosManager(unittest.TestCase):
         """Prueba generación de reporte HTML técnico."""
         # Mock de métodos de datos
         self.manager._get_editions_need_publication_data = Mock(return_value=[])
-        self.manager._get_editions_rejected_proposals_data = Mock(return_value=[])
+        self.manager._get_editions_with_rejected_proposals_data = Mock(return_value=[])
         self.manager._get_accepted_risks_unmotivated_data = Mock(return_value=[])
         self.manager._get_accepted_risks_rejected_data = Mock(return_value=[])
         self.manager._get_retired_risks_unmotivated_data = Mock(return_value=[])
@@ -372,7 +372,7 @@ class TestRiesgosManager(unittest.TestCase):
         # Probar todos los métodos de datos
         methods = [
             '_get_editions_need_publication_data',
-            '_get_editions_rejected_proposals_data',
+            '_get_editions_with_rejected_proposals_data',
             '_get_accepted_risks_unmotivated_data',
             '_get_accepted_risks_rejected_data',
             '_get_retired_risks_unmotivated_data',

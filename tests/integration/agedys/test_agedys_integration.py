@@ -261,11 +261,11 @@ class TestAgedysIntegration:
     
     def test_multiple_users_processing_integration(self, agedys_manager, mock_utils):
         """Test de procesamiento de múltiples usuarios"""
-        # Configurar múltiples usuarios
+        # Configurar múltiples usuarios con los campos correctos que espera el código
         mock_usuarios = [
-            {'Nombre': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
-            {'Nombre': 'Usuario2', 'CorreoUsuario': 'user2@test.com'},
-            {'Nombre': 'Usuario3', 'CorreoUsuario': 'user3@test.com'}
+            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
+            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'user2@test.com'},
+            {'UsuarioRed': 'Usuario3', 'CorreoUsuario': 'user3@test.com'}
         ]
         
         mock_facturas = [

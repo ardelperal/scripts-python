@@ -1,5 +1,5 @@
 """
-Configuración específica para tests de integración de AGEDYS
+Configuración específica para tests de integración de Expedientes
 """
 import pytest
 import os
@@ -16,7 +16,7 @@ def local_db_connections():
     """
     # Forzar el uso de bases de datos locales
     connections = {
-        'agedys': AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={config.get_local_db_path('agedys')};PWD={config.db_password};"),
+        'expedientes': AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={config.get_local_db_path('expedientes')};PWD={config.db_password};"),
         'tareas': AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={config.get_local_db_path('tareas')};PWD={config.db_password};"),
         'correos': AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={config.get_local_db_path('correos')};PWD={config.db_password};")
     }
@@ -25,19 +25,19 @@ def local_db_connections():
 
 
 @pytest.fixture
-def local_agedys_manager():
+def local_expedientes_manager():
     """
-    Fixture que proporciona una instancia de AgedysManager configurada
+    Fixture que proporciona una instancia de ExpedientesManager configurada
     específicamente para usar bases de datos locales en las pruebas
     """
     # Crear una instancia personalizada que use conexiones locales
-    class LocalAgedysManager:
+    class LocalExpedientesManager:
         def __init__(self):
             # Conexiones forzadas a bases de datos locales
-            agedys_local_path = config.get_local_db_path('agedys')
+            expedientes_local_path = config.get_local_db_path('expedientes')
             tareas_local_path = config.get_local_db_path('tareas')
             
-            self.db = AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={agedys_local_path};PWD={config.db_password};")
+            self.db = AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={expedientes_local_path};PWD={config.db_password};")
             self.tareas_db = AccessDatabase(f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={tareas_local_path};PWD={config.db_password};")
             
             # Cargar CSS desde archivo local
@@ -48,10 +48,10 @@ def local_agedys_manager():
             except FileNotFoundError:
                 self.css_content = ""
         
-        # Importar todos los métodos de AgedysManager
+        # Importar todos los métodos de ExpedientesManager
         def __getattr__(self, name):
-            from agedys.agedys_manager import AgedysManager
-            original_manager = AgedysManager()
+            from expedientes.expedientes_manager import ExpedientesManager
+            original_manager = ExpedientesManager()
             method = getattr(original_manager, name)
             
             # Si es un método, reemplazar las conexiones de BD
@@ -76,14 +76,4 @@ def local_agedys_manager():
             else:
                 return method
     
-    return LocalAgedysManager()
-
-
-@pytest.fixture
-def real_agedys_manager():
-    """
-    Fixture que proporciona una instancia real de AgedysManager
-    para tests de integración con bases de datos reales.
-    DEPRECATED: Usar local_agedys_manager en su lugar
-    """
-    return AgedysManager()
+    return LocalExpedientesManager()
