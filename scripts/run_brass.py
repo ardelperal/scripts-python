@@ -13,7 +13,7 @@ sys.path.insert(0, str(src_path))
 
 from src.common.config import config
 from src.common.utils import setup_logging
-from brass.brass_manager import BrassManager
+from src.brass.brass_manager import BrassManager
 
 def main():
     """Función principal"""

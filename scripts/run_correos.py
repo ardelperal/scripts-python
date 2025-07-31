@@ -13,7 +13,7 @@ sys.path.insert(0, str(src_path))
 
 from src.common.config import config
 from src.common.utils import setup_logging
-from correos.correos_manager import CorreosManager
+from src.correos.correos_manager import CorreosManager
 
 
 def main():

@@ -22,8 +22,8 @@ from pathlib import Path
 # Agregar el directorio src al path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from common.config import Config
-from riesgos.riesgos_manager import RiesgosManager
+from src.common.config import Config
+from src.riesgos.riesgos_manager import RiesgosManager
 
 
 def setup_logging(verbose: bool = False):
@@ -79,7 +79,7 @@ def main():
     
     try:
         # Cargar configuración
-        from common.config import config
+        from src.common.config import config
         logger.info(f"Configuración cargada para entorno: {config.environment}")
         
         # Crear manager de riesgos
