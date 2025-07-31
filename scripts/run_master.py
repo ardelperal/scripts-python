@@ -77,14 +77,15 @@ class MasterRunner:
             'expedientes': 'run_expedientes.py',
             'riesgos': 'run_riesgos.py',
             'no_conformidades': 'run_no_conformidades.py',
-            'agedys': 'run_agedys.py'
+            'agedys': 'run_agedys.py',
+            'tareas': 'run_tareas.py'
         }
         
         # Scripts de tareas diarias (orden de ejecución)
         self.daily_scripts = ['riesgos', 'brass', 'expedientes', 'no_conformidades', 'agedys']
         
         # Scripts de tareas continuas
-        self.continuous_scripts = ['correos']
+        self.continuous_scripts = ['correos', 'tareas']
         
         logger.info("🚀 Master Runner inicializado correctamente")
         logger.info(f"📁 Directorio de scripts: {self.scripts_dir}")

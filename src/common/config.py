@@ -20,6 +20,17 @@ class Config:
         self.environment = os.getenv('ENVIRONMENT', 'local')
         self.db_password = os.getenv('DB_PASSWORD', 'dpddpd')
         
+        # Configuración de bases de datos
+        self.db_paths = {
+            'correos': self._get_db_path('CORREOS_DB_PATH', 'Correos_datos.accdb'),
+            'brass': self._get_db_path('BRASS_DB_PATH', 'Brass_datos.accdb'),
+            'expedientes': self._get_db_path('EXPEDIENTES_DB_PATH', 'Expedientes_datos.accdb'),
+            'riesgos': self._get_db_path('RIESGOS_DB_PATH', 'Riesgos_datos.accdb'),
+            'no_conformidades': self._get_db_path('NO_CONFORMIDADES_DB_PATH', 'NoConformidades_datos.accdb'),
+            'agedys': self._get_db_path('AGEDYS_DB_PATH', 'Agedys_datos.accdb'),
+            'tareas': self._get_db_path('TAREAS_DB_PATH', 'Tareas_datos1.accdb')
+        }
+        
         # Configuración de rutas según el entorno
         if self.environment == 'local':
             self.db_agedys_path = self.root_dir / os.getenv('LOCAL_DB_AGEDYS', 'dbs-locales/AGEDYS_DATOS.accdb')
@@ -87,6 +98,31 @@ class Config:
         
         # Crear directorios necesarios
         self._ensure_directories()
+        
+    def _get_db_path(self, env_var: str, default_filename: str) -> Path:
+        """Obtiene la ruta de la base de datos según el entorno"""
+        if self.environment == 'local':
+            return self.root_dir / 'dbs-locales' / default_filename
+        else:
+            # Para oficina, usar la ruta específica de cada BD
+            office_paths = {
+                'CORREOS_DB_PATH': r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\correos_datos.accdb',
+                'BRASS_DB_PATH': r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Gestion_Brass_Gestion_Datos.accdb',
+                'EXPEDIENTES_DB_PATH': r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Expedientes_datos.accdb',
+                'RIESGOS_DB_PATH': r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\GESTION RIESGOS\Gestion_Riesgos_Datos.accdb',
+                'NO_CONFORMIDADES_DB_PATH': r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\NoConformidades_datos.accdb',
+                'AGEDYS_DB_PATH': r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb',
+                'TAREAS_DB_PATH': r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb'
+            }
+            return Path(os.getenv(env_var, office_paths.get(env_var, default_filename)))
+
+    def get_db_connection_string(self, db_type: str) -> str:
+        """Retorna la cadena de conexión para cualquier base de datos"""
+        if db_type not in self.db_paths:
+            raise ValueError(f"Tipo de BD no soportado: {db_type}")
+        
+        db_path = self.db_paths[db_type]
+        return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};PWD={self.db_password};"
         
     def _ensure_directories(self):
         """Crea directorios necesarios si no existen"""
