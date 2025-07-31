@@ -35,14 +35,18 @@ class TestBrassDatabaseIntegration:
         assert len(result_tareas) > 0
         assert 'total' in result_tareas[0]
     
-    def test_equipos_medida_structure(self, local_brass_manager):
+    def test_equipos_structure(self, local_brass_manager):
         """Test: Verificar estructura de tabla TbEquiposMedida"""
         query = """
-        SELECT TOP 1 IDEquipoMedida, NOMBRE, NS, PN, MARCA, MODELO, FechaFinServicio
+        SELECT IDEquipoMedida, NOMBRE, NS, PN, MARCA, MODELO, FechaFinServicio
         FROM TbEquiposMedida
         ORDER BY IDEquipoMedida
         """
         result = local_brass_manager.db.execute_query(query)
+        
+        # Limitar a 1 resultado en Python si hay datos
+        if result:
+            result = [result[0]]
         
         if result:
             equipo = result[0]
@@ -54,11 +58,15 @@ class TestBrassDatabaseIntegration:
     def test_calibraciones_structure(self, local_brass_manager):
         """Test: Verificar estructura de tabla TbEquiposMedidaCalibraciones"""
         query = """
-        SELECT TOP 1 IDCalibracion, IDEquipoMedida, FechaFinCalibracion
+        SELECT IDCalibracion, IDEquipoMedida, FechaFinCalibracion
         FROM TbEquiposMedidaCalibraciones
         ORDER BY IDCalibracion
         """
         result = local_brass_manager.db.execute_query(query)
+        
+        # Limitar a 1 resultado en Python si hay datos
+        if result:
+            result = [result[0]]
         
         if result:
             calibracion = result[0]
@@ -132,12 +140,16 @@ class TestBrassDatabaseIntegration:
     def test_correos_enviados_structure(self, local_brass_manager):
         """Test: Verificar estructura de tabla TbCorreosEnviados"""
         query = """
-        SELECT TOP 1 IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, FechaGrabacion
+        SELECT IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, FechaGrabacion
         FROM TbCorreosEnviados
         WHERE Aplicacion = 'BRASS'
         ORDER BY IDCorreo
         """
         result = local_brass_manager.tareas_db.execute_query(query)
+        
+        # Limitar a 1 resultado en Python si hay datos
+        if result:
+            result = [result[0]]
         
         if result:
             correo = result[0]
@@ -166,11 +178,15 @@ class TestBrassDatabaseIntegration:
     def test_usuarios_administradores_query(self, local_brass_manager):
         """Test: Consulta de usuarios administradores"""
         query = """
-        SELECT TOP 5 CorreoUsuario
+        SELECT CorreoUsuario
         FROM TbUsuariosAplicaciones 
         ORDER BY CorreoUsuario
         """
         result = local_brass_manager.tareas_db.execute_query(query)
+        
+        # Limitar a 5 resultados en Python si hay datos
+        if result and len(result) > 5:
+            result = result[:5]
         
         # Debe devolver una lista (puede estar vacía)
         assert isinstance(result, list)

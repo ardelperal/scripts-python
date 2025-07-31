@@ -5,7 +5,7 @@ Siguiendo el patrón establecido en AGEDYS para mantener consistencia
 import pytest
 import os
 from unittest.mock import patch, Mock
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from src.no_conformidades.no_conformidades_manager import NoConformidadesManager, NoConformidad
 from src.common.database import AccessDatabase
 
@@ -20,6 +20,16 @@ class TestNoConformidadesIntegration:
             'no_conformidades': 'tests/data/test_no_conformidades.accdb',
             'tareas': 'tests/data/test_tareas.accdb'
         }
+    
+    @pytest.fixture
+    def mock_access_database(self):
+        """Mock de get_database_instance para tests de integración"""
+        with patch('src.no_conformidades.no_conformidades_manager.get_database_instance') as mock_get_db:
+            mock_db = Mock()
+            mock_db.execute_query.return_value = []
+            mock_db.disconnect.return_value = None
+            mock_get_db.return_value = mock_db
+            yield mock_get_db
     
     @pytest.fixture
     def mock_config_with_test_dbs(self):
@@ -75,16 +85,17 @@ class TestNoConformidadesIntegration:
     
     def test_full_workflow_with_simulated_data(self, no_conformidades_manager, mock_access_database, mock_email_notifications):
         """Test de flujo completo con datos simulados"""
-        # Configurar datos simulados
+        # Configurar datos simulados para obtener_nc_resueltas_pendientes_eficacia
         mock_db = mock_access_database.return_value
         mock_db.execute_query.return_value = [
-            {
-                'ID_NC': 1,
-                'Numero_NC': 'NC-2024-001',
-                'Fecha_Resolucion': datetime.now() - timedelta(days=20),
-                'Descripcion': 'Test NC',
-                'Estado': 'Resuelta'
-            }
+            (
+                'NC-2024-001',  # CodigoNoConformidad
+                'NEM001',       # Nemotecnico
+                'Test NC Description',  # DESCRIPCION
+                'test.user@example.com',  # RESPONSABLECALIDAD
+                datetime.now() - timedelta(days=60),  # FECHAAPERTURA
+                datetime.now() - timedelta(days=20)   # FPREVCIERRE
+            )
         ]
         
         # Ejecutar el flujo completo
@@ -93,7 +104,9 @@ class TestNoConformidadesIntegration:
             
         # Verificar resultados
         assert len(resultados) == 1
-        assert resultados[0]['Numero_NC'] == 'NC-2024-001'
+        assert resultados[0].codigo == 'NC-2024-001'
+        assert resultados[0].nemotecnico == 'NEM001'
+        assert resultados[0].descripcion == 'Test NC Description'
         
         # Verificar que se conectó a las bases de datos
         assert mock_access_database.call_count >= 1
@@ -114,17 +127,26 @@ class TestNoConformidadesIntegration:
     def test_email_registration(self, no_conformidades_manager, mock_access_database):
         """Test de registro de envío de correos"""
         mock_db = mock_access_database.return_value
-        mock_db.execute_query.return_value = []
+        
+        # Configurar mock para simular ambas bases de datos (nc y tareas)
+        # Primera llamada: obtener_siguiente_id_correo (db_tareas)
+        # Segunda llamada: registrar_correo_enviado (db_tareas)
+        mock_db.execute_query.side_effect = [
+            [(5,)],  # MAX(IDCorreo) = 5, entonces siguiente ID = 6
+            []       # INSERT result (exitoso)
+        ]
         
         with no_conformidades_manager:
-            resultado = no_conformidades_manager.registrar_correo_enviado(
-                'test@example.com',
-                'Test Subject',
-                'calidad'
-            )
+            # Mock para get_admin_emails_string que se usa en registrar_correo_enviado
+            with patch('src.no_conformidades.no_conformidades_manager.get_admin_emails_string', return_value='admin@example.com'):
+                resultado = no_conformidades_manager.registrar_correo_enviado(
+                    'Test Subject',
+                    'Test Body',
+                    'test@example.com'
+                )
             
-        assert resultado is True
-        mock_db.execute_query.assert_called()
+        assert resultado == 6  # ID del correo registrado (5 + 1)
+        assert mock_db.execute_query.call_count == 2  # Una para MAX, otra para INSERT
     
     def test_task_requirements(self, no_conformidades_manager):
         """Test de requerimientos de tareas"""
