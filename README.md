@@ -19,9 +19,10 @@ Este proyecto representa la migración completa del sistema de automatización V
 - **BRASS**: ✅ Completamente migrado y funcional
 - **Expedientes**: ✅ Completamente migrado y funcional
 - **Correos**: ✅ Completamente migrado y funcional
+- **Tareas**: ✅ Completamente migrado y funcional
 - **No Conformidades**: ✅ Completamente migrado y funcional
 - **Riesgos**: ✅ Completamente migrado y funcional
-- **Script Maestro**: ✅ Completamente migrado y funcional
+- **Script Maestro**: ✅ Completamente migrado y funcional con modo verbose
 
 ## 🎯 Objetivo Principal
 
@@ -29,20 +30,50 @@ El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza a
 
 - 🔄 **Monitorea continuamente** todos los sistemas involucrados
 - ⏰ **Ejecuta tareas diarias** una vez por día laborable (después de las 7 AM)
-- 📧 **Ejecuta tareas continuas** (correos) en cada ciclo
+- 📧 **Ejecuta tareas continuas** (correos y tareas) en cada ciclo
 - 📅 **Respeta días festivos** y horarios laborables
 - ⚙️ **Ajusta tiempos de ciclo** según horario y tipo de día
 - 📊 **Genera logs detallados** y archivos de estado
 - 🛡️ **Manejo robusto de errores** y recuperación automática
+- 🔍 **Modo verbose** para debugging y monitoreo detallado
 
 ### 📋 Módulos Integrados en el Script Maestro
 
+#### Tareas Diarias (ejecutadas una vez por día laborable):
 1. **AGEDYS** (`run_agedys.py`): Sistema de gestión de facturas y visados técnicos
 2. **BRASS** (`run_brass.py`): Sistema de gestión de tareas BRASS  
 3. **Expedientes** (`run_expedientes.py`): Gestión de expedientes y documentación
 4. **No Conformidades** (`run_no_conformidades.py`): Gestión de no conformidades
 5. **Riesgos** (`run_riesgos.py`): Gestión de riesgos empresariales
-6. **Correos** (`run_correos.py`): Sistema de envío de correos (tarea continua)
+
+#### Tareas Continuas (ejecutadas en cada ciclo):
+6. **Correos** (`run_correos.py`): Sistema de envío de correos
+7. **Tareas** (`run_tareas.py`): Sistema de gestión de tareas
+
+### 🚀 Modo Verbose del Script Maestro
+
+El script maestro incluye un **modo verbose** para debugging y monitoreo detallado:
+
+```bash
+# Ejecución normal
+python scripts/run_master.py
+
+# Ejecución con modo verbose (detallado)
+python scripts/run_master.py --verbose
+python scripts/run_master.py -v
+
+# Ver ayuda
+python scripts/run_master.py --help
+```
+
+**Características del Modo Verbose:**
+- 📊 **Información detallada de configuración** al inicio
+- 🔍 **Logs detallados de cada script** ejecutado
+- ⏱️ **Tiempos de ejecución** de cada script individual
+- 📈 **Estadísticas completas** de éxito/fallo por ciclo
+- 🎯 **Información de salida** (stdout/stderr) de cada script
+- 📋 **Resúmenes de ciclo** con métricas detalladas
+- 🕐 **Información de espera** con tiempo estimado de reanudación
 
 ### Tiempos de Ciclo del Master Runner
 
@@ -81,11 +112,12 @@ scripts-python/
 ├── config/                      # Configuración del proyecto
 │   └── .env.example            # Plantilla de variables de entorno
 ├── scripts/                     # Scripts principales de ejecución
-│   ├── run_master.py           # Script maestro - daemon principal
+│   ├── run_master.py           # Script maestro - daemon principal con modo verbose
 │   ├── run_agedys.py           # Script para módulo AGEDYS
 │   ├── run_brass.py            # Script principal para módulo BRASS
 │   ├── run_expedientes.py      # Script para módulo expedientes
 │   ├── run_correos.py          # Script para módulo correos
+│   ├── run_tareas.py           # Script para módulo tareas
 │   ├── run_no_conformidades.py # Script para no conformidades
 │   └── run_riesgos.py          # Script para módulo de riesgos
 ├── tools/                       # Herramientas de desarrollo y utilidades
@@ -123,9 +155,12 @@ scripts-python/
 │   │   ├── __init__.py
 │   │   ├── no_conformidades_manager.py # Gestor principal
 │   │   └── email_notifications.py     # Notificaciones email
-│   └── riesgos/                # Módulo de gestión de riesgos
+│   ├── riesgos/                # Módulo de gestión de riesgos
+│   │   ├── __init__.py
+│   │   └── riesgos_manager.py  # Gestor de riesgos
+│   └── tareas/                 # Módulo de gestión de tareas
 │       ├── __init__.py
-│       └── riesgos_manager.py  # Gestor de riesgos
+│       └── tareas_manager.py   # Gestor de tareas empresariales
 ├── tests/                      # Tests automatizados (cobertura >80%)
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
@@ -145,12 +180,17 @@ scripts-python/
 │   │   ├── correos/            # Tests del módulo de correos
 │   │   ├── expedientes/        # Tests del módulo de expedientes
 │   │   ├── no_conformidades/   # Tests no conformidades
-│   │   └── riesgos/            # Tests del módulo de riesgos
+│   │   ├── riesgos/            # Tests del módulo de riesgos
+│   │   └── tareas/             # Tests del módulo de tareas
 │   ├── integration/            # Tests de integración
 │   │   ├── __init__.py
 │   │   ├── agedys/             # Integración del sistema AGEDYS
 │   │   ├── brass/              # Integración del sistema brass
 │   │   ├── correos/            # Integración del sistema de correos
+│   │   ├── expedientes/        # Integración del sistema de expedientes
+│   │   ├── no_conformidades/   # Integración no conformidades
+│   │   ├── riesgos/            # Integración del sistema de riesgos
+│   │   ├── tareas/             # Integración del sistema de tareas
 │   │   └── database/           # Integración con bases de datos
 │   ├── functional/             # Tests funcionales
 │   │   ├── access_sync/        # Sincronización con Access
@@ -181,7 +221,7 @@ scripts-python/
 │   ├── smtp_config_demo.py     # Demo configuración SMTP
 │   ├── smtp_override_demo.py   # Demo override SMTP
 │   └── ejemplo_riesgos.py      # Ejemplo uso módulo riesgos
-└── legacy/                    # Sistema VBS original
+├── legacy/                    # Sistema VBS original
     ├── AGEDYS.VBS             # Sistema AGEDYS original
     ├── BRASS.vbs              # Sistema BRASS original
     ├── Expedientes.vbs        # Sistema expedientes original
@@ -199,6 +239,7 @@ scripts-python/
 - **BRASS**: Sistema completo de gestión de tareas BRASS
 - **Expedientes**: Gestión de expedientes y documentación
 - **Correos**: Sistema de envío y gestión de correos electrónicos
+- **Tareas**: Sistema de gestión de tareas empresariales
 - **No Conformidades**: Gestión de no conformidades y seguimiento
 - **Riesgos**: Gestión completa de riesgos empresariales
 
@@ -445,17 +486,25 @@ python scripts/run_tests.py
 ```bash
 # Ejecutar el script maestro (daemon de producción)
 python scripts/run_master.py
+
+# Ejecutar con modo verbose para debugging detallado
+python scripts/run_master.py --verbose
+python scripts/run_master.py -v
+
+# Ver ayuda y opciones disponibles
+python scripts/run_master.py --help
 ```
 
 **Características del Master Runner:**
 - 🔄 **Ejecución continua** con ciclos automáticos
 - ⏰ **Tareas diarias**: Ejecutadas una vez por día laborable después de las 7 AM
-- 📧 **Tareas continuas**: Correos ejecutados en cada ciclo
+- 📧 **Tareas continuas**: Correos y tareas ejecutados en cada ciclo
 - 📅 **Respeta festivos** definidos en `herramientas/Festivos.txt`
 - 🕐 **Ajuste automático** de tiempos según horario y tipo de día
 - 📊 **Logs detallados** en `logs/run_master.log`
 - 📈 **Archivo de estado** en `logs/run_master_status.json`
 - 🛑 **Parada limpia** con Ctrl+C
+- 🔍 **Modo verbose** para debugging y monitoreo detallado
 
 ### 🌐 Panel de Control Web (Alternativo)
 ```bash
@@ -502,9 +551,14 @@ python scripts/run_riesgos.py --force           # Fuerza ejecución
 python scripts/run_riesgos.py --dry-run         # Modo simulación
 
 # Correos - Sistema de envío de correos
-python scripts/run_EnviarCorreo.py              # Ejecución normal
-python scripts/run_EnviarCorreo.py --force      # Fuerza ejecución
-python scripts/run_EnviarCorreo.py --dry-run    # Modo simulación
+python scripts/run_correos.py                   # Ejecución normal
+python scripts/run_correos.py --force           # Fuerza ejecución
+python scripts/run_correos.py --dry-run         # Modo simulación
+
+# Tareas - Sistema de gestión de tareas
+python scripts/run_tareas.py                    # Ejecución normal
+python scripts/run_tareas.py --force            # Fuerza ejecución
+python scripts/run_tareas.py --dry-run          # Modo simulación
 
 # Tests
 python scripts/run_tests.py
