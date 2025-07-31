@@ -81,22 +81,22 @@ class CorreosManager:
             correos_pendientes = self.db_conn.execute_query(query)
             
             if not correos_pendientes:
-                logger.info("No hay correos pendientes de envío")
+                logger.info("📭 No hay correos pendientes de envío")
                 return 0
             
-            logger.info(f"Encontrados {len(correos_pendientes)} correos pendientes")
+            logger.info(f"📬 Encontrados {len(correos_pendientes)} correos pendientes para envío")
             
             for correo in correos_pendientes:
-                logger.info(f"Procesando correo ID {correo['IDCorreo']} - Asunto: {correo['Asunto']}")
+                logger.info(f"📧 Procesando correo ID: {correo['IDCorreo']} | Asunto: '{correo['Asunto']}'")
                 try:
                     if self._enviar_correo_individual(correo):
                         self._marcar_correo_enviado(correo['IDCorreo'], datetime.now())
                         correos_enviados += 1
-                        logger.info(f"Correo enviado: ID {correo['IDCorreo']} - {correo['Asunto']}")
+                        logger.info(f"✅ Correo enviado exitosamente | ID: {correo['IDCorreo']} | Asunto: '{correo['Asunto']}'")
                     else:
-                        logger.error(f"Error enviando correo ID {correo['IDCorreo']}")
+                        logger.error(f"❌ Error enviando correo | ID: {correo['IDCorreo']} | Asunto: '{correo['Asunto']}'")
                 except Exception as e:
-                    logger.error(f"Error procesando correo {correo.get('IDCorreo', 'N/A')}: {e}")
+                    logger.error(f"💥 Error procesando correo ID {correo.get('IDCorreo', 'N/A')}: {e}")
             
             self.db_conn.disconnect()
             return correos_enviados
@@ -139,9 +139,9 @@ class CorreosManager:
             
             success = self.db_conn.update_record("TbCorreosEnviados", update_data, where_clause)
             if success:
-                logger.info(f"Correo ID {id_correo} marcado como enviado")
+                logger.info(f"✅ Correo ID {id_correo} marcado como enviado correctamente")
             else:
-                logger.error(f"Error marcando correo ID {id_correo} como enviado")
+                logger.error(f"❌ Error marcando correo ID {id_correo} como enviado")
                 
         except Exception as e:
             logger.error(f"Error marcando correo como enviado: {e}")
@@ -187,10 +187,10 @@ class CorreosManager:
             success = self.db_conn.insert_record("TbCorreosEnviados", email_data)
             
             if success:
-                logger.info(f"Correo insertado correctamente con ID {next_id}")
+                logger.info(f"📧 Correo insertado correctamente | ID: {next_id} | Asunto: '{asunto}'")
                 return next_id
             else:
-                logger.error("Error insertando correo")
+                logger.error(f"❌ Error insertando correo | Asunto: '{asunto}'")
                 return 0
                 
         except Exception as e:
@@ -207,12 +207,12 @@ class CorreosManager:
             True si se ejecutó correctamente, False en caso contrario
         """
         try:
-            logger.info("Iniciando tarea diaria de envío de correos")
+            logger.info("🚀 Iniciando tarea diaria de envío de correos")
             
             # Enviar correos pendientes
             enviados = self.enviar_correos_no_enviados()
             
-            logger.info(f"Tarea diaria completada. Total de correos enviados: {enviados}")
+            logger.info(f"✅ Tarea diaria completada exitosamente | Total de correos enviados: {enviados}")
             return True
             
         except Exception as e:
