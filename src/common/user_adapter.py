@@ -111,6 +111,43 @@ def get_quality_users_alternative(app_id: str, config, logger) -> List[Dict[str,
         return []
 
 
+def get_economy_users_alternative(config, logger) -> List[Dict[str, str]]:
+    """
+    Obtiene la lista de usuarios de economía usando TbUsuariosAplicacionesPermisos
+    como alternativa cuando TbUsuariosAplicacionesTareas no existe.
+    
+    Args:
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
+        
+    Returns:
+        Lista de usuarios de economía
+    """
+    try:
+        from .database import AccessDatabase
+        
+        # Usar la conexión de tareas para obtener usuarios
+        db_connection = AccessDatabase(config.get_db_tareas_connection_string())
+        
+        # Para usuarios de economía, usamos la tabla de permisos con ID de aplicación
+        query = """
+            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
+            FROM TbUsuariosAplicaciones ua 
+            INNER JOIN TbUsuariosAplicacionesPermisos uap ON ua.CorreoUsuario = uap.CorreoUsuario 
+            WHERE ua.ParaTareasProgramadas = True 
+            AND ua.FechaBaja IS NULL 
+            AND uap.EsEconomia = 'Sí'
+            AND uap.IDAplicacion = ?
+        """
+        
+        result = db_connection.execute_query(query, [config.app_id_agedys])
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo usuarios de economía (alternativo): {e}")
+        return []
+
+
 def get_users_with_fallback(user_type: str, app_id: str = None, config=None, logger=None, db_connection=None):
     """
     Función que intenta usar las funciones originales de utils y si fallan por tabla inexistente,

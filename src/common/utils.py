@@ -542,6 +542,41 @@ def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
         return []
 
 
+def get_economy_users(config, logger) -> List[Dict[str, str]]:
+    """
+    Obtiene la lista de usuarios de economía desde la base de datos
+    
+    Args:
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
+        
+    Returns:
+        Lista de usuarios de economía
+    """
+    try:
+        from .database import AccessDatabase
+        
+        # Usar la conexión de tareas para obtener usuarios
+        db_connection = AccessDatabase(config.get_db_tareas_connection_string())
+        
+        query = """
+            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
+            FROM TbUsuariosAplicaciones ua 
+            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
+            WHERE ua.ParaTareasProgramadas = True 
+            AND ua.FechaBaja IS NULL 
+            AND uat.EsEconomia = 'Sí'
+            AND uat.IDAplicacion = ?
+        """
+        
+        result = db_connection.execute_query(query, (config.app_id_agedys,))
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo usuarios de economía: {e}")
+        return []
+
+
 def get_user_email(username: str, config, logger=None) -> str:
     """
     Obtiene el email de un usuario específico desde la base de datos
@@ -622,6 +657,26 @@ def get_technical_emails_string(app_id: str, config, logger) -> str:
         return ';'.join(emails)
     except Exception as e:
         logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
+        return ""
+
+
+def get_economy_emails_string(config, logger) -> str:
+    """
+    Obtiene la cadena de correos de usuarios de economía separados por ;
+    
+    Args:
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
+        
+    Returns:
+        String con correos separados por ;
+    """
+    try:
+        economy_users = get_economy_users(config, logger)
+        emails = [user['CorreoUsuario'] for user in economy_users if user['CorreoUsuario']]
+        return ';'.join(emails)
+    except Exception as e:
+        logger.error(f"Error obteniendo emails de economía: {e}")
         return ""
 
 

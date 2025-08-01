@@ -5,3 +5,5 @@ Los tests de integración siempre que sea posible quiero que tengan interacción
 Revisa las dependencias que no tengan vulnerabilidades críticas
 Nunca dejes placeholders en las funcionalidades. 
 Nunca hagas pruebas de sql injections en este proyecto
+Recuerda que la shell que siempre uso es powher shell con lo que no funcionan concatenar acciones con &&
+

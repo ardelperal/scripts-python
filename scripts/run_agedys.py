@@ -64,33 +64,48 @@ def main():
     # Configurar logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logger = setup_logger(__name__, level=log_level)
+    
+    print("🚀 INICIANDO SISTEMA AGEDYS")
+    print("=" * 50)
     logger.info("=== INICIANDO TAREAS AGEDYS ===")
     
     if args.dry_run:
+        print("🧪 MODO SIMULACIÓN: Los emails se registrarán pero no se enviarán")
         logger.info("MODO DRY-RUN: No se enviarán emails reales")
     
     if args.force:
+        print("⚡ MODO FORZADO: Ejecutando sin verificar horarios programados")
         logger.info("MODO FORZADO: Ejecutando independientemente del horario")
     
     try:
+        print("📊 Conectando a las bases de datos...")
         # Crear instancia del gestor AGEDYS
         agedys_manager = AgedysManager()
         
+        print("🔍 Iniciando análisis de facturas y DPDs pendientes...")
         # Ejecutar tarea con los argumentos especificados
         success = agedys_manager.execute_task(force=args.force, dry_run=args.dry_run)
         
         if success:
+            print("✅ PROCESO COMPLETADO EXITOSAMENTE")
+            print("📧 Todos los emails han sido procesados correctamente")
             logger.info("Todas las tareas AGEDYS completadas exitosamente")
             return 0
         else:
+            print("❌ ERROR EN EL PROCESO")
+            print("⚠️  Revise los logs para más detalles")
             logger.error("Error en la ejecución de las tareas AGEDYS")
             return 1
             
     except Exception as e:
+        print(f"🔴 ERROR CRÍTICO: {e}")
+        print("💡 Verifique la conectividad de las bases de datos")
         logger.error(f"Error crítico en AGEDYS: {e}")
         return 1
     
     finally:
+        print("=" * 50)
+        print("🏁 FINALIZANDO SISTEMA AGEDYS")
         logger.info("=== FINALIZANDO TAREAS AGEDYS ===")
 
 
