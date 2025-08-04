@@ -20,7 +20,7 @@ from common.utils import (
     generate_html_header, generate_html_footer, format_date, load_css_content,
     get_quality_emails_string, get_technical_emails_string, get_admin_emails_string,
     register_task_completion, should_execute_task, is_task_completed_today,
-    send_notification_email, get_quality_users, get_economy_users
+    get_quality_users, get_economy_users
 )
 from common import utils
 
@@ -150,7 +150,7 @@ class AgedysManager:
 
         usuarios_dict = {}
 
-        # Definir las consultas EXACTAMENTE como en el VBS legacy
+        # Definir las consultas EXACTAMENTE como en el VBS legacy - Corregidas para TbExpedientes1
         queries = {
             "peticionarios_con_visado": """
                 SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario
@@ -162,8 +162,8 @@ class AgedysManager:
                 WHERE TbFacturasDetalle.FechaAceptacion IS NULL
                 AND TbVisadoFacturas_Nueva.FRECHAZOTECNICO IS NULL
                 AND TbVisadoFacturas_Nueva.FVISADOTECNICO IS NULL
-                AND TbExpedientes1.AGEDYSGenerico <> 'No'
-                AND TbExpedientes1.AGEDYSAplica <> 'No'
+                AND TbExpedientes1.AGEDYSGenerico = 'Sí'
+                AND TbExpedientes1.AGEDYSAplica = 'Sí'
             """,
             "responsables_sin_visado_generico_si": """
                 SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario
@@ -175,8 +175,8 @@ class AgedysManager:
                 INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id
                 WHERE TbFacturasDetalle.FechaAceptacion IS NULL
                 AND TbVisadoFacturas_Nueva.IDFactura IS NULL
-                AND TbExpedientes1.AGEDYSGenerico <> 'No'
-                AND TbExpedientes1.AGEDYSAplica <> 'No'
+                AND TbExpedientes1.AGEDYSGenerico = 'Sí'
+                AND TbExpedientes1.AGEDYSAplica = 'Sí'
                 AND TbExpedientesResponsables.CorreoSiempre <> 'No'
             """,
             "responsables_con_visado_generico_no": """
@@ -191,7 +191,7 @@ class AgedysManager:
                 AND TbVisadoFacturas_Nueva.FRECHAZOTECNICO IS NULL
                 AND TbVisadoFacturas_Nueva.FVISADOTECNICO IS NULL
                 AND TbExpedientes1.AGEDYSGenerico = 'No'
-                AND TbExpedientes1.AGEDYSAplica <> 'No'
+                AND TbExpedientes1.AGEDYSAplica = 'Sí'
                 AND TbExpedientesResponsables.CorreoSiempre <> 'No'
             """,
             "responsables_sin_visado_generico_no": """
@@ -205,7 +205,7 @@ class AgedysManager:
                 WHERE TbFacturasDetalle.FechaAceptacion IS NULL
                 AND TbVisadoFacturas_Nueva.IDFactura IS NULL
                 AND TbExpedientes1.AGEDYSGenerico = 'No'
-                AND TbExpedientes1.AGEDYSAplica <> 'No'
+                AND TbExpedientes1.AGEDYSAplica = 'Sí'
             """
         }
 
@@ -218,7 +218,7 @@ class AgedysManager:
             WHERE TbFacturasDetalle.FechaAceptacion IS NULL
             AND TbVisadoFacturas_Nueva.IDFactura IS NULL
             AND TbExpedientes1.AGEDYSGenerico <> 'No'
-            AND TbExpedientes1.AGEDYSAplica <> 'No'
+            AND TbExpedientes1.AGEDYSAplica = 'Sí'
         """
 
         try:
@@ -278,37 +278,38 @@ class AgedysManager:
         """Obtiene facturas pendientes de visado técnico para un usuario"""
         LoggingHelper.log_user_processing(usuario, "Iniciando obtención de facturas pendientes")
 
-        # Primero obtener el ID del usuario
+        # Primero obtener el ID y nombre completo del usuario
         try:
-            user_query = "SELECT Id FROM TbUsuariosAplicaciones WHERE UsuarioRed = '" + usuario + "'"
+            user_query = "SELECT Id, Nombre FROM TbUsuariosAplicaciones WHERE UsuarioRed = '" + usuario + "'"
             user_result = self.db.execute_query(user_query)
             if not user_result:
                 LoggingHelper.log_skipped_action(f"Usuario {usuario} no encontrado en TbUsuariosAplicaciones",
-                                               "Solo se ejecutarán queries 3 y 4")
-                user_id = None
+                                               "No se ejecutarán consultas")
+                return []
             else:
                 user_id = user_result[0]['Id']
+                user_nombre = user_result[0]['Nombre']
         except Exception as e:
             LoggingHelper.log_database_error("user_lookup", usuario, str(e))
-            user_id = None
+            return []
 
         # Definir las consultas usando concatenación directa sin parámetros
         queries_with_params = {}
         
-        # Query condicional para responsables (si tenemos ID)
-        if user_id is not None:
-            sql_responsable_con_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE TbFacturasDetalle.FechaAceptacion IS NULL AND TbVisadoFacturas_Nueva.FRECHAZOTECNICO IS NULL AND TbVisadoFacturas_Nueva.FVISADOTECNICO IS NULL AND TbExpedientes1.AGEDYSGenerico = 'No' AND TbExpedientes1.AGEDYSAplica = 'No' AND TbExpedientesResponsables.CorreoSiempre = 'No' AND TbExpedientesResponsables.IdUsuario = " + str(user_id)
-            
-            sql_responsable_sin_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM ((((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente) LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE TbFacturasDetalle.FechaAceptacion IS NULL AND TbVisadoFacturas_Nueva.IDFactura IS NULL AND TbExpedientes1.AGEDYSGenerico = 'No' AND TbExpedientes1.AGEDYSAplica = 'No' AND TbExpedientesResponsables.CorreoSiempre = 'No' AND TbExpedientesResponsables.IdUsuario = " + str(user_id)
-            
-            queries_with_params["responsable_con_visado_generico_no"] = sql_responsable_con_visado
-            queries_with_params["responsable_sin_visado_generico_no"] = sql_responsable_sin_visado
-
-        # Consulta para peticionarios CON visado genérico = 'Sí' (concatenación directa) - CORREGIDA
-        sql_con_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO, TbExpedientes1.CodExp FROM ((((TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE TbProyectos.PETICIONARIO = '" + usuario + "' AND TbFacturasDetalle.FechaAceptacion IS NULL AND TbVisadoFacturas_Nueva.FRECHAZOTECNICO IS NULL AND TbVisadoFacturas_Nueva.FVISADOTECNICO IS NULL AND TbExpedientes1.AGEDYSGenerico = 'Sí' AND TbExpedientes1.AGEDYSAplica = 'Sí'"
+        # Query para responsables con visado genérico = 'No' (usando ID de usuario) - Corregida para TbExpedientes1
+        sql_responsable_con_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE ((TbFacturasDetalle.FechaAceptacion) IS NULL) AND ((TbVisadoFacturas_Nueva.FRECHAZOTECNICO) IS NULL) AND ((TbVisadoFacturas_Nueva.FVISADOTECNICO) IS NULL) AND ((TbExpedientes1.AGEDYSGenerico) = 'No') AND ((TbExpedientes1.AGEDYSAplica) = 'Sí') AND ((TbExpedientesResponsables.CorreoSiempre) = 'Sí') AND ((TbExpedientesResponsables.IdUsuario) = " + str(user_id) + ")"
         
-        # Consulta para peticionarios SIN visado genérico (AGEDYSGenerico='Sí') (concatenación directa) - CORREGIDA
-        sql_sin_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO, TbExpedientes1.CodExp FROM ((((TbProyectos INNER JOIN TbNPedido ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE TbProyectos.PETICIONARIO = '" + usuario + "' AND TbFacturasDetalle.FechaAceptacion IS NULL AND TbVisadoFacturas_Nueva.IDFactura IS NULL AND TbExpedientes1.AGEDYSGenerico = 'Sí' AND TbExpedientes1.AGEDYSAplica = 'Sí'"
+        # Query para responsables sin visado genérico = 'No' (usando ID de usuario) - Corregida para TbExpedientes1
+        sql_responsable_sin_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM ((((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IDExpediente = TbExpedientesResponsables.IdExpediente) LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE ((TbFacturasDetalle.FechaAceptacion) IS NULL) AND ((TbVisadoFacturas_Nueva.IDFactura) IS NULL) AND ((TbExpedientes1.AGEDYSGenerico) = 'No') AND ((TbExpedientes1.AGEDYSAplica) = 'Sí') AND ((TbExpedientesResponsables.CorreoSiempre) = 'Sí') AND ((TbExpedientesResponsables.IdUsuario) = " + str(user_id) + ")"
+        
+        queries_with_params["responsable_con_visado_generico_no"] = sql_responsable_con_visado
+        queries_with_params["responsable_sin_visado_generico_no"] = sql_responsable_sin_visado
+
+        # Consulta para peticionarios CON visado genérico = 'Sí' (usando nombre completo) - Corregida para TbExpedientes1
+        sql_con_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM ((TbProyectos INNER JOIN (TbNPedido INNER JOIN (TbFacturasDetalle INNER JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE ((TbFacturasDetalle.FechaAceptacion) IS NULL) AND ((TbVisadoFacturas_Nueva.FRECHAZOTECNICO) IS NULL) AND ((TbVisadoFacturas_Nueva.FVISADOTECNICO) IS NULL) AND ((TbExpedientes1.AGEDYSGenerico) = 'Sí') AND ((TbExpedientes1.AGEDYSAplica) = 'Sí') AND ((TbProyectos.PETICIONARIO) = '" + user_nombre + "')"
+        
+        # Consulta para peticionarios SIN visado genérico = 'Sí' (usando nombre completo) - Corregida para TbExpedientes1
+        sql_sin_visado = "SELECT TbFacturasDetalle.NFactura, TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbNPedido.IMPORTEADJUDICADO, TbSuministradoresSAP.Suministrador, TbFacturasDetalle.ImporteFactura, TbFacturasDetalle.NDOCUMENTO FROM (((TbProyectos INNER JOIN (TbNPedido INNER JOIN TbFacturasDetalle ON TbNPedido.NPEDIDO = TbFacturasDetalle.NPEDIDO) ON TbProyectos.CODPROYECTOS = TbNPedido.CODPPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IDExpediente) LEFT JOIN TbVisadoFacturas_Nueva ON TbFacturasDetalle.IDFactura = TbVisadoFacturas_Nueva.IDFactura) INNER JOIN TbSuministradoresSAP ON TbNPedido.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE ((TbFacturasDetalle.FechaAceptacion) IS NULL) AND ((TbVisadoFacturas_Nueva.IDFactura) IS NULL) AND ((TbExpedientes1.AGEDYSGenerico) = 'Sí') AND ((TbExpedientes1.AGEDYSAplica) = 'Sí') AND ((TbProyectos.PETICIONARIO) = '" + user_nombre + "')"
         
         queries_with_params["peticionario_con_visado_generico_si"] = sql_con_visado
         queries_with_params["peticionario_sin_visado_generico_si"] = sql_sin_visado
@@ -345,33 +346,11 @@ class AgedysManager:
         LoggingHelper.log_phase_start("Obtención de usuarios con DPDs sin visado")
 
         usuarios_dict = {}
-        # Query principal - Sin acentos para evitar problemas de codificación
-        query_responsables = """
-            SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario
-            FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD)
-            INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) INNER JOIN TbExpedientesResponsables
-            ON TbExpedientes1.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones
-            ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP
-            WHERE TbProyectos.ELIMINADO = False
-            AND TbSolicitudesOfertasPrevias.DPD IS NULL
-            AND TbExpedientes1.AGEDYSGenerico = 'No'
-            AND TbExpedientes1.AGEDYSAplica <> 'No'
-            AND TbProyectos.CODCONTRATOGTV IS NULL
-            AND TbSuministradoresSAP.IDSuministrador IS NULL
-        """
+        # Query principal - EXACTA del VBS legacy - Corregida para TbExpedientes1
+        query_responsables = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) AND ((TbExpedientes1.AGEDYSGenerico)<>'Sí') AND ((TbExpedientes1.AGEDYSAplica)='Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null))"
 
-        # Query fallback - Sin acentos para evitar problemas de codificación
-        query_peticionarios = """
-            SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario
-            FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD)
-            INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) LEFT JOIN TbSuministradoresSAP
-            ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre
-            WHERE TbProyectos.ELIMINADO = False
-            AND TbSolicitudesOfertasPrevias.DPD IS NULL
-            AND TbExpedientes1.AGEDYSGenerico = 'No'
-            AND TbProyectos.CODCONTRATOGTV IS NULL
-            AND TbSuministradoresSAP.IDSuministrador IS NULL
-        """
+        # Query fallback - EXACTA del VBS legacy - Corregida para TbExpedientes1
+        query_peticionarios = "SELECT DISTINCT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.CorreoUsuario FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) AND ((TbExpedientes1.AGEDYSGenerico)<>'Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null))"
 
         try:
             # Ejecutar query de responsables
@@ -436,7 +415,7 @@ class AgedysManager:
 
         # Query para responsables (si tenemos ID) - Con acentos correctos
         if user_id is not None:
-            query_responsable = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbProyectos.IMPORTEADJUDICADO FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE TbProyectos.ELIMINADO = False AND TbSolicitudesOfertasPrevias.DPD IS NULL AND TbExpedientes1.AGEDYSGenerico = 'No' AND TbExpedientes1.AGEDYSAplica <> 'No' AND TbProyectos.CODCONTRATOGTV IS NULL AND TbSuministradoresSAP.IDSuministrador IS NULL AND TbExpedientesResponsables.IdUsuario = " + str(user_id)
+            query_responsable = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbProyectos.IMPORTEADJUDICADO FROM ((((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) INNER JOIN TbExpedientesResponsables ON TbExpedientes1.IdExpediente = TbExpedientesResponsables.IdExpediente) INNER JOIN TbUsuariosAplicaciones ON TbExpedientesResponsables.IdUsuario = TbUsuariosAplicaciones.Id) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) AND ((TbExpedientes1.AGEDYSGenerico)<>'Sí') AND ((TbExpedientes1.AGEDYSAplica)='Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null) AND ((TbExpedientesResponsables.IdUsuario) = " + str(user_id) + "))"
 
             try:
                 dpds = self.db.execute_query(query_responsable)
@@ -446,7 +425,7 @@ class AgedysManager:
                 LoggingHelper.log_query_execution(f"responsable_dpds_{usuario}", False, error=str(e))
 
         # Query para peticionarios - Con acentos correctos
-        query_peticionario = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbProyectos.IMPORTEADJUDICADO FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre WHERE TbProyectos.ELIMINADO = False AND TbSolicitudesOfertasPrevias.DPD IS NULL AND TbExpedientes1.AGEDYSGenerico = 'No' AND TbProyectos.CODCONTRATOGTV IS NULL AND TbSuministradoresSAP.IDSuministrador IS NULL AND TbProyectos.PETICIONARIO = '" + usuario + "'"
+        query_peticionario = "SELECT TbProyectos.CODPROYECTOS, TbProyectos.PETICIONARIO, TbExpedientes1.CodExp, TbProyectos.DESCRIPCION, TbProyectos.IMPORTEADJUDICADO FROM (((TbProyectos LEFT JOIN TbSolicitudesOfertasPrevias ON TbProyectos.CODPROYECTOS = TbSolicitudesOfertasPrevias.DPD) INNER JOIN TbExpedientes1 ON TbProyectos.IDExpediente = TbExpedientes1.IdExpediente) LEFT JOIN TbSuministradoresSAP ON TbProyectos.NAcreedorSAP = TbSuministradoresSAP.AcreedorSAP) INNER JOIN TbUsuariosAplicaciones ON TbProyectos.PETICIONARIO = TbUsuariosAplicaciones.Nombre WHERE (((TbProyectos.ELIMINADO)=False) AND ((TbSolicitudesOfertasPrevias.DPD) Is Null) AND ((TbExpedientes1.AGEDYSGenerico)<>'Sí') AND ((TbProyectos.CODCONTRATOGTV) Is Null) AND ((TbSuministradoresSAP.IDSuministrador) Is Null) AND ((TbUsuariosAplicaciones.UsuarioRed) = '" + usuario + "'))"
 
         try:
             dpds = self.db.execute_query(query_peticionario)
@@ -671,15 +650,18 @@ class AgedysManager:
         try:
             LoggingHelper.log_database_query("get_usuarios_tareas", "Obteniendo usuarios de tareas")
 
-            # Basado en el VBS original getColusuariosTareas para "Técnico"
+            # SQL simplificada según especificación del usuario
             # Usa la base de datos Lanzadera (tareas_db) como en el VBS
             query = """
-                SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
-                FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas 
-                ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario
-                WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True 
-                AND TbUsuariosAplicaciones.FechaBaja IS NULL 
-                AND TbUsuariosAplicacionesTareas.CorreoUsuario IS NULL
+                SELECT 
+                    TbUsuariosAplicaciones.UsuarioRed, 
+                    TbUsuariosAplicaciones.Nombre, 
+                    TbUsuariosAplicaciones.CorreoUsuario 
+                FROM 
+                    TbUsuariosAplicaciones 
+                WHERE 
+                    TbUsuariosAplicaciones.ParaTareasProgramadas = True 
+                    AND TbUsuariosAplicaciones.FechaBaja IS NULL
             """
 
             result = self.tareas_db.execute_query(query)
@@ -816,10 +798,10 @@ class AgedysManager:
 
         return self.generate_html_table_facturas(facturas, "Facturas Pendientes de Visado Técnico")
 
-    def send_facturas_pendientes_email(self, usuario: str, correo: str, facturas: List[Dict[str, Any]], dry_run: bool = False):
-        """Envía email de facturas pendientes de visado técnico"""
+    def register_facturas_pendientes_notification(self, usuario: str, correo: str, facturas: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificación de facturas pendientes de visado técnico"""
         if not facturas:
-            LoggingHelper.log_skipped_action("send_facturas_pendientes_email", usuario, "No hay facturas pendientes")
+            LoggingHelper.log_skipped_action("register_facturas_pendientes_notification", usuario, "No hay facturas pendientes")
             return
 
         try:
@@ -827,7 +809,7 @@ class AgedysManager:
             tabla_html = self.generate_html_table_facturas(facturas, "Facturas Pendientes de Visado Técnico (AGEDYS)")
 
             html_content = f"""
-            {generate_html_header(self.css_content)}
+            {generate_html_header("Facturas Pendientes de Visado Técnico", self.css_content)}
             <h2>Facturas Pendientes de Visado Técnico</h2>
             <p>Estimado/a {usuario},</p>
             <p>Le informamos que tiene facturas pendientes de visado técnico:</p>
@@ -841,17 +823,7 @@ class AgedysManager:
             if dry_run:
                 LoggingHelper.log_email_action("send", usuario, correo, "DRY-RUN", f"{len(facturas)} facturas")
             else:
-                # Enviar email
-                send_notification_email(
-                    to_email=correo,
-                    subject=subject,
-                    html_content=html_content,
-                    app_id=APP_ID
-                )
-
-                LoggingHelper.log_email_action("send", usuario, correo, "ENVIADO", f"{len(facturas)} facturas")
-
-                # Registrar en base de datos solo cuando no es dry_run
+                # Solo registrar en base de datos (no enviar por SMTP)
                 utils.register_email_in_database(
                     self.correos_db,
                     "AGEDYS",
@@ -861,13 +833,15 @@ class AgedysManager:
                     ""  # admin_emails vacío
                 )
 
-        except Exception as e:
-            LoggingHelper.log_database_error("send_facturas_pendientes_email", usuario, str(e))
+                LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(facturas)} facturas")
 
-    def send_dpds_sin_visado_email(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
-        """Envía email de DPDs sin visado"""
+        except Exception as e:
+            LoggingHelper.log_database_error("register_facturas_pendientes_notification", usuario, str(e))
+
+    def register_dpds_sin_visado_notification(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificación de DPDs sin visado"""
         if not dpds:
-            LoggingHelper.log_skipped_action("send_dpds_sin_visado_email", usuario, "No hay DPDs sin visado")
+            LoggingHelper.log_skipped_action("register_dpds_sin_visado_notification", usuario, "No hay DPDs sin visado")
             return
 
         try:
@@ -875,7 +849,7 @@ class AgedysManager:
             tabla_html = self.generate_html_table_dpds(dpds, "DPDs sin Solicitud de Oferta al Suministrador (AGEDYS)")
 
             html_content = f"""
-            {generate_html_header(self.css_content)}
+            {generate_html_header("DPDs sin Solicitud de Oferta", self.css_content)}
             <h2>DPDs sin Solicitud de Oferta al Suministrador</h2>
             <p>Estimado/a {usuario},</p>
             <p>Le informamos que tiene DPDs sin solicitud de oferta al suministrador:</p>
@@ -889,17 +863,7 @@ class AgedysManager:
             if dry_run:
                 LoggingHelper.log_email_action("send", usuario, correo, "DRY-RUN", f"{len(dpds)} DPDs")
             else:
-                # Enviar email
-                send_notification_email(
-                    to_email=correo,
-                    subject=subject,
-                    html_content=html_content,
-                    app_id=APP_ID
-                )
-
-                LoggingHelper.log_email_action("send", usuario, correo, "ENVIADO", f"{len(dpds)} DPDs")
-
-                # Registrar en base de datos solo cuando no es dry_run
+                # Solo registrar en base de datos (no enviar por SMTP)
                 utils.register_email_in_database(
                     self.correos_db,
                     "AGEDYS",
@@ -909,13 +873,15 @@ class AgedysManager:
                     ""  # admin_emails vacío
                 )
 
-        except Exception as e:
-            LoggingHelper.log_database_error("send_dpds_sin_visado_email", usuario, str(e))
+                LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(dpds)} DPDs")
 
-    def send_dpds_rechazados_email(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
-        """Envía email de DPDs rechazados"""
+        except Exception as e:
+            LoggingHelper.log_database_error("register_dpds_sin_visado_notification", usuario, str(e))
+
+    def register_dpds_rechazados_notification(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificación de DPDs rechazados"""
         if not dpds:
-            LoggingHelper.log_skipped_action("send_dpds_rechazados_email", usuario, "No hay DPDs rechazados")
+            LoggingHelper.log_skipped_action("register_dpds_rechazados_notification", usuario, "No hay DPDs rechazados")
             return
 
         try:
@@ -923,7 +889,7 @@ class AgedysManager:
             tabla_html = self.generate_html_table_dpds(dpds, "DPDs Rechazados de Calidad (AGEDYS)")
 
             html_content = f"""
-            {generate_html_header(self.css_content)}
+            {generate_html_header("DPDs Rechazados de Calidad", self.css_content)}
             <h2>DPDs Rechazados de Calidad</h2>
             <p>Estimado/a {usuario},</p>
             <p>Le informamos que tiene DPDs rechazados de calidad:</p>
@@ -937,17 +903,7 @@ class AgedysManager:
             if dry_run:
                 LoggingHelper.log_email_action("send", usuario, correo, "DRY-RUN", f"{len(dpds)} DPDs")
             else:
-                # Enviar email
-                send_notification_email(
-                    to_email=correo,
-                    subject=subject,
-                    html_content=html_content,
-                    app_id=APP_ID
-                )
-
-                LoggingHelper.log_email_action("send", usuario, correo, "ENVIADO", f"{len(dpds)} DPDs")
-
-                # Registrar en base de datos solo cuando no es dry_run
+                # Solo registrar en base de datos (no enviar por SMTP)
                 utils.register_email_in_database(
                     self.correos_db,
                     "AGEDYS",
@@ -957,13 +913,15 @@ class AgedysManager:
                     ""  # admin_emails vacío
                 )
 
-        except Exception as e:
-            LoggingHelper.log_database_error("send_dpds_rechazados_email", usuario, str(e))
+                LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(dpds)} DPDs")
 
-    def register_economia_email(self, usuarios: List[Dict[str, Any]], dpds: List[Dict[str, Any]], dry_run: bool = False):
-        """Registra correos de DPDs sin pedido para usuarios de economía"""
+        except Exception as e:
+            LoggingHelper.log_database_error("register_dpds_rechazados_notification", usuario, str(e))
+
+    def register_economia_notification_data(self, usuarios: List[Dict[str, Any]], dpds: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificaciones de DPDs sin pedido para usuarios de economía"""
         if not dpds:
-            LoggingHelper.log_skipped_action("register_economia_email", "economia", "No hay DPDs sin pedido")
+            LoggingHelper.log_skipped_action("register_economia_notification_data", "economia", "No hay DPDs sin pedido")
             return
 
         try:
@@ -971,7 +929,7 @@ class AgedysManager:
             tabla_html = self.generate_html_table_dpds(dpds, "DPDs sin Pedido (AGEDYS)")
 
             html_content = f"""
-            {generate_html_header(self.css_content)}
+            {generate_html_header("DPDs sin Pedido", self.css_content)}
             <h2>DPDs sin Pedido</h2>
             <p>Estimados compañeros de Economía,</p>
             <p>Les informamos de los siguientes DPDs sin pedido:</p>
@@ -989,17 +947,7 @@ class AgedysManager:
                 if dry_run:
                     LoggingHelper.log_email_action("send", usuario, correo, "DRY-RUN", f"{len(dpds)} DPDs")
                 else:
-                    # Enviar email
-                    send_notification_email(
-                        to_email=correo,
-                        subject=subject,
-                        html_content=html_content,
-                        app_id=APP_ID
-                    )
-
-                    LoggingHelper.log_email_action("send", usuario, correo, "ENVIADO", f"{len(dpds)} DPDs")
-
-                    # Registrar en base de datos solo cuando no es dry_run
+                    # Solo registrar en base de datos (no enviar por SMTP)
                     utils.register_email_in_database(
                         self.correos_db,
                         "AGEDYS",
@@ -1009,13 +957,15 @@ class AgedysManager:
                         ""  # admin_emails vacío
                     )
 
-        except Exception as e:
-            LoggingHelper.log_database_error("register_economia_email", "economia", str(e))
+                    LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(dpds)} DPDs")
 
-    def send_dpds_sin_pedido_email(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
-        """Envía email de DPDs sin pedido a un usuario específico"""
+        except Exception as e:
+            LoggingHelper.log_database_error("register_economia_notification_data", "economia", str(e))
+
+    def register_dpds_sin_pedido_notification(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificación de DPDs sin pedido a un usuario específico"""
         if not dpds:
-            LoggingHelper.log_skipped_action("send_dpds_sin_pedido_email", usuario, "No hay DPDs sin pedido")
+            LoggingHelper.log_skipped_action("register_dpds_sin_pedido_notification", usuario, "No hay DPDs sin pedido")
             return
 
         try:
@@ -1023,7 +973,7 @@ class AgedysManager:
             tabla_html = self.generate_html_table_dpds(dpds, "DPDs sin Pedido (AGEDYS)")
 
             html_content = f"""
-            {generate_html_header(self.css_content)}
+            {generate_html_header("DPDs sin Pedido", self.css_content)}
             <h2>DPDs sin Pedido</h2>
             <p>Estimado/a {usuario},</p>
             <p>Le informamos que tiene DPDs sin pedido:</p>
@@ -1037,17 +987,7 @@ class AgedysManager:
             if dry_run:
                 LoggingHelper.log_email_action("send", usuario, correo, "DRY-RUN", f"{len(dpds)} DPDs")
             else:
-                # Enviar email
-                send_notification_email(
-                    to_email=correo,
-                    subject=subject,
-                    html_content=html_content,
-                    app_id=APP_ID
-                )
-
-                LoggingHelper.log_email_action("send", usuario, correo, "ENVIADO", f"{len(dpds)} DPDs")
-
-                # Registrar en base de datos solo cuando no es dry_run
+                # Solo registrar en base de datos (no enviar por SMTP)
                 utils.register_email_in_database(
                     self.correos_db,
                     "AGEDYS",
@@ -1057,12 +997,14 @@ class AgedysManager:
                     ""  # admin_emails vacío
                 )
 
-        except Exception as e:
-            LoggingHelper.log_database_error("send_dpds_sin_pedido_email", usuario, str(e))
+                LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(dpds)} DPDs")
 
-    def send_economia_email(self, usuarios: List[Dict[str, Any]], dpds: List[Dict[str, Any]], dry_run: bool = False):
-        """Alias para register_economia_email para mantener compatibilidad con tests"""
-        self.register_economia_email(usuarios, dpds, dry_run)
+        except Exception as e:
+            LoggingHelper.log_database_error("register_dpds_sin_pedido_notification", usuario, str(e))
+
+    def register_economia_notification(self, usuarios: List[Dict[str, Any]], dpds: List[Dict[str, Any]], dry_run: bool = False):
+        """Registra notificación para economía - alias para mantener compatibilidad con tests"""
+        self.register_economia_notification_data(usuarios, dpds, dry_run)
 
     def process_calidad_tasks(self, dry_run: bool = False):
         """Procesa todas las tareas de calidad y envía un solo email agrupado"""
@@ -1088,7 +1030,7 @@ class AgedysManager:
             # Enviar a todos los usuarios de calidad
             for usuario_data in usuarios_calidad:
                 correo = usuario_data['CorreoUsuario']
-                self.send_grouped_email(
+                self.register_grouped_notification(
                     correo, 
                     "Tareas Diarias Calidad", 
                     html_content, 
@@ -1121,7 +1063,7 @@ class AgedysManager:
             # Enviar a todos los usuarios de economía
             for usuario_data in usuarios_economia:
                 correo = usuario_data['CorreoUsuario']
-                self.send_grouped_email(
+                self.register_grouped_notification(
                     correo, 
                     "Tareas Diarias Economía", 
                     html_content, 
@@ -1193,8 +1135,8 @@ class AgedysManager:
             LoggingHelper.log_database_error("build_tecnico_html", usuario, str(e))
             raise
 
-    def send_grouped_email(self, correo: str, subject: str, html_content: str, dry_run: bool = False):
-        """Registra email agrupado en la base de datos (sin envío real, como en BRASS)"""
+    def register_grouped_notification(self, correo: str, subject: str, html_content: str, dry_run: bool = False):
+        """Registra notificación agrupada en la base de datos (sin envío real, como en BRASS)"""
         try:
             if dry_run:
                 LoggingHelper.log_email_action("register", "agrupado", correo, "DRY-RUN", subject)
@@ -1215,7 +1157,7 @@ class AgedysManager:
                 )
 
         except Exception as e:
-            LoggingHelper.log_database_error("send_grouped_email", correo, str(e))
+            LoggingHelper.log_database_error("register_grouped_notification", correo, str(e))
             raise
 
     def process_tecnicos_tasks(self, dry_run: bool = False) -> int:
@@ -1247,7 +1189,7 @@ class AgedysManager:
                     html_content = self.build_tecnico_html(usuario, facturas, dpds_sin_pedido)
                     
                     # Enviar email agrupado
-                    self.send_grouped_email(
+                    self.register_grouped_notification(
                         correo, 
                         f"Tareas Diarias Técnico - {usuario}", 
                         html_content, 

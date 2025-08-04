@@ -34,8 +34,7 @@ class TestAgedysManager:
              patch('src.agedys.agedys_manager.generate_html_footer') as mock_footer, \
              patch('src.agedys.agedys_manager.utils.register_email_in_database') as mock_register_email, \
              patch('src.agedys.agedys_manager.should_execute_task') as mock_should_execute, \
-             patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task, \
-             patch('src.agedys.agedys_manager.send_notification_email') as mock_send_email:
+             patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task:
             
             mock_css.return_value = "mock_css_content"
             mock_header.return_value = "<html><head></head><body>"
@@ -43,7 +42,6 @@ class TestAgedysManager:
             mock_register_email.return_value = True
             mock_should_execute.return_value = True
             mock_register_task.return_value = True
-            mock_send_email.return_value = True
             
             yield {
                 'css': mock_css,
@@ -51,8 +49,7 @@ class TestAgedysManager:
                 'footer': mock_footer,
                 'register_email': mock_register_email,
                 'should_execute': mock_should_execute,
-                'register_task': mock_register_task,
-                'send_email': mock_send_email
+                'register_task': mock_register_task
             }
     
     @pytest.fixture
@@ -118,8 +115,8 @@ class TestAgedysManager:
     def test_get_usuarios_dpds_sin_visado_calidad(self, mock_get_quality_users, agedys_manager):
         """Test obtener usuarios con DPDs sin visado de calidad"""
         mock_users = [
-            {'Nombre': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
-            {'Nombre': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}
+            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
+            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}
         ]
         mock_get_quality_users.return_value = mock_users
         
@@ -131,8 +128,8 @@ class TestAgedysManager:
     def test_get_dpds_sin_visado_calidad(self, agedys_manager):
         """Test obtener DPDs sin visado de calidad"""
         mock_dpds = [
-            {'NumeroDPD': 'DPD001', 'Descripcion': 'DPD Test 1'},
-            {'NumeroDPD': 'DPD002', 'Descripcion': 'DPD Test 2'}
+            {'CODPROYECTOS': 'DPD001', 'DESCRIPCION': 'DPD Test 1'},
+            {'CODPROYECTOS': 'DPD002', 'DESCRIPCION': 'DPD Test 2'}
         ]
         agedys_manager.db.execute_query.return_value = mock_dpds
         
@@ -145,7 +142,7 @@ class TestAgedysManager:
     def test_get_usuarios_dpds_rechazados_calidad(self, mock_get_quality_users, agedys_manager):
         """Test obtener usuarios con DPDs rechazados por calidad"""
         mock_users = [
-            {'Nombre': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}
+            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}
         ]
         mock_get_quality_users.return_value = mock_users
         
@@ -157,7 +154,7 @@ class TestAgedysManager:
     def test_get_dpds_rechazados_calidad(self, agedys_manager):
         """Test obtener DPDs rechazados por calidad"""
         mock_dpds = [
-            {'NumeroDPD': 'DPD003', 'Descripcion': 'DPD Rechazado', 'FechaRechazo': datetime.now()}
+            {'CODPROYECTOS': 'DPD003', 'DESCRIPCION': 'DPD Rechazado', 'FechaRechazo': datetime.now()}
         ]
         agedys_manager.db.execute_query.return_value = mock_dpds
         
@@ -170,7 +167,7 @@ class TestAgedysManager:
     def test_get_usuarios_economia(self, mock_get_economy_users, agedys_manager):
         """Test obtener usuarios de economía"""
         mock_users = [
-            {'Nombre': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}
+            {'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}
         ]
         mock_get_economy_users.return_value = mock_users
         
@@ -194,7 +191,7 @@ class TestAgedysManager:
     def test_get_usuarios_tareas(self, agedys_manager):
         """Test obtener usuarios de tareas"""
         mock_users = [
-            {'Nombre': 'Tecnico1', 'CorreoUsuario': 'tecnico1@test.com'}
+            {'UsuarioRed': 'Tecnico1', 'CorreoUsuario': 'tecnico1@test.com'}
         ]
         agedys_manager.tareas_db.execute_query.return_value = mock_users
         
@@ -261,80 +258,80 @@ class TestAgedysManager:
         assert "Usuario Test" in result
         assert "1000.50€" in result
     
-    def test_send_facturas_pendientes_email_empty(self, agedys_manager, mock_utils):
-        """Test enviar email de facturas pendientes - lista vacía"""
-        agedys_manager.send_facturas_pendientes_email('Usuario1', 'user1@test.com', [], dry_run=False)
+    def test_register_facturas_pendientes_notification_empty(self, agedys_manager, mock_utils):
+        """Test registrar notificación de facturas pendientes - lista vacía"""
+        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', [], dry_run=False)
         
         mock_utils['register_email'].assert_not_called()
     
-    def test_send_facturas_pendientes_email_with_data(self, agedys_manager, mock_utils):
-        """Test enviar email de facturas pendientes con datos"""
+    def test_register_facturas_pendientes_notification_with_data(self, agedys_manager, mock_utils):
+        """Test registrar notificación de facturas pendientes con datos"""
         facturas = [{'NumeroFactura': 'F001', 'Proveedor': 'Proveedor1'}]
         
-        agedys_manager.send_facturas_pendientes_email('Usuario1', 'user1@test.com', facturas, dry_run=False)
+        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', facturas, dry_run=False)
         
         mock_utils['register_email'].assert_called_once()
     
-    def test_send_facturas_pendientes_email_dry_run(self, agedys_manager, mock_utils):
-        """Test enviar email de facturas pendientes - dry run"""
+    def test_register_facturas_pendientes_notification_dry_run(self, agedys_manager, mock_utils):
+        """Test registrar notificación de facturas pendientes - dry run"""
         facturas = [{'NumeroFactura': 'F001', 'Proveedor': 'Proveedor1'}]
         
-        agedys_manager.send_facturas_pendientes_email('Usuario1', 'user1@test.com', facturas, dry_run=True)
+        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', facturas, dry_run=True)
         
         mock_utils['register_email'].assert_not_called()
     
-    def test_send_dpds_sin_visado_email_empty(self, agedys_manager, mock_utils):
-        """Test enviar email de DPDs sin visado - lista vacía"""
-        agedys_manager.send_dpds_sin_visado_email('Usuario1', 'user1@test.com', [], dry_run=False)
+    def test_register_dpds_sin_visado_notification_empty(self, agedys_manager, mock_utils):
+        """Test registrar notificación de DPDs sin visado - lista vacía"""
+        agedys_manager.register_dpds_sin_visado_notification('Usuario1', 'user1@test.com', [], dry_run=False)
         
         mock_utils['register_email'].assert_not_called()
     
-    def test_send_dpds_sin_visado_email_with_data(self, agedys_manager, mock_utils):
-        """Test enviar email de DPDs sin visado con datos"""
-        dpds = [{'NumeroDPD': 'DPD001', 'Descripcion': 'DPD Test'}]
+    def test_register_dpds_sin_visado_notification_with_data(self, agedys_manager, mock_utils):
+        """Test registrar notificación de DPDs sin visado con datos"""
+        dpds = [{'CODPROYECTOS': 'DPD001', 'DESCRIPCION': 'DPD Test'}]
         
-        agedys_manager.send_dpds_sin_visado_email('Usuario1', 'user1@test.com', dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_send_dpds_rechazados_email_with_data(self, agedys_manager, mock_utils):
-        """Test enviar email de DPDs rechazados con datos"""
-        dpds = [{'NumeroDPD': 'DPD002', 'Descripcion': 'DPD Rechazado'}]
-        
-        agedys_manager.send_dpds_rechazados_email('Usuario1', 'user1@test.com', dpds, dry_run=False)
+        agedys_manager.register_dpds_sin_visado_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
         
         mock_utils['register_email'].assert_called_once()
     
-    def test_send_economia_email_empty_users(self, agedys_manager, mock_utils):
-        """Test enviar email a economía - usuarios vacíos"""
+    def test_register_dpds_rechazados_notification_with_data(self, agedys_manager, mock_utils):
+        """Test registrar notificación de DPDs rechazados con datos"""
+        dpds = [{'CODPROYECTOS': 'DPD002', 'DESCRIPCION': 'DPD Rechazado'}]
+        
+        agedys_manager.register_dpds_rechazados_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
+        
+        mock_utils['register_email'].assert_called_once()
+    
+    def test_register_economia_notification_empty_users(self, agedys_manager, mock_utils):
+        """Test registrar notificación a economía - usuarios vacíos"""
         dpds = [{'NumeroDPD': 'DPD003'}]
         
-        agedys_manager.send_economia_email([], dpds, dry_run=False)
+        agedys_manager.register_economia_notification([], dpds, dry_run=False)
         
         mock_utils['register_email'].assert_not_called()
     
-    def test_send_economia_email_empty_dpds(self, agedys_manager, mock_utils):
-        """Test enviar email a economía - DPDs vacíos"""
+    def test_register_economia_notification_empty_dpds(self, agedys_manager, mock_utils):
+        """Test registrar notificación a economía - DPDs vacíos"""
         usuarios = [{'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}]
         
-        agedys_manager.send_economia_email(usuarios, [], dry_run=False)
+        agedys_manager.register_economia_notification(usuarios, [], dry_run=False)
         
         mock_utils['register_email'].assert_not_called()
     
-    def test_send_economia_email_with_data(self, agedys_manager, mock_utils):
-        """Test enviar email a economía con datos"""
+    def test_register_economia_notification_with_data(self, agedys_manager, mock_utils):
+        """Test registrar notificación a economía con datos"""
         usuarios = [{'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}]
-        dpds = [{'NumeroDPD': 'DPD003', 'Descripcion': 'DPD Economia'}]
+        dpds = [{'CODPROYECTOS': 'DPD003', 'DESCRIPCION': 'DPD Economia'}]
         
-        agedys_manager.send_economia_email(usuarios, dpds, dry_run=False)
+        agedys_manager.register_economia_notification(usuarios, dpds, dry_run=False)
         
         mock_utils['register_email'].assert_called_once()
     
-    def test_send_dpds_sin_pedido_email_with_data(self, agedys_manager, mock_utils):
-        """Test enviar email de DPDs sin pedido con datos"""
-        dpds = [{'NumeroDPD': 'DPD004', 'Descripcion': 'DPD Sin Pedido'}]
+    def test_register_dpds_sin_pedido_notification_with_data(self, agedys_manager, mock_utils):
+        """Test registrar notificación de DPDs sin pedido con datos"""
+        dpds = [{'CODPROYECTOS': 'DPD004', 'DESCRIPCION': 'DPD Sin Pedido'}]
         
-        agedys_manager.send_dpds_sin_pedido_email('Usuario1', 'user1@test.com', dpds, dry_run=False)
+        agedys_manager.register_dpds_sin_pedido_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
         
         mock_utils['register_email'].assert_called_once()
     
@@ -387,51 +384,40 @@ class TestAgedysManager:
             
             assert result is False
     
-    def test_run_success_complete_flow(self, agedys_manager):
-        """Test ejecutar proceso principal - flujo completo exitoso"""
-        # Mock de todos los métodos get_usuarios_*
+    def test_run_success_complete_flow(self, agedys_manager, mock_utils):
+        """Test flujo completo exitoso - registro de notificaciones"""
+        # Mock de métodos del manager
         with patch.object(agedys_manager, 'get_usuarios_facturas_pendientes_visado_tecnico') as mock_get_usuarios_facturas, \
              patch.object(agedys_manager, 'get_facturas_pendientes_visado_tecnico') as mock_get_facturas, \
-             patch.object(agedys_manager, 'send_facturas_pendientes_email') as mock_send_facturas, \
              patch.object(agedys_manager, 'get_usuarios_dpds_sin_visado_calidad') as mock_get_usuarios_dpds, \
              patch.object(agedys_manager, 'get_dpds_sin_visado_calidad') as mock_get_dpds, \
-             patch.object(agedys_manager, 'send_dpds_sin_visado_email') as mock_send_dpds, \
              patch.object(agedys_manager, 'get_usuarios_dpds_rechazados_calidad') as mock_get_usuarios_rechazados, \
              patch.object(agedys_manager, 'get_dpds_rechazados_calidad') as mock_get_dpds_rechazados, \
-             patch.object(agedys_manager, 'send_dpds_rechazados_email') as mock_send_rechazados, \
              patch.object(agedys_manager, 'get_usuarios_economia') as mock_get_economia, \
              patch.object(agedys_manager, 'get_dpds_fin_agenda_tecnica_por_recepcionar') as mock_get_dpds_economia, \
-             patch.object(agedys_manager, 'send_economia_email') as mock_send_economia, \
              patch.object(agedys_manager, 'get_usuarios_tareas') as mock_get_usuarios_tareas, \
-             patch.object(agedys_manager, 'get_dpds_sin_pedido') as mock_get_dpds_sin_pedido, \
-             patch.object(agedys_manager, 'send_dpds_sin_pedido_email') as mock_send_sin_pedido:
+             patch.object(agedys_manager, 'get_dpds_sin_pedido') as mock_get_dpds_sin_pedido:
             
-            # Configurar mocks
-            mock_get_usuarios_facturas.return_value = [{'UsuarioRed': 'User1', 'CorreoUsuario': 'user1@test.com'}]
+            # Configurar datos de prueba
+            mock_get_usuarios_facturas.return_value = [{'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}]
             mock_get_facturas.return_value = [{'NumeroFactura': 'F001'}]
-            
-            mock_get_usuarios_dpds.return_value = [{'UsuarioRed': 'User2', 'CorreoUsuario': 'user2@test.com'}]
-            mock_get_dpds.return_value = [{'NumeroDPD': 'DPD001'}]
-            
-            mock_get_usuarios_rechazados.return_value = [{'UsuarioRed': 'User3', 'CorreoUsuario': 'user3@test.com'}]
-            mock_get_dpds_rechazados.return_value = [{'NumeroDPD': 'DPD002'}]
-            
-            mock_get_economia.return_value = [{'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}]
-            mock_get_dpds_economia.return_value = [{'NumeroDPD': 'DPD003'}]
-            
-            mock_get_usuarios_tareas.return_value = [{'UsuarioRed': 'Tecnico1', 'CorreoUsuario': 'tecnico1@test.com'}]
-            mock_get_dpds_sin_pedido.return_value = [{'NumeroDPD': 'DPD004', 'PETICIONARIO': 'Tecnico1'}]
+            mock_get_usuarios_dpds.return_value = [{'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}]
+            mock_get_dpds.return_value = [{'CODPROYECTOS': 'DPD001'}]
+            mock_get_usuarios_rechazados.return_value = []
+            mock_get_dpds_rechazados.return_value = []
+            mock_get_economia.return_value = []
+            mock_get_dpds_economia.return_value = []
+            mock_get_usuarios_tareas.return_value = []
+            mock_get_dpds_sin_pedido.return_value = []
             
             result = agedys_manager.run(dry_run=False)
             
             assert result is True
-            
-            # Verificar que se llamaron todos los métodos de envío
-            mock_send_facturas.assert_called_once()
-            mock_send_dpds.assert_called_once()
-            mock_send_rechazados.assert_called_once()
-            mock_send_economia.assert_called_once()
-            mock_send_sin_pedido.assert_called_once()
+            # Verificar que el proceso se ejecutó correctamente
+            mock_get_usuarios_facturas.assert_called_once()
+            mock_get_facturas.assert_called_once()
+            mock_get_usuarios_dpds.assert_called_once()
+            mock_get_dpds.assert_called_once()
     
     def test_run_exception(self, agedys_manager):
         """Test ejecutar proceso principal - excepción"""

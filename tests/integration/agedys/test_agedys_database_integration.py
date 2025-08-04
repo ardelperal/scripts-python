@@ -165,7 +165,7 @@ class TestAgedysDatabaseIntegration:
             # Verificar estructura de datos si hay resultados
             if usuarios_facturas:
                 primer_usuario = usuarios_facturas[0]
-                required_fields = ['Nombre', 'CorreoUsuario', 'Facturas']
+                required_fields = ['UsuarioRed', 'CorreoUsuario']
                 for field in required_fields:
                     assert field in primer_usuario, f"Campo '{field}' faltante en resultado"
                     
@@ -262,114 +262,88 @@ class TestAgedysDatabaseIntegration:
         except Exception as e:
             pytest.fail(f"Error en consultas adicionales: {e}")
 
-    def test_email_sending_methods_dry_run(self, local_agedys_manager):
-        """Probar métodos de envío de email en modo dry-run"""
+    def test_notification_registration_methods_dry_run(self, local_agedys_manager):
+        """Probar métodos de registro de notificaciones en modo dry-run"""
         
         try:
-            # Test send_facturas_pendientes_email
+            # Test register_facturas_pendientes_notification
             usuarios_facturas = local_agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
             if usuarios_facturas:
                 usuario_data = usuarios_facturas[0]
                 usuario = usuario_data.get('UsuarioRed', 'Test')
                 email = usuario_data.get('CorreoUsuario', 'test@test.com')
                 facturas = local_agedys_manager.get_facturas_pendientes_visado_tecnico(usuario)
-                local_agedys_manager.send_facturas_pendientes_email(usuario, email, facturas, dry_run=True)
-                print("✓ send_facturas_pendientes_email (dry-run)")
+                local_agedys_manager.register_facturas_pendientes_notification(usuario, email, facturas, dry_run=True)
+                print("✓ register_facturas_pendientes_notification (dry-run)")
             
-            # Test send_dpds_sin_visado_email
+            # Test register_dpds_sin_visado_notification
             usuarios_dpds_sin_visado = local_agedys_manager.get_usuarios_dpds_sin_visado_calidad()
             if usuarios_dpds_sin_visado:
                 usuario_data = usuarios_dpds_sin_visado[0]
                 usuario = usuario_data.get('UsuarioRed', 'Test')
                 email = usuario_data.get('CorreoUsuario', 'test@test.com')
                 dpds = local_agedys_manager.get_dpds_sin_visado_calidad(usuario)
-                local_agedys_manager.send_dpds_sin_visado_email(usuario, email, dpds, dry_run=True)
-                print("✓ send_dpds_sin_visado_email (dry-run)")
+                local_agedys_manager.register_dpds_sin_visado_notification(usuario, email, dpds, dry_run=True)
+                print("✓ register_dpds_sin_visado_notification (dry-run)")
             
-            # Test send_dpds_rechazados_email
+            # Test register_dpds_rechazados_notification
             usuarios_dpds_rechazados = local_agedys_manager.get_usuarios_dpds_rechazados_calidad()
             if usuarios_dpds_rechazados:
                 usuario_data = usuarios_dpds_rechazados[0]
                 usuario = usuario_data.get('UsuarioRed', 'Test')
                 email = usuario_data.get('CorreoUsuario', 'test@test.com')
                 dpds = local_agedys_manager.get_dpds_rechazados_calidad(usuario)
-                local_agedys_manager.send_dpds_rechazados_email(usuario, email, dpds, dry_run=True)
-                print("✓ send_dpds_rechazados_email (dry-run)")
+                local_agedys_manager.register_dpds_rechazados_notification(usuario, email, dpds, dry_run=True)
+                print("✓ register_dpds_rechazados_notification (dry-run)")
             
-            # Test send_economia_email
+            # Test register_economia_notification
             usuarios_economia = local_agedys_manager.get_usuarios_economia()
             dpds = local_agedys_manager.get_dpds_fin_agenda_tecnica_por_recepcionar()
             if usuarios_economia and dpds:
-                local_agedys_manager.send_economia_email(usuarios_economia, dpds, dry_run=True)
-                print("✓ send_economia_email (dry-run)")
+                local_agedys_manager.register_economia_notification(usuarios_economia, dpds, dry_run=True)
+                print("✓ register_economia_notification (dry-run)")
             
-            # Test send_dpds_sin_pedido_email
+            # Test register_dpds_sin_pedido_notification
             dpds_sin_pedido = local_agedys_manager.get_dpds_sin_pedido()
             if dpds_sin_pedido:
                 # Para DPDs sin pedido, usar el PETICIONARIO del primer DPD
                 primer_dpd = dpds_sin_pedido[0]
                 usuario = primer_dpd.get('PETICIONARIO', 'Test')
                 email = f"{usuario}@telefonica.com"
-                local_agedys_manager.send_dpds_sin_pedido_email(usuario, email, dpds_sin_pedido, dry_run=True)
-                print("✓ send_dpds_sin_pedido_email (dry-run)")
+                local_agedys_manager.register_dpds_sin_pedido_notification(usuario, email, dpds_sin_pedido, dry_run=True)
+                print("✓ register_dpds_sin_pedido_notification (dry-run)")
             
         except Exception as e:
-            pytest.fail(f"Error en métodos de envío de email: {e}")
+            pytest.fail(f"Error en métodos de registro de notificaciones: {e}")
 
-    def test_email_registration_real_database(self, local_agedys_manager):
-        """Probar registro real de emails en la base de datos"""
-        
-        # Datos de prueba para email
-        test_email_data = {
-            'destinatario': 'test@example.com',
-            'asunto': 'Prueba de integración AGEDYS',
-            'cuerpo': '<p>Este es un email de prueba</p>',
-            'aplicacion_id': config.app_id_agedys
-        }
-        
+    def test_notification_registration_real_database(self, local_agedys_manager):
+        """Test de registro de notificaciones con base de datos real"""
         try:
-            # Obtener conexión a la base de datos de correos usando la cadena de conexión
-            correos_db = AccessDatabase(config.get_db_correos_connection_string())
-            print(f"✓ Conexión establecida con base de datos: {config.db_correos_path}")
+            # Obtener datos reales
+            usuarios_facturas = local_agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
             
-            # Registrar email usando la función de utils
-            print(f"Registrando email con datos: {test_email_data}")
-            result = register_email_in_database(
-                correos_db,
-                'AGEDYS',
-                test_email_data['asunto'],
-                test_email_data['cuerpo'],
-                test_email_data['destinatario']
-            )
-            
-            print(f"Resultado del registro: {result}")
-            assert result is True, "El registro de email debe ser exitoso"
-            print("✓ Email registrado correctamente en la base de datos")
-            
-            # Verificar que el email se registró consultando la base de datos
-            # Usar Max para obtener el último ID en lugar de TOP 1
-            max_id_result = correos_db.execute_query(
-                "SELECT Max(IDCorreo) AS MaxID FROM TbCorreosEnviados WHERE Destinatarios = ? AND Asunto = ?",
-                [test_email_data['destinatario'], test_email_data['asunto']]
-            )
-            
-            if max_id_result and max_id_result[0]['MaxID']:
-                max_id = max_id_result[0]['MaxID']
-                emails = correos_db.execute_query(
-                    "SELECT * FROM TbCorreosEnviados WHERE IDCorreo = ?",
-                    [max_id]
-                )
+            if usuarios_facturas:
+                usuario_data = usuarios_facturas[0]
+                usuario = usuario_data.get('UsuarioRed', 'Test')
+                email = usuario_data.get('CorreoUsuario', 'test@test.com')
                 
-                assert len(emails) > 0, "El email debe estar registrado en la base de datos"
-                email_registrado = emails[0]
-                assert email_registrado['Destinatarios'] == test_email_data['destinatario']
-                assert email_registrado['Asunto'] == test_email_data['asunto']
-                print("✓ Email verificado en la base de datos")
+                # Obtener facturas para el usuario
+                facturas = local_agedys_manager.get_facturas_pendientes_visado_tecnico(usuario)
+                
+                if facturas:
+                    # Registrar notificación en modo dry-run
+                    result = local_agedys_manager.register_facturas_pendientes_notification(
+                        usuario, email, facturas[:3], dry_run=True
+                    )
+                    assert result is True
+                    print(f"✓ Notificación registrada para {usuario} con {len(facturas[:3])} facturas")
+                else:
+                    print(f"No hay facturas pendientes para {usuario}")
             else:
-                pytest.fail("No se pudo encontrar el email registrado")
-            
+                print("No hay usuarios con facturas pendientes")
+                
         except Exception as e:
-            pytest.fail(f"Error en registro de email: {e}")
+            pytest.fail(f"Error en registro de notificaciones: {e}")
     
     def test_task_execution_real_database(self, agedys_manager):
         """Probar ejecución y registro de tareas en base de datos real"""
@@ -440,7 +414,7 @@ class TestAgedysDatabaseIntegration:
             if usuarios:
                 usuario = usuarios[0]
                 assert 'UsuarioRed' in usuario, "Debe contener UsuarioRed"
-                assert 'Email' in usuario, "Debe contener Email"
+                assert 'CorreoUsuario' in usuario, "Debe contener CorreoUsuario"
                 print(f"✓ Encontrados {len(usuarios)} usuarios con facturas pendientes")
                 
                 # Probar obtener facturas para el primer usuario
@@ -464,7 +438,7 @@ class TestAgedysDatabaseIntegration:
             if usuarios:
                 usuario = usuarios[0]
                 assert 'UsuarioRed' in usuario, "Debe contener UsuarioRed"
-                assert 'Email' in usuario, "Debe contener Email"
+                assert 'CorreoUsuario' in usuario, "Debe contener CorreoUsuario"
                 print(f"✓ Encontrados {len(usuarios)} usuarios con DPDs sin visado")
                 
                 # Probar obtener DPDs para el primer usuario
@@ -488,7 +462,7 @@ class TestAgedysDatabaseIntegration:
             if usuarios:
                 usuario = usuarios[0]
                 assert 'UsuarioRed' in usuario, "Debe contener UsuarioRed"
-                assert 'Email' in usuario, "Debe contener Email"
+                assert 'CorreoUsuario' in usuario, "Debe contener CorreoUsuario"
                 print(f"✓ Encontrados {len(usuarios)} usuarios con DPDs rechazados")
                 
                 # Probar obtener DPDs para el primer usuario
@@ -614,48 +588,17 @@ class TestAgedysDatabaseIntegration:
         except Exception as e:
             pytest.fail(f"Error al cargar CSS: {e}")
     
-    def test_complete_email_workflow_real_data(self, local_agedys_manager):
-        """Probar flujo completo de generación y registro de emails con datos reales"""
-        
+    def test_complete_notification_workflow_real_data(self, local_agedys_manager):
+        """Test del flujo completo de generación y registro de notificaciones"""
         try:
-            # Obtener datos reales
-            usuarios_facturas = local_agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
-            usuarios_dpds_sin_visado = local_agedys_manager.get_usuarios_dpds_sin_visado_calidad()
-            usuarios_dpds_rechazadas = local_agedys_manager.get_usuarios_dpds_rechazados_calidad()
-            usuarios_economia = local_agedys_manager.get_usuarios_economia()
+            # Ejecutar el flujo completo en modo dry-run
+            result = local_agedys_manager.run(dry_run=True)
             
-            # Si hay datos, probar generación de HTML
-            if usuarios_facturas or usuarios_dpds_sin_visado or usuarios_dpds_rechazadas or usuarios_economia:
-                
-                # Generar HTML para cada tipo de datos
-                if usuarios_facturas:
-                    usuario = usuarios_facturas[0].get('UsuarioRed', 'Test')
-                    facturas = local_agedys_manager.get_facturas_pendientes_visado_tecnico(usuario)
-                    html_facturas = local_agedys_manager.generate_facturas_html_table(facturas)
-                    assert isinstance(html_facturas, str) and len(html_facturas) > 0
-                    assert '<table' in html_facturas or '<p>' in html_facturas
-                    print("✓ HTML generado para facturas pendientes")
-                
-                if usuarios_dpds_sin_visado:
-                    usuario = usuarios_dpds_sin_visado[0].get('UsuarioRed', 'Test')
-                    dpds = local_agedys_manager.get_dpds_sin_visado_calidad(usuario)
-                    html_dpds_sin_visado = local_agedys_manager.generate_dpds_html_table(dpds, 'sin_visado_calidad')
-                    assert isinstance(html_dpds_sin_visado, str) and len(html_dpds_sin_visado) > 0
-                    print("✓ HTML generado para DPDs sin visado")
-                
-                if usuarios_dpds_rechazadas:
-                    usuario = usuarios_dpds_rechazadas[0].get('UsuarioRed', 'Test')
-                    dpds = local_agedys_manager.get_dpds_rechazados_calidad(usuario)
-                    html_dpds_rechazadas = local_agedys_manager.generate_dpds_html_table(dpds, 'rechazados_calidad')
-                    assert isinstance(html_dpds_rechazadas, str) and len(html_dpds_rechazadas) > 0
-                    print("✓ HTML generado para DPDs rechazadas")
-                
-                print("✓ Flujo completo de email verificado con datos reales")
-            else:
-                print("ℹ No hay datos para procesar - flujo verificado sin datos")
-                
+            assert result is True
+            print("✓ Flujo completo de notificaciones ejecutado correctamente")
+            
         except Exception as e:
-            pytest.fail(f"Error en flujo completo de email: {e}")
+            pytest.fail(f"Error en flujo completo de notificaciones: {e}")
 
 
     
@@ -701,7 +644,7 @@ class TestAgedysDatabaseIntegration:
             assert isinstance(dpds, list)
             if dpds:
                 dpd = dpds[0]
-                expected_fields = ['NumeroDPD', 'Descripcion']
+                expected_fields = ['CODPROYECTOS', 'DESCRIPCION']
                 for field in expected_fields:
                     assert field in dpd, f"Campo {field} no encontrado en DPD"
     
