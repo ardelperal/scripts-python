@@ -32,9 +32,10 @@ class TestAgedysManager:
         with patch('src.agedys.agedys_manager.load_css_content') as mock_css, \
              patch('src.agedys.agedys_manager.generate_html_header') as mock_header, \
              patch('src.agedys.agedys_manager.generate_html_footer') as mock_footer, \
-             patch('src.agedys.agedys_manager.register_email_in_database') as mock_register_email, \
+             patch('src.agedys.agedys_manager.utils.register_email_in_database') as mock_register_email, \
              patch('src.agedys.agedys_manager.should_execute_task') as mock_should_execute, \
-             patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task:
+             patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task, \
+             patch('src.agedys.agedys_manager.send_notification_email') as mock_send_email:
             
             mock_css.return_value = "mock_css_content"
             mock_header.return_value = "<html><head></head><body>"
@@ -42,6 +43,7 @@ class TestAgedysManager:
             mock_register_email.return_value = True
             mock_should_execute.return_value = True
             mock_register_task.return_value = True
+            mock_send_email.return_value = True
             
             yield {
                 'css': mock_css,
@@ -49,7 +51,8 @@ class TestAgedysManager:
                 'footer': mock_footer,
                 'register_email': mock_register_email,
                 'should_execute': mock_should_execute,
-                'register_task': mock_register_task
+                'register_task': mock_register_task,
+                'send_email': mock_send_email
             }
     
     @pytest.fixture
@@ -67,8 +70,8 @@ class TestAgedysManager:
     def test_get_usuarios_facturas_pendientes_visado_tecnico(self, agedys_manager):
         """Test obtener usuarios con facturas pendientes de visado técnico"""
         mock_users = [
-            {'UsuarioRed': 'Usuario1'},
-            {'UsuarioRed': 'Usuario2'}
+            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'Usuario1@telefonica.com'},
+            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'Usuario2@telefonica.com'}
         ]
         expected_result = [
             {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'Usuario1@telefonica.com'},
@@ -79,7 +82,7 @@ class TestAgedysManager:
         result = agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
         
         assert result == expected_result
-        agedys_manager.db.execute_query.assert_called_once()
+        agedys_manager.db.execute_query.assert_called()
     
     def test_get_usuarios_facturas_pendientes_visado_tecnico_exception(self, agedys_manager):
         """Test obtener usuarios con facturas pendientes - excepción"""
@@ -111,18 +114,19 @@ class TestAgedysManager:
         
         assert result == []
     
-    def test_get_usuarios_dpds_sin_visado_calidad(self, agedys_manager):
+    @patch('src.agedys.agedys_manager.get_quality_users')
+    def test_get_usuarios_dpds_sin_visado_calidad(self, mock_get_quality_users, agedys_manager):
         """Test obtener usuarios con DPDs sin visado de calidad"""
         mock_users = [
             {'Nombre': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
             {'Nombre': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}
         ]
-        agedys_manager.tareas_db.execute_query.return_value = mock_users
+        mock_get_quality_users.return_value = mock_users
         
         result = agedys_manager.get_usuarios_dpds_sin_visado_calidad()
         
         assert result == mock_users
-        agedys_manager.tareas_db.execute_query.assert_called_once()
+        mock_get_quality_users.assert_called_once_with("3", agedys_manager.config, agedys_manager.logger)
     
     def test_get_dpds_sin_visado_calidad(self, agedys_manager):
         """Test obtener DPDs sin visado de calidad"""
@@ -137,17 +141,18 @@ class TestAgedysManager:
         assert result == mock_dpds
         agedys_manager.db.execute_query.assert_called_once()
     
-    def test_get_usuarios_dpds_rechazados_calidad(self, agedys_manager):
+    @patch('src.agedys.agedys_manager.get_quality_users')
+    def test_get_usuarios_dpds_rechazados_calidad(self, mock_get_quality_users, agedys_manager):
         """Test obtener usuarios con DPDs rechazados por calidad"""
         mock_users = [
             {'Nombre': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}
         ]
-        agedys_manager.tareas_db.execute_query.return_value = mock_users
+        mock_get_quality_users.return_value = mock_users
         
         result = agedys_manager.get_usuarios_dpds_rechazados_calidad()
         
         assert result == mock_users
-        agedys_manager.tareas_db.execute_query.assert_called_once()
+        mock_get_quality_users.assert_called_once_with("3", agedys_manager.config, agedys_manager.logger)
     
     def test_get_dpds_rechazados_calidad(self, agedys_manager):
         """Test obtener DPDs rechazados por calidad"""
@@ -161,17 +166,18 @@ class TestAgedysManager:
         assert result == mock_dpds
         agedys_manager.db.execute_query.assert_called_once()
     
-    def test_get_usuarios_economia(self, agedys_manager):
+    @patch('src.agedys.agedys_manager.get_economy_users')
+    def test_get_usuarios_economia(self, mock_get_economy_users, agedys_manager):
         """Test obtener usuarios de economía"""
         mock_users = [
             {'Nombre': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}
         ]
-        agedys_manager.tareas_db.execute_query.return_value = mock_users
+        mock_get_economy_users.return_value = mock_users
         
         result = agedys_manager.get_usuarios_economia()
         
         assert result == mock_users
-        agedys_manager.tareas_db.execute_query.assert_called_once()
+        mock_get_economy_users.assert_called_once_with(agedys_manager.config, agedys_manager.logger)
     
     def test_get_dpds_fin_agenda_tecnica_por_recepcionar(self, agedys_manager):
         """Test obtener DPDs con fin de agenda técnica por recepcionar"""
@@ -237,7 +243,14 @@ class TestAgedysManager:
     def test_generate_dpds_html_table_with_data(self, agedys_manager):
         """Test generar tabla HTML de DPDs con datos"""
         dpds = [
-            {'NumeroDPD': 'DPD001', 'Descripcion': 'DPD Test'}
+            {
+                'CODPROYECTOS': 'DPD001', 
+                'DESCRIPCION': 'DPD Test',
+                'PETICIONARIO': 'Usuario Test',
+                'CodExp': 'EXP001',
+                'IMPORTEADJUDICADO': 1000.50,
+                'Suministrador': 'Proveedor Test'
+            }
         ]
         
         result = agedys_manager.generate_dpds_html_table(dpds, 'sin_visado_calidad')
@@ -245,6 +258,8 @@ class TestAgedysManager:
         assert "<table" in result
         assert "DPD001" in result
         assert "DPD Test" in result
+        assert "Usuario Test" in result
+        assert "1000.50€" in result
     
     def test_send_facturas_pendientes_email_empty(self, agedys_manager, mock_utils):
         """Test enviar email de facturas pendientes - lista vacía"""

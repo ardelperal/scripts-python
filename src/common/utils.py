@@ -433,7 +433,7 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
             WHERE Tarea = ?
         """
         
-        result = db_connection.execute_query(query_check, (task_name,))
+        result = db_connection.execute_query(query_check, [task_name])
         
         if result and result[0]['Count'] > 0:
             # Actualizar registro existente - solo cambiar la fecha
@@ -445,9 +445,9 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
                 "TbTareas", 
                 task_data, 
                 "Tarea = ?", 
-                (task_name,)
+                [task_name]
             )
-            logging.info(f"Tarea {task_name} actualizada con fecha {execution_date}")
+            logging.info(f"Tarea {task_name} actualizada con fecha {str(execution_date)}")
         else:
             # Insertar nuevo registro
             task_data = {
@@ -456,7 +456,7 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
                 "Realizado": "Sí"
             }
             success = db_connection.insert_record("TbTareas", task_data)
-            logging.info(f"Tarea {task_name} creada con fecha {execution_date}")
+            logging.info(f"Tarea {task_name} creada con fecha {str(execution_date)}")
         
         if success:
             logging.info(f"Tarea {task_name} registrada como completada")
@@ -473,6 +473,7 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
 def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios técnicos desde la base de datos
+    Basado en el legacy VBS: usuarios que NO están en TbUsuariosAplicacionesTareas
     
     Args:
         app_id: ID de la aplicación
@@ -485,20 +486,18 @@ def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios
+        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
         query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-            FROM TbUsuariosAplicaciones ua 
-            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-            WHERE ua.ParaTareasProgramadas = True 
-            AND ua.FechaBaja IS NULL 
-            AND uat.EsTecnico = 'Sí'
-            AND uat.Aplicacion = ?
+            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario 
+            FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario 
+            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True 
+            AND TbUsuariosAplicaciones.FechaBaja IS NULL 
+            AND TbUsuariosAplicacionesTareas.CorreoUsuario IS NULL
         """
         
-        result = db_connection.execute_query(query, (app_id,))
+        result = db_connection.execute_query(query)
         return result
         
     except Exception as e:
@@ -509,9 +508,10 @@ def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
 def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios de calidad desde la base de datos
+    Basado en el legacy VBS: usa TbUsuariosAplicacionesPermisos con IDAplicacion = 3 (hardcodeado)
     
     Args:
-        app_id: ID de la aplicación
+        app_id: ID de la aplicación (no usado, se mantiene por compatibilidad)
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
         
@@ -521,20 +521,22 @@ def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios
+        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
+        # Basado en el legacy VBS, usar IDAplicacion = 3 (hardcodeado como en el VBS)
         query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-            FROM TbUsuariosAplicaciones ua 
-            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-            WHERE ua.ParaTareasProgramadas = True 
-            AND ua.FechaBaja IS NULL 
-            AND uat.EsCalidad = 'Sí'
-            AND uat.Aplicacion = ?
+            SELECT UsuarioRed, Nombre, TbUsuariosAplicaciones.CorreoUsuario 
+            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesPermisos 
+            ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesPermisos.CorreoUsuario 
+            WHERE ParaTareasProgramadas = True 
+            AND FechaBaja IS NULL 
+            AND ParaTareasProgramadas = True 
+            AND IDAplicacion = 3 
+            AND EsUsuarioCalidad = 'Sí'
         """
         
-        result = db_connection.execute_query(query, (app_id,))
+        result = db_connection.execute_query(query)
         return result
         
     except Exception as e:
@@ -545,6 +547,7 @@ def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
 def get_economy_users(config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios de economía desde la base de datos
+    Basado en el legacy VBS: usa TbUsuariosAplicacionesTareas con EsEconomia
     
     Args:
         config: Configuración de la aplicación
@@ -556,20 +559,18 @@ def get_economy_users(config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios
+        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
         query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-            FROM TbUsuariosAplicaciones ua 
-            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-            WHERE ua.ParaTareasProgramadas = True 
-            AND ua.FechaBaja IS NULL 
-            AND uat.EsEconomia = 'Sí'
-            AND uat.IDAplicacion = ?
+            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario 
+            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario 
+            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True 
+            AND TbUsuariosAplicaciones.FechaBaja IS NULL 
+            AND TbUsuariosAplicacionesTareas.EsEconomia = 'Sí'
         """
         
-        result = db_connection.execute_query(query, (config.app_id_agedys,))
+        result = db_connection.execute_query(query)
         return result
         
     except Exception as e:
@@ -603,7 +604,7 @@ def get_user_email(username: str, config, logger=None) -> str:
             AND FechaBaja IS NULL
         """
         
-        result = db_connection.execute_query(query, (username,))
+        result = db_connection.execute_query(query, [username])
         
         if result and len(result) > 0:
             return result[0].get('CorreoUsuario', '')
@@ -698,7 +699,7 @@ def get_last_task_execution_date(db_connection, task_name: str) -> Optional[date
             WHERE Tarea = ?
         """
         
-        result = db_connection.execute_query(query, (task_name,))
+        result = db_connection.execute_query(query, [task_name])
         
         if result and result[0]['UltimaFecha']:
             fecha = result[0]['UltimaFecha']

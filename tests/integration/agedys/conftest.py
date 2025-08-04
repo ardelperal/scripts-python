@@ -4,8 +4,8 @@ Configuración específica para tests de integración de AGEDYS
 import pytest
 import os
 from pathlib import Path
-from common.database import AccessDatabase
-from common.config import config
+from src.common.database import AccessDatabase
+from src.common.config import config
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def local_agedys_manager():
         
         # Importar todos los métodos de AgedysManager
         def __getattr__(self, name):
-            from agedys.agedys_manager import AgedysManager
+            from src.agedys.agedys_manager import AgedysManager
             original_manager = AgedysManager()
             method = getattr(original_manager, name)
             
@@ -86,4 +86,5 @@ def real_agedys_manager():
     para tests de integración con bases de datos reales.
     DEPRECATED: Usar local_agedys_manager en su lugar
     """
+    from src.agedys.agedys_manager import AgedysManager
     return AgedysManager()

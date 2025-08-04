@@ -122,7 +122,7 @@ def _register_email_nc(application: str, subject: str, body: str, recipients: st
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """
             
-            cursor.execute(insert_query, (
+            cursor.execute(insert_query, [
                 next_id,
                 application,
                 subject,
@@ -131,7 +131,7 @@ def _register_email_nc(application: str, subject: str, body: str, recipients: st
                 admin_emails,  # CC
                 "",           # BCC
                 fecha_actual
-            ))
+            ])
             
             conn.commit()
             logger.info(f"Email registrado en TbCorreosEnviados con ID: {next_id}")
@@ -178,12 +178,12 @@ def _register_arapc_notification(id_correo: int, arapcs_15: List[int], arapcs_7:
                         VALUES (?, ?, ?, ?)
                     """
                     
-                    cursor.execute(insert_query, (
+                    cursor.execute(insert_query, [
                         id_accion,
                         id_correo,
                         dias,
                         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
+                    ])
             
             conn.commit()
             logger.info(f"Notificaciones ARAPC registradas para correo ID: {id_correo}")

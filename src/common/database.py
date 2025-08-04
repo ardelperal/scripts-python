@@ -192,7 +192,7 @@ class AccessDatabase:
             logger.error(f"Error insertando registro en {table}: {e}")
             return False
     
-    def update_record(self, table: str, data: Dict[str, Any], where_condition: str, where_params: Optional[tuple] = None) -> bool:
+    def update_record(self, table: str, data: Dict[str, Any], where_condition: str, where_params: Optional[List] = None) -> bool:
         """Actualiza registros en la tabla especificada"""
         try:
             set_clauses = [f"{field} = ?" for field in data.keys()]
@@ -202,7 +202,7 @@ class AccessDatabase:
             
             params = tuple(values)
             if where_params:
-                params += where_params
+                params = params + tuple(where_params)
             
             rows_affected = self.execute_non_query(query, params)
             logger.info(f"Actualizado {rows_affected} registros en {table}")

@@ -19,6 +19,7 @@ src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 from common.logger import setup_logger
+from common.config import Config
 from agedys.agedys_manager import AgedysManager
 
 

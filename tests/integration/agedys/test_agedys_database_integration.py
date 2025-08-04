@@ -15,10 +15,10 @@ from datetime import datetime, timedelta
 # Agregar el directorio raíz al path para importaciones
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from agedys.agedys_manager import AgedysManager
-from common.database import AccessDatabase
-from common import config
-from common.utils import (
+from src.agedys.agedys_manager import AgedysManager
+from src.common.database import AccessDatabase
+from src.common import config
+from src.common.utils import (
     register_email_in_database, 
     should_execute_task, 
     register_task_completion

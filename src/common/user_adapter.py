@@ -103,7 +103,7 @@ def get_quality_users_alternative(app_id: str, config, logger) -> List[Dict[str,
             AND uap.IDAplicacion = ?
         """
         
-        result = db_connection.execute_query(query, (app_id,))
+        result = db_connection.execute_query(query, [app_id])
         return result
         
     except Exception as e:
