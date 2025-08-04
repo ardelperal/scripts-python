@@ -118,12 +118,12 @@ class TestModuleStructure(unittest.TestCase):
             "La documentación NO_CONFORMIDADES.md no existe"
         )
     
-    def test_env_no_conformidades_existe(self):
-        """Verificar que el archivo .env específico existe"""
-        env_path = os.path.join(project_root, ".env.no_conformidades")
+    def test_env_principal_existe(self):
+        """Verificar que el archivo .env principal existe"""
+        env_path = os.path.join(project_root, ".env")
         self.assertTrue(
             os.path.exists(env_path),
-            "El archivo .env.no_conformidades no existe"
+            "El archivo .env no existe"
         )
 
 
@@ -142,18 +142,24 @@ class TestFileContent(unittest.TestCase):
             self.assertIn("NoConformidadesManager", contenido)
             self.assertIn("EmailNotificationManager", contenido)
     
-    def test_contenido_env_no_conformidades(self):
-        """Verificar que .env.no_conformidades tiene configuraciones básicas"""
-        env_path = os.path.join(project_root, ".env.no_conformidades")
+    def test_contenido_env_principal(self):
+        """Verificar que .env tiene configuraciones básicas de no conformidades"""
+        env_path = os.path.join(project_root, ".env")
         
         if os.path.exists(env_path):
             with open(env_path, 'r', encoding='utf-8') as f:
                 contenido = f.read()
+                
+            # Verificar que contiene las variables necesarias para no conformidades
+            variables_necesarias = [
+                'NOTIFICATION_ENABLED',
+                'NOTIFICATION_DAYS_BEFORE_EXPIRY',
+                'NO_CONFORMIDADES_DIAS_TAREA_CALIDAD',
+                'NO_CONFORMIDADES_EMAIL'
+            ]
             
-            # Verificar configuraciones clave
-            self.assertIn("DB_NO_CONFORMIDADES", contenido)
-            self.assertIn("NO_CONFORMIDADES_DIAS_TAREA_CALIDAD", contenido)
-            self.assertIn("NO_CONFORMIDADES_EMAIL", contenido)
+            for variable in variables_necesarias:
+                self.assertIn(variable, contenido, f"Variable {variable} no encontrada en .env")
     
     def test_contenido_documentacion(self):
         """Verificar que la documentación tiene las secciones principales"""

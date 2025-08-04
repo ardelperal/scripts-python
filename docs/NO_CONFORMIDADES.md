@@ -36,7 +36,7 @@ tests/
 
 ### 1. Variables de Entorno
 
-El módulo utiliza las siguientes variables de entorno (definidas en `.env` y `.env.no_conformidades`):
+El módulo utiliza las siguientes variables de entorno (definidas en `.env`):
 
 ```bash
 # Base de datos
