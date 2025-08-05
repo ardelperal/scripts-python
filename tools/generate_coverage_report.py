@@ -12,15 +12,24 @@ def run_coverage_report():
     
     print("🧪 Ejecutando tests con coverage...")
     
-    # Ejecutar tests con coverage
+    # Ejecutar tests con coverage usando sys.executable para evitar problemas de permisos
     print("🧪 Ejecutando tests con coverage...")
-    result = subprocess.run([
-        "coverage", "run", "--source=src", "-m", "pytest", "tests/unit/", "-v"
-    ], capture_output=True, text=True)
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "coverage", "run", "--source=src", "-m", "pytest", "tests/unit/", "-v"
+        ], capture_output=True, text=True, shell=True)
+    except Exception as e:
+        print(f"❌ Error ejecutando coverage: {e}")
+        print("💡 Posibles soluciones:")
+        print("   1. Instala coverage: pip install coverage")
+        print("   2. Verifica que estés en el entorno virtual correcto")
+        print("   3. Ejecuta como administrador si es necesario")
+        return False
     
     if result.returncode != 0:
         print("❌ Error ejecutando tests:")
-        print(result.stderr)
+        print("STDOUT:", result.stdout)
+        print("STDERR:", result.stderr)
         return False
     
     print("✅ Tests ejecutados correctamente")
@@ -33,20 +42,58 @@ def run_coverage_report():
     
     # Generar reporte HTML
     print("\n📄 Generando reporte HTML...")
-    result = subprocess.run([
-        sys.executable, "-m", "coverage", "html"
-    ], capture_output=True, text=True)
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "coverage", "html"
+        ], capture_output=True, text=True, shell=True)
+    except Exception as e:
+        print(f"❌ Error generando reporte HTML: {e}")
+        return False
     
     if result.returncode != 0:
         print("❌ Error generando reporte HTML:")
-        print(result.stderr)
+        print("STDOUT:", result.stdout)
+        print("STDERR:", result.stderr)
         return False
     
     print("✅ Reporte HTML generado en htmlcov/")
     
+    # Generar reporte XML
+    print("📄 Generando reporte XML...")
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "coverage", "xml"
+        ], capture_output=True, text=True, shell=True)
+    except Exception as e:
+        print(f"❌ Error generando reporte XML: {e}")
+        return False
+    
+    if result.returncode != 0:
+        print("❌ Error generando reporte XML:")
+        print("STDOUT:", result.stdout)
+        print("STDERR:", result.stderr)
+        return False
+    
     # Mostrar resumen en consola
     print("\n📈 Resumen de cobertura:")
-    subprocess.run([sys.executable, "-m", "coverage", "report"])
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "coverage", "report"
+        ], capture_output=True, text=True, shell=True)
+        
+        if result.returncode == 0:
+            print(result.stdout)
+        else:
+            print("❌ Error mostrando resumen:")
+            print("STDOUT:", result.stdout)
+            print("STDERR:", result.stderr)
+    except Exception as e:
+        print(f"❌ Error ejecutando coverage report: {e}")
+    
+    print("\n✅ Reportes generados:")
+    print("   📄 HTML: htmlcov/index.html")
+    print("   📄 XML: coverage.xml")
+    print("   📄 Data: .coverage")
     
     return True
 
