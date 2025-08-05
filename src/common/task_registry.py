@@ -1,0 +1,213 @@
+"""
+Registro de todas las tareas del sistema
+Define las tareas específicas que heredan de las clases base
+"""
+
+import os
+from typing import List
+
+from .base_task import TareaDiaria, TareaContinua
+from riesgos.riesgos_task import RiesgosTask
+from brass.brass_task import BrassTask
+from expedientes.expedientes_task import ExpedientesTask
+from no_conformidades.no_conformidades_task import NoConformidadesTask
+from agedys.agedys_task import AgedysTask
+from correos.correos_task import CorreosTask
+from correo_tareas.correo_tareas_task import CorreoTareasTask
+
+
+class RiesgosTask(TareaDiaria):
+    """Tarea para procesamiento de riesgos (técnicos, semanales y mensuales)"""
+    
+    def __init__(self):
+        # Obtener frecuencias desde variables de entorno
+        freq_tecnicos = int(os.getenv('RIESGOS_TECNICOS_FRECUENCIA_DIAS', '1'))
+        freq_semanales = int(os.getenv('RIESGOS_CALIDAD_SEMANAL_FRECUENCIA_DIAS', '7'))
+        freq_mensuales = int(os.getenv('RIESGOS_CALIDAD_MENSUAL_FRECUENCIA_DIAS', '30'))
+        
+        super().__init__(
+            name="Riesgos",
+            script_filename="run_riesgos.py",
+            task_names=[
+                "RiesgosDiariosTecnicos",
+                "RiesgosSemanalesCalidad", 
+                "RiesgosMensualesCalidad"
+            ],
+            frequency_days=1  # Se verifica individualmente cada subtarea
+        )
+        
+        # Frecuencias específicas por subtarea
+        self.task_frequencies = {
+            "RiesgosDiariosTecnicos": freq_tecnicos,
+            "RiesgosSemanalesCalidad": freq_semanales,
+            "RiesgosMensualesCalidad": freq_mensuales
+        }
+    
+    def debe_ejecutarse(self) -> bool:
+        """Verifica si alguna de las subtareas de riesgos debe ejecutarse"""
+        if not self.db_tareas:
+            self.logger.warning(f"⚠️  No hay conexión a BD, no se puede verificar {self.name}")
+            return False
+        
+        try:
+            from .utils import should_execute_task
+            
+            # Verificar cada subtarea con su frecuencia específica
+            for task_name in self.task_names:
+                frequency = self.task_frequencies.get(task_name, 1)
+                if should_execute_task(self.db_tareas, task_name, frequency, self.logger):
+                    self.logger.info(f"📅 {task_name} debe ejecutarse (frecuencia: {frequency} días)")
+                    return True
+            
+            self.logger.info(f"✅ {self.name} no necesita ejecutarse aún")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error verificando {self.name}: {e}")
+            return False
+
+
+class BrassTask(TareaDiaria):
+    """Tarea para procesamiento de datos BRASS"""
+    
+    def __init__(self):
+        frequency = int(os.getenv('BRASS_FRECUENCIA_DIAS', '1'))
+        super().__init__(
+            name="BRASS",
+            script_filename="run_brass.py",
+            task_names=["BRASSDiario"],
+            frequency_days=frequency
+        )
+
+
+class ExpedientesTask(TareaDiaria):
+    """Tarea para procesamiento de expedientes"""
+    
+    def __init__(self):
+        frequency = int(os.getenv('EXPEDIENTES_FRECUENCIA_DIAS', '1'))
+        super().__init__(
+            name="Expedientes",
+            script_filename="run_expedientes.py",
+            task_names=["ExpedientesDiario"],
+            frequency_days=frequency
+        )
+
+
+class NoConformidadesTask(TareaDiaria):
+    """Tarea para procesamiento de no conformidades (calidad y técnica)"""
+    
+    def __init__(self):
+        freq_calidad = int(os.getenv('NO_CONFORMIDADES_DIAS_TAREA_CALIDAD', '1'))
+        freq_tecnica = int(os.getenv('NO_CONFORMIDADES_DIAS_TAREA_TECNICA', '7'))
+        
+        super().__init__(
+            name="NoConformidades",
+            script_filename="run_no_conformidades.py",
+            task_names=[
+                "NoConformidadesCalidad",
+                "NoConformidadesTecnica"
+            ],
+            frequency_days=1  # Se verifica individualmente cada subtarea
+        )
+        
+        # Frecuencias específicas por subtarea
+        self.task_frequencies = {
+            "NoConformidadesCalidad": freq_calidad,
+            "NoConformidadesTecnica": freq_tecnica
+        }
+    
+    def debe_ejecutarse(self) -> bool:
+        """Verifica si alguna de las subtareas de no conformidades debe ejecutarse"""
+        if not self.db_tareas:
+            self.logger.warning(f"⚠️  No hay conexión a BD, no se puede verificar {self.name}")
+            return False
+        
+        try:
+            from .utils import should_execute_task
+            
+            # Verificar cada subtarea con su frecuencia específica
+            for task_name in self.task_names:
+                frequency = self.task_frequencies.get(task_name, 1)
+                if should_execute_task(self.db_tareas, task_name, frequency, self.logger):
+                    self.logger.info(f"📅 {task_name} debe ejecutarse (frecuencia: {frequency} días)")
+                    return True
+            
+            self.logger.info(f"✅ {self.name} no necesita ejecutarse aún")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error verificando {self.name}: {e}")
+            return False
+
+
+class AgedysTask(TareaDiaria):
+    """Tarea para sincronización con AGEDYS"""
+    
+    def __init__(self):
+        frequency = int(os.getenv('AGEDYS_FRECUENCIA_DIAS', '1'))
+        super().__init__(
+            name="AGEDYS",
+            script_filename="run_agedys.py",
+            task_names=["AGEDYSDiario"],
+            frequency_days=frequency
+        )
+
+
+class CorreosTask(TareaContinua):
+    """Tarea continua para envío de correos pendientes"""
+    
+    def __init__(self):
+        super().__init__(
+            name="Correos",
+            script_filename="run_correos.py"
+        )
+
+
+class CorreoTareasTask(TareaContinua):
+    """Tarea continua para notificaciones de tareas"""
+    
+    def __init__(self):
+        super().__init__(
+            name="CorreoTareas",
+            script_filename="run_correo_tareas.py"
+        )
+
+
+def get_all_daily_tasks() -> List[TareaDiaria]:
+    """
+    Retorna todas las tareas diarias del sistema
+    
+    Returns:
+        Lista de instancias de tareas diarias
+    """
+    return [
+        # Tareas diarias
+        RiesgosTask(),
+        BrassTask(),
+        ExpedientesTask(),
+        NoConformidadesTask(),
+        AgedysTask()
+    ]
+
+
+def get_all_continuous_tasks() -> List[TareaContinua]:
+    """
+    Retorna todas las tareas continuas del sistema
+    
+    Returns:
+        Lista de instancias de tareas continuas
+    """
+    return [
+        CorreosTask(),
+        CorreoTareasTask()
+    ]
+
+
+def get_all_tasks() -> List:
+    """
+    Retorna todas las tareas del sistema (diarias y continuas)
+    
+    Returns:
+        Lista de todas las instancias de tareas
+    """
+    return get_all_daily_tasks() + get_all_continuous_tasks()

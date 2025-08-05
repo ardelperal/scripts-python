@@ -1,0 +1,64 @@
+body {color:#003366;font-size:1em; font-family: Verdana,Arial , Helvetica, 'sans - serif'; }
+a { text-decoration: none; padding: 1px 3px; }
+a:hover { background: #ccc; }
+table {border-collapse: collapse;}
+table, th, td {border: 1px solid black;}
+tr {padding: 0.2em;font-size:0.8em;}
+td.centrado {text-align: center;font-weight: normal;}
+td.centradoNegrita {text-align: center;font-weight: bold;}
+tr.Cabecera {background-color:#EEF4FD; font-weight: bold;padding: 0.5em;}
+tr.FilaAlerta {background-color:#F9ECBF; }
+tr.FilaError {color:#FF0000;font-weight: bold; }
+td.ColespanArriba {background-color:#D6E5FA;font-weight:bold;padding: 1em; font-size:1.1em;text-align: center;}
+td.ColespanArribaIndicadorNC {background-color:#A8D08D;font-weight:bold;padding: 1em; font-size:1.1em;text-align: center;}
+td.ColespanArribaIndicadorRiesgos {background-color:#F4B083;font-weight:bold;padding: 1em; font-size:1.1em;text-align: center;}
+td.ColespanAbajo {background-color:#D6E5FA;font-weight:bold;padding: 1em; font-size:0.8em;text-align: left;}
+td.Cabecera {background-color:#EEF4FD; font-weight: bold;padding: 0.5em;text-align: center;} 
+td.CabeceraSuperiorIndicadorRiesgos {background-color:#F4B083; padding: 0.5em;font-weight:normal;text-align: center;} 
+td.CabeceraSuperiorIndicadorRiesgosNegrita {background-color:#F4B083; font-weight: bold;padding: 0.5em;text-align: center;} 
+td.CabeceraSuperiorIndicadorNC {background-color:#A8D08D; font-weight: normal;padding: 0.5em;text-align: center;} 
+td.CabeceraSuperiorIndicadorNCNegrita {background-color:#A8D08D; font-weight: bold;padding: 0.5em;text-align: center;} 
+td.CabeceraLateralIndicadorNC {background-color:#C5E0B3; padding: 0.5em;font-weight: normal;text-align: center;} 
+td.CabeceraLateralIndicadorNCNegrita {background-color:#C5E0B3; padding: 0.5em;text-align: center;} 
+td.CabeceraLateralIndicadorRiesgosNegrita {background-color:#F7CAAC; font-weight: bold; padding: 0.5em;text-align: center;} 
+td.CabeceraLateralIndicadorRiesgos {background-color:#F7CAAC; padding: 0.5em;font-weight: normal;text-align: center;} 
+td.CabeceraLateralIndicadorRiesgosNegrita {background-color:#F7CAAC;font-weight: bold; padding: 0.5em;text-align: center;} 
+td.ResumenIndicadorNC {background-color:#D9D9D9; padding: 0.5em;text-align: center;} 
+td.ResumenIndicadorNCNegrita {background-color:#D9D9D9; font-weight: bold;padding: 0.5em;text-align: center;} 
+td.ResumenIndicadorRiesgos {background-color:#D9D9D9; padding: 0.5em;text-align: center;} 
+td.ResumenIndicadorRiesgosNegrita {background-color:#D9D9D9;font-weight: bold; padding: 0.5em;text-align: center;} 
+td.rechazo{background-color:#F9ECBF;color:#FF0000;font-weight: bold; }
+rechazo{color:#FF0000;font-weight: bold;} 
+span.rechazo{color:#FF0000;font-weight: bold;}
+span.rechazoFino{color:#FF0000;font-style:italic;}
+span.Comentario{color:#151714;}
+
+.dias-cierre {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px; /* Espacio entre el círculo y el número */
+}
+
+.circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.rojo {
+  background: #e74c3c;
+}
+.naranja {
+  background: #f39c12;
+}
+.verde {
+  background: #27ae60;
+}
+
+.numero {
+  margin-left: 4px;
+  font-family: inherit;
+  font-size: 1em;
+}

@@ -1,9 +1,8 @@
 """
 Módulo BRASS - Gestión de equipos de medida y calibraciones
-Adaptación del sistema legacy VBS a Python
+Nueva versión usando la arquitectura de tareas base
 """
 import logging
-import sys
 import os
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
@@ -12,80 +11,61 @@ from pathlib import Path
 # Agregar el directorio src al path para imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(current_dir)
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
+if src_dir not in os.path.sys.path:
+    os.sys.path.insert(0, src_dir)
 
+from common.base_task import TareaDiaria
 from common.config import config
 from common.database import AccessDatabase
 from common.utils import (
     load_css_content,
     generate_html_header,
     generate_html_footer,
-    safe_str
+    safe_str,
+    register_email_in_database
 )
+from common.user_adapter import get_users_with_fallback
 
 logger = logging.getLogger(__name__)
 
 
-class BrassManager:
-    """Gestor principal del módulo BRASS"""
+class BrassManager(TareaDiaria):
+    """Gestor BRASS usando la nueva arquitectura de tareas"""
     
     def __init__(self):
-        # Inicializar conexiones a bases de datos
-        self.db_brass = AccessDatabase(config.get_db_brass_connection_string())
-        self.db_tareas = AccessDatabase(config.get_db_tareas_connection_string())
+        # Inicializar la clase base con el nombre de la tarea y frecuencia
+        super().__init__(
+            name="BRASS",
+            script_filename="run_brass.py",
+            task_names=["BRASSDiario"],  # Nombre de la tarea en la BD (como en legacy)
+            frequency_days=int(os.getenv('BRASS_FRECUENCIA_DIAS', '1'))
+        )
         
-        # Cargar contenido CSS
-        self.css_content = load_css_content(config.css_file_path)
+        # Conexión específica a la base de datos BRASS
+        self.db_brass = None
         
         # Cache para usuarios administradores
         self._admin_users = None
         self._admin_emails = None
+        
+        # Cargar contenido CSS
+        self.css_content = load_css_content(config.css_file_path)
     
-    def get_last_execution_date(self) -> Optional[date]:
-        """
-        Obtiene la fecha de la última ejecución de la tarea BRASS
-        
-        Returns:
-            Fecha de última ejecución o None si no existe
-        """
-        try:
-            query = """
-                SELECT MAX(Fecha) as Ultima 
-                FROM TbTareas 
-                WHERE Tarea = 'BRASSDiario' AND Realizado = 'Sí'
-            """
-            
-            result = self.db_tareas.execute_query(query)
-            
-            if result and result[0]['Ultima']:
-                fecha = result[0]['Ultima']
-                # Convertir a date si es datetime
-                if isinstance(fecha, datetime):
-                    return fecha.date()
-                elif isinstance(fecha, date):
-                    return fecha
-                
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error obteniendo fecha de última ejecución: {e}")
-            return None
+    def _get_brass_connection(self):
+        """Obtiene la conexión a la base de datos BRASS"""
+        if self.db_brass is None:
+            self.db_brass = AccessDatabase(config.get_db_brass_connection_string())
+        return self.db_brass
     
-    def is_task_completed_today(self) -> bool:
-        """
-        Verifica si la tarea ya se ejecutó hoy
-        
-        Returns:
-            True si ya se ejecutó hoy, False en caso contrario
-        """
-        last_execution = self.get_last_execution_date()
-        today = date.today()
-        
-        if last_execution is None:
-            return False
-        
-        return last_execution == today
+    def close_connections(self):
+        """Cierra todas las conexiones"""
+        super().close_connections()
+        if self.db_brass is not None:
+            try:
+                self.db_brass.disconnect()
+                self.db_brass = None
+            except Exception as e:
+                self.logger.warning(f"Error cerrando conexión BRASS: {e}")
     
     def get_equipment_out_of_calibration(self) -> List[Dict[str, Any]]:
         """
@@ -95,6 +75,8 @@ class BrassManager:
             Lista de equipos fuera de calibración
         """
         try:
+            db_brass = self._get_brass_connection()
+            
             # Primero obtener todos los equipos activos
             query_equipos = """
                 SELECT IDEquipoMedida, NOMBRE, NS, PN, MARCA, MODELO
@@ -102,18 +84,18 @@ class BrassManager:
                 WHERE FechaFinServicio IS NULL
             """
             
-            equipos = self.db_brass.execute_query(query_equipos)
+            equipos = db_brass.execute_query(query_equipos)
             equipos_sin_calibracion = []
             
             for equipo in equipos:
                 if not self._is_calibration_valid(equipo['IDEquipoMedida']):
                     equipos_sin_calibracion.append(equipo)
             
-            logger.info(f"Encontrados {len(equipos_sin_calibracion)} equipos fuera de calibración")
+            self.logger.info(f"Encontrados {len(equipos_sin_calibracion)} equipos fuera de calibración")
             return equipos_sin_calibracion
             
         except Exception as e:
-            logger.error(f"Error obteniendo equipos fuera de calibración: {e}")
+            self.logger.error(f"Error obteniendo equipos fuera de calibración: {e}")
             return []
     
     def _is_calibration_valid(self, equipment_id: int) -> bool:
@@ -127,6 +109,8 @@ class BrassManager:
             True si la calibración está vigente
         """
         try:
+            db_brass = self._get_brass_connection()
+            
             query = """
                 SELECT FechaFinCalibracion 
                 FROM TbEquiposMedidaCalibraciones 
@@ -134,7 +118,7 @@ class BrassManager:
                 ORDER BY IDCalibracion DESC
             """
             
-            result = self.db_brass.execute_query(query, (equipment_id,))
+            result = db_brass.execute_query(query, (equipment_id,))
             
             if not result:
                 return False
@@ -150,7 +134,7 @@ class BrassManager:
             return date.today() < fecha_fin
             
         except Exception as e:
-            logger.error(f"Error verificando calibración del equipo {equipment_id}: {e}")
+            self.logger.error(f"Error verificando calibración del equipo {equipment_id}: {e}")
             return False
     
     def generate_html_report(self, equipment_list: List[Dict[str, Any]]) -> str:
@@ -204,7 +188,7 @@ class BrassManager:
     
     def get_admin_users(self) -> List[Dict[str, str]]:
         """
-        Obtiene la lista de usuarios administradores
+        Obtiene la lista de usuarios administradores usando la función común
         
         Returns:
             Lista de usuarios administradores
@@ -213,21 +197,16 @@ class BrassManager:
             return self._admin_users
         
         try:
-            query = """
-                SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-                FROM TbUsuariosAplicaciones ua 
-                INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-                WHERE ua.ParaTareasProgramadas = True 
-                AND ua.FechaBaja IS NULL 
-                AND uat.EsAdministrador = 'Sí'
-            """
-            
-            result = self.db_tareas.execute_query(query)
-            self._admin_users = result
-            return result
+            self._admin_users = get_users_with_fallback(
+                user_type='admin',
+                db_connection=self.db_tareas,
+                config=config,
+                logger=self.logger
+            )
+            return self._admin_users
             
         except Exception as e:
-            logger.error(f"Error obteniendo usuarios administradores: {e}")
+            self.logger.error(f"Error obteniendo usuarios administradores: {e}")
             return []
     
     def get_admin_emails_string(self) -> str:
@@ -245,110 +224,72 @@ class BrassManager:
         self._admin_emails = ';'.join(emails)
         return self._admin_emails
     
-    def register_email(self, subject: str, body: str, recipients: str) -> bool:
+    def ejecutar_logica_especifica(self) -> bool:
         """
-        Registra un correo en la base de datos de tareas
-        
-        Args:
-            subject: Asunto del correo
-            body: Cuerpo del correo
-            recipients: Destinatarios del correo
-            
-        Returns:
-            True si se registró correctamente
-        """
-        try:
-            # Obtener próximo ID
-            next_id = self.db_tareas.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
-            
-            # Preparar datos del correo
-            email_data = {
-                "IDCorreo": next_id,
-                "Aplicacion": "BRASS",
-                "Asunto": subject,
-                "Cuerpo": body,
-                "Destinatarios": recipients if "@" in recipients else "",
-                "DestinatariosConCopiaOculta": self.get_admin_emails_string(),
-                "FechaGrabacion": datetime.now()
-            }
-            
-            success = self.db_tareas.insert_record("TbCorreosEnviados", email_data)
-            
-            if success:
-                logger.info("Correo registrado correctamente")
-            else:
-                logger.error("Error registrando correo")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error registrando correo: {e}")
-            return False
-    
-    def register_task_completion(self) -> bool:
-        """
-        Registra la finalización de la tarea BRASS usando la función común
-        
-        Returns:
-            True si se registró correctamente
-        """
-        try:
-            from common.utils import register_task_completion
-            return register_task_completion(self.db_tareas, "BRASSDiario")
-            
-        except Exception as e:
-            logger.error(f"Error registrando tarea: {e}")
-            return False
-    
-    def execute_task(self, force: bool = False) -> bool:
-        """
-        Ejecuta la tarea principal del módulo BRASS
-        
-        Args:
-            force: Si es True, ejecuta la tarea aunque ya se haya ejecutado hoy
+        Implementa la lógica específica de la tarea BRASS
         
         Returns:
             True si se ejecutó correctamente
         """
         try:
-            logger.info("Iniciando tarea BRASS")
-            
-            # Verificar si ya se ejecutó hoy (solo si no es modo forzado)
-            if not force and self.is_task_completed_today():
-                logger.info("La tarea ya se ejecutó hoy")
-                return True
-            
-            if force:
-                logger.info("Ejecutando en modo forzado")
+            self.logger.info("Ejecutando lógica específica de BRASS")
             
             # Obtener equipos fuera de calibración
             equipment_list = self.get_equipment_out_of_calibration()
             
-            # Si no hay equipos fuera de calibración, solo registrar la tarea
+            # Si no hay equipos fuera de calibración, la tarea se considera exitosa
             if not equipment_list:
-                logger.info("No hay equipos fuera de calibración")
-                return self.register_task_completion()
+                self.logger.info("No hay equipos fuera de calibración")
+                return True
             
             # Generar reporte HTML
             html_report = self.generate_html_report(equipment_list)
             
-            # Registrar correo
+            # Registrar correo usando la función común
             subject = "Informe Equipos de Medida fuera de calibración (BRASS)"
-            success = self.register_email(
-                subject=subject,
-                body=html_report,
-                recipients=config.default_recipient
+            success = register_email_in_database(
+                self.db_tareas,
+                "BRASS",
+                subject,
+                html_report,
+                config.default_recipient,
+                self.get_admin_emails_string()
             )
             
             if success:
-                # Registrar tarea como completada
-                self.register_task_completion()
-                logger.info("Tarea BRASS completada exitosamente")
+                self.logger.info("Correo registrado correctamente")
                 return True
             else:
-                logger.error("Error en la ejecución de la tarea BRASS")
+                self.logger.error("Error registrando correo")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error ejecutando tarea BRASS: {e}")
+            self.logger.error(f"Error en lógica específica de BRASS: {e}")
+            return False
+    
+    def run(self) -> bool:
+        """
+        Método principal para ejecutar la tarea BRASS
+        
+        Returns:
+            True si se ejecutó correctamente
+        """
+        try:
+            # Verificar si debe ejecutarse
+            if not self.debe_ejecutarse():
+                self.logger.info("La tarea BRASS no debe ejecutarse hoy")
+                return True
+            
+            # Ejecutar la lógica específica
+            success = self.ejecutar_logica_especifica()
+            
+            if success:
+                # Marcar como completada
+                self.marcar_como_completada()
+                self.logger.info("Tarea BRASS completada exitosamente")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"Error ejecutando tarea BRASS: {e}")
             return False

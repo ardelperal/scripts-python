@@ -7,9 +7,9 @@ import sys
 import logging
 from pathlib import Path
 
-# Añadir el directorio src al path para importaciones
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
+# Añadir el directorio raíz del proyecto al path para importaciones
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from src.common.config import config
 from src.common.utils import setup_logging

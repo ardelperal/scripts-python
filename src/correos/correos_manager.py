@@ -38,7 +38,10 @@ class CorreosManager:
         """
         try:
             msg = MIMEMultipart()
-            msg['From'] = self.smtp_user
+            # Construir el remitente usando el campo Aplicacion como en el legacy VBS
+            aplicacion = correo.get('Aplicacion', 'Sistema')
+            from_email = f"{aplicacion}.DySN@telefonica.com"
+            msg['From'] = from_email
             msg['To'] = correo['Destinatarios']
             if correo.get('DestinatariosConCopia'):
                 msg['Cc'] = correo['DestinatariosConCopia']

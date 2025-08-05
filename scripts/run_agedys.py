@@ -14,9 +14,10 @@ import argparse
 import logging
 from pathlib import Path
 
-# Añadir el directorio src al path para importaciones
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
+# Añadir el directorio raíz del proyecto al path para importaciones
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 from common.logger import setup_logger
 from common.config import Config
@@ -59,55 +60,50 @@ Ejemplos de uso:
 
 def main():
     """Función principal"""
-    # Parsear argumentos
-    args = parse_arguments()
+    parser = argparse.ArgumentParser(description='Ejecutar tarea AGEDYS')
+    parser.add_argument('--force', action='store_true', help='Forzar ejecución independientemente de las reglas de negocio')
+    parser.add_argument('--dry-run', action='store_true', help='Ejecutar en modo simulación')
+    
+    args = parser.parse_args()
     
     # Configurar logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    logger = setup_logger(__name__, level=log_level)
-    
-    print("🚀 INICIANDO SISTEMA AGEDYS")
-    print("=" * 50)
-    logger.info("=== INICIANDO TAREAS AGEDYS ===")
-    
-    if args.dry_run:
-        print("🧪 MODO SIMULACIÓN: Los emails se registrarán pero no se enviarán")
-        logger.info("MODO DRY-RUN: No se enviarán emails reales")
-    
-    if args.force:
-        print("⚡ MODO FORZADO: Ejecutando sin verificar horarios programados")
-        logger.info("MODO FORZADO: Ejecutando independientemente del horario")
+    logger = setup_logger(__name__)
     
     try:
-        print("📊 Conectando a las bases de datos...")
-        # Crear instancia del gestor AGEDYS
+        logger.info("=== INICIANDO EJECUCIÓN DE AGEDYS ===")
+        
+        # Crear instancia del manager
         agedys_manager = AgedysManager()
         
-        print("🔍 Iniciando análisis de facturas y DPDs pendientes...")
-        # Ejecutar tarea con los argumentos especificados
-        success = agedys_manager.execute_task(force=args.force, dry_run=args.dry_run)
+        # Si se fuerza la ejecución, saltamos la verificación de debe_ejecutarse
+        if args.force:
+            logger.info("Forzando ejecución de AGEDYS...")
+            success = agedys_manager.run()
+        else:
+            # Verificar si debe ejecutarse
+            if agedys_manager.debe_ejecutarse():
+                success = agedys_manager.run()
+            else:
+                logger.info("AGEDYS no necesita ejecutarse según las reglas de negocio")
+                success = True
         
         if success:
-            print("✅ PROCESO COMPLETADO EXITOSAMENTE")
-            print("📧 Todos los emails han sido procesados correctamente")
-            logger.info("Todas las tareas AGEDYS completadas exitosamente")
+            logger.info("=== AGEDYS COMPLETADO EXITOSAMENTE ===")
             return 0
         else:
-            print("❌ ERROR EN EL PROCESO")
-            print("⚠️  Revise los logs para más detalles")
-            logger.error("Error en la ejecución de las tareas AGEDYS")
+            logger.error("=== AGEDYS FALLÓ ===")
             return 1
             
     except Exception as e:
-        print(f"🔴 ERROR CRÍTICO: {e}")
-        print("💡 Verifique la conectividad de las bases de datos")
-        logger.error(f"Error crítico en AGEDYS: {e}")
+        logger.error(f"ERROR CRITICO: {e}")
         return 1
-    
     finally:
-        print("=" * 50)
-        print("🏁 FINALIZANDO SISTEMA AGEDYS")
-        logger.info("=== FINALIZANDO TAREAS AGEDYS ===")
+        # Asegurar que las conexiones se cierren
+        try:
+            if 'agedys_manager' in locals():
+                agedys_manager.close_connections()
+        except Exception as e:
+            logger.warning(f"Error cerrando conexiones: {e}")
 
 
 if __name__ == "__main__":

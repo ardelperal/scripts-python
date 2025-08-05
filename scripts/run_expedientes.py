@@ -6,8 +6,8 @@ import sys
 import logging
 from pathlib import Path
 
-# Agregar el directorio src al path para importar módulos
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Agregar el directorio raíz del proyecto al path para importar módulos
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.expedientes.expedientes_manager import ExpedientesManager
 from src.common.config import config

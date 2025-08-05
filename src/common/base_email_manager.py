@@ -58,7 +58,8 @@ class BaseEmailNotificationManager(ABC):
                 to_address=';'.join(to_addresses),
                 subject=subject,
                 body=body,
-                is_html=is_html
+                is_html=is_html,
+                from_app=self.module_name
             )
             
             if resultado:

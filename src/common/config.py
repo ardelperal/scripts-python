@@ -26,7 +26,7 @@ class Config:
             'brass': self._get_db_path('BRASS_DB_PATH', 'Brass_datos.accdb'),
             'expedientes': self._get_db_path('EXPEDIENTES_DB_PATH', 'Expedientes_datos.accdb'),
             'riesgos': self._get_db_path('RIESGOS_DB_PATH', 'Riesgos_datos.accdb'),
-            'no_conformidades': self._get_db_path('NO_CONFORMIDADES_DB_PATH', 'NoConformidades_datos.accdb'),
+            'no_conformidades': self._get_db_path('NO_CONFORMIDADES_DB_PATH', 'NoConformidades_Datos.accdb'),
             'agedys': self._get_db_path('AGEDYS_DB_PATH', 'Agedys_datos.accdb'),
             'tareas': self._get_db_path('TAREAS_DB_PATH', 'Tareas_datos1.accdb')
         }
@@ -39,7 +39,8 @@ class Config:
             self.db_correos_path = self.root_dir / os.getenv('LOCAL_DB_CORREOS', 'dbs-locales/correos_datos.accdb')
             self.db_riesgos_path = self.root_dir / os.getenv('LOCAL_DB_RIESGOS', 'dbs-locales/Gestion_Riesgos_Datos.accdb')
             self.db_expedientes_path = self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
-            self.db_no_conformidades_path = self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_datos.accdb')
+            self.db_no_conformidades_path = self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_Datos.accdb')
+            self.db_lanzadera_path = self.root_dir / os.getenv('LOCAL_DB_LANZADERA', 'dbs-locales/Lanzadera_Datos.accdb')
             self.css_file_path = self.root_dir / os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt')
         else:  # oficina
             self.db_agedys_path = Path(os.getenv('OFFICE_DB_AGEDYS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb'))
@@ -49,6 +50,7 @@ class Config:
             self.db_riesgos_path = Path(os.getenv('OFFICE_DB_RIESGOS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\GESTION RIESGOS\Gestion_Riesgos_Datos.accdb'))
             self.db_expedientes_path = Path(os.getenv('OFFICE_DB_EXPEDIENTES', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Expedientes_datos.accdb'))
             self.db_no_conformidades_path = Path(os.getenv('OFFICE_DB_NO_CONFORMIDADES', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\NoConformidades_datos.accdb'))
+            self.db_lanzadera_path = Path(os.getenv('OFFICE_DB_LANZADERA', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\0Lanzadera\Lanzadera_Datos.accdb'))
             self.css_file_path = Path(os.getenv('OFFICE_CSS_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
         
         # Directorio para logs
@@ -143,7 +145,7 @@ class Config:
         elif db_type == 'expedientes':
             return self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
         elif db_type == 'no_conformidades':
-            return self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_datos.accdb')
+            return self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_Datos.accdb')
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
     

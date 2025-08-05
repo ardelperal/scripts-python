@@ -4,7 +4,7 @@ Utilidades comunes para el proyecto
 import os
 import logging
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -90,6 +90,45 @@ def is_workday(check_date: date, holidays_file: Optional[Path] = None) -> bool:
     return True
 
 
+def get_next_workday_from_preferred(preferred_weekday: int = 0, holidays_file: Optional[Path] = None) -> date:
+    """
+    Obtiene el próximo día laborable a partir del día de la semana preferido
+    
+    Args:
+        preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
+        holidays_file: Archivo con días festivos
+        
+    Returns:
+        Fecha del próximo día laborable
+    """
+    today = date.today()
+    
+    # Calcular días hasta el día preferido de esta semana
+    days_until_preferred = (preferred_weekday - today.weekday()) % 7
+    
+    # Si es 0, significa que hoy es el día preferido
+    if days_until_preferred == 0:
+        candidate_date = today
+    else:
+        candidate_date = today + timedelta(days=days_until_preferred)
+    
+    # Buscar el próximo día laborable desde el día preferido
+    max_attempts = 7  # Máximo una semana de búsqueda
+    attempts = 0
+    
+    while attempts < max_attempts:
+        if is_workday(candidate_date, holidays_file):
+            return candidate_date
+        
+        # Si no es laborable, probar el siguiente día
+        candidate_date += timedelta(days=1)
+        attempts += 1
+    
+    # Si no encontramos un día laborable en una semana, devolver el día preferido original
+    # (esto no debería pasar en condiciones normales)
+    return today + timedelta(days=days_until_preferred)
+
+
 def is_night_time(current_time: Optional[datetime] = None) -> bool:
     """
     Verifica si es horario nocturno (20:00 - 07:00)
@@ -137,6 +176,7 @@ def load_css_content(css_file_path: Path) -> str:
     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
     .centrado { text-align: center; }
     .ColespanArriba { background-color: #4CAF50; color: white; font-weight: bold; text-align: center; }
+    .Cabecera { background-color: #f2f2f2; font-weight: bold; text-align: center; border: 1px solid #ddd; }
     table { border-collapse: collapse; width: 100%; }
     td, th { border: 1px solid #ddd; padding: 8px; }
     strong { font-weight: bold; }
@@ -771,4 +811,68 @@ def should_execute_task(db_connection, task_name: str, frequency_days: int, logg
             logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
         else:
             logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        return True
+
+
+def should_execute_quality_task(db_connection, task_name: str, preferred_weekday: int = 0, 
+                               holidays_file: Optional[Path] = None, logger=None) -> bool:
+    """
+    Determina si se debe ejecutar una tarea de calidad basándose en el día de la semana preferido
+    y considerando días festivos
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
+        holidays_file: Archivo con días festivos
+        logger: Logger para registrar eventos (opcional)
+        
+    Returns:
+        True si se debe ejecutar la tarea
+    """
+    try:
+        today = date.today()
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        
+        if logger:
+            logger.info(f"Verificando tarea de calidad {task_name} - Última ejecución: {last_execution}")
+        
+        # Si no hay registro previo, verificar si hoy es un día laborable válido
+        if last_execution is None:
+            if is_workday(today, holidays_file):
+                if logger:
+                    logger.info(f"No hay registro previo de tarea {task_name} y hoy es laborable, se requiere ejecutar")
+                return True
+            else:
+                if logger:
+                    logger.info(f"No hay registro previo de tarea {task_name} pero hoy no es laborable")
+                return False
+        
+        # Obtener el próximo día laborable desde el día preferido de esta semana
+        next_workday = get_next_workday_from_preferred(preferred_weekday, holidays_file)
+        
+        if logger:
+            logger.info(f"Próximo día laborable desde día preferido ({preferred_weekday}): {next_workday}")
+        
+        # Si hoy es el próximo día laborable y han pasado al menos 7 días desde la última ejecución
+        if today == next_workday:
+            days_since_last = (today - last_execution).days
+            should_execute = days_since_last >= 7  # Mínimo una semana
+            
+            if logger:
+                logger.info(f"Hoy es el día laborable objetivo. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
+            
+            return should_execute
+        
+        # Si no es el día objetivo, no ejecutar
+        if logger:
+            logger.info(f"Hoy ({today}) no es el día laborable objetivo ({next_workday})")
+        
+        return False
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
+        else:
+            logging.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
         return True

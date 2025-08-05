@@ -14,6 +14,7 @@ from typing import Dict, Any, List, Optional
 
 from common.config import config
 from common.database import AccessDatabase
+from common.access_connection_pool import get_tareas_connection_pool
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,14 @@ class CorreoTareasManager:
         self.smtp_password = getattr(config, 'smtp_password', None)
         self.smtp_tls = getattr(config, 'smtp_tls', False)
         
-        # Conexión a base de datos Access de tareas
-        self.db_conn = AccessDatabase(config.get_db_connection_string('tareas'))
+        # Usar pool de conexiones thread-safe para Access
+        connection_string = config.get_db_connection_string('tareas')
+        self.db_pool = get_tareas_connection_pool(connection_string)
         
-        logger.info("CorreoTareasManager inicializado correctamente")
+        # Mantener compatibilidad con código existente
+        self.db_conn = self.db_pool
+        
+        logger.info("CorreoTareasManager inicializado con pool de conexiones thread-safe")
     
     def _enviar_correo_individual(self, correo: Dict[str, Any]) -> bool:
         """
@@ -41,7 +46,10 @@ class CorreoTareasManager:
         """
         try:
             msg = MIMEMultipart()
-            msg['From'] = self.smtp_user
+            # Construir el remitente usando el campo Aplicacion como en el legacy VBS
+            aplicacion = correo.get('Aplicacion', 'Tareas')
+            from_email = f"{aplicacion}.DySN@telefonica.com"
+            msg['From'] = from_email
             msg['To'] = correo['Destinatarios']
             if correo.get('DestinatariosConCopia'):
                 msg['Cc'] = correo['DestinatariosConCopia']
@@ -130,16 +138,17 @@ class CorreoTareasManager:
             return False
     
     def _marcar_correo_enviado(self, id_correo: int, fecha_envio: datetime):
-        """Marcar correo como enviado en la base de datos Access"""
+        """Marcar correo como enviado en la base de datos Access usando pool thread-safe"""
         try:
             update_data = {
                 "FechaEnvio": fecha_envio
             }
             where_clause = f"IDCorreo = {id_correo}"
             
-            success = self.db_conn.update_record("TbCorreosEnviados", update_data, where_clause)
+            # Usar el método thread-safe del pool
+            success = self.db_pool.update_record("TbCorreosEnviados", update_data, where_clause)
             if success:
-                logger.info(f"Correo ID {id_correo} marcado como enviado")
+                logger.info(f"Correo ID {id_correo} marcado como enviado (thread-safe)")
             else:
                 logger.error(f"Error marcando correo ID {id_correo} como enviado")
                 
@@ -147,16 +156,18 @@ class CorreoTareasManager:
             logger.error(f"Error marcando correo como enviado: {e}")
     
     def obtener_correos_pendientes(self) -> List[Dict[str, Any]]:
-        """Obtener correos pendientes de envío desde la base de datos"""
+        """Obtener correos pendientes de envío usando pool thread-safe"""
         try:
             query = """
-                SELECT TbCorreosEnviados.*
-                FROM TbCorreosEnviados
-                WHERE TbCorreosEnviados.FechaEnvio Is Null
+            SELECT TbCorreosEnviados.* 
+            FROM TbCorreosEnviados 
+            WHERE TbCorreosEnviados.FechaEnvio IS NULL
+            ORDER BY TbCorreosEnviados.IDCorreo
             """
             
-            correos = self.db_conn.execute_query(query)
-            logger.info(f"Encontrados {len(correos)} correos pendientes")
+            # Usar el método thread-safe del pool
+            correos = self.db_pool.execute_query(query)
+            logger.info(f"Obtenidos {len(correos)} correos pendientes (thread-safe)")
             return correos
             
         except Exception as e:

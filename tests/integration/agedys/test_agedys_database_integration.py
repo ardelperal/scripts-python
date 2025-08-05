@@ -706,19 +706,19 @@ class TestAgedysDatabaseIntegration:
         tareas_db = AccessDatabase(config.get_db_tareas_connection_string())
         
         # Test con tarea que debe ejecutarse (más de 24 horas)
-        should_execute = should_execute_task(tareas_db, 'AGEDYS_3', 1)
+        should_execute = should_execute_task(tareas_db, 'Tareas', 1)
         assert isinstance(should_execute, bool)
         
         # Si la tarea debe ejecutarse, registrar su finalización
         if should_execute:
             from common.utils import register_task_completion
-            result = register_task_completion(tareas_db, 'AGEDYS_3')
+            result = register_task_completion(tareas_db, 'Tareas')
             assert result is True
             
             # Verificar que se actualizó con la estructura correcta
             task_info = tareas_db.execute_query(
                 "SELECT Fecha, Realizado FROM TbTareas WHERE Tarea = ?",
-                ['AGEDYS_3']
+                ['Tareas']
             )
             assert len(task_info) > 0
             assert task_info[0]['Realizado'] == 'Sí'

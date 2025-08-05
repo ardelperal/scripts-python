@@ -78,51 +78,6 @@ class AccessDatabase:
             self.connect()
         return self._connection.cursor()
     
-    def get_cursor(self):
-        """Simula obtención de cursor"""
-        class DemoCursor:
-            def __init__(self, demo_db):
-                self.demo_db = demo_db
-                self.description = None
-                
-            def execute(self, query, params=None):
-                """Simula ejecución de consulta"""
-                logger.info(f"DEMO: Cursor ejecutando: {query[:50]}...")
-                # Simular descripción de columnas
-                if "expediente" in query.lower():
-                    self.description = [
-                        ('Expediente',), ('FechaFinalizacion',), ('Estado',), 
-                        ('Responsable',), ('Descripcion',)
-                    ]
-                elif "hito" in query.lower():
-                    self.description = [
-                        ('IdHito',), ('Expediente',), ('Descripcion',), 
-                        ('FechaLimite',), ('Estado',), ('Responsable',)
-                    ]
-                elif "tsol" in query.lower() or "cods4h" in query.lower():
-                    self.description = [
-                        ('Expediente',), ('FechaAdjudicacion',), ('Importe',), 
-                        ('Proveedor',), ('Estado',)
-                    ]
-                elif "oferta" in query.lower():
-                    self.description = [
-                        ('Expediente',), ('FechaInicioOferta',), ('Estado',), 
-                        ('Responsable',), ('Descripcion',)
-                    ]
-                    
-            def fetchall(self):
-                """Simula obtención de todos los resultados"""
-                # Retornar datos de prueba vacíos por defecto
-                return []
-                
-        return DemoCursor(self)
-    
-    def get_cursor(self):
-        """Obtiene un cursor para ejecución directa de consultas"""
-        if not self._connection:
-            self.connect()
-        return self._connection.cursor()
-    
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Ejecuta una consulta SELECT usando pyodbc"""
         if not self._connection:

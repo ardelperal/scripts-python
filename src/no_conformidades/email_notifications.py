@@ -1,15 +1,21 @@
 """
-Módulo para el manejo de notificaciones por correo electrónico
+Módulo para gestión de notificaciones de email de no conformidades
 Implementa el patrón legacy de registro en base de datos
 """
-import logging
+
+import sys
+import os
 from typing import List, Dict, Any, Optional
+import logging
 from datetime import datetime
 
-from src.common.html_report_generator import HTMLReportGenerator
-from src.common.database import AccessDatabase
-from src.common.config import config
+# Agregar el directorio src al path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from common.html_report_generator import HTMLReportGenerator
+from common.config import Config
+
+config = Config()
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +24,146 @@ class EmailNotificationManager:
     
     def __init__(self):
         self.html_generator = HTMLReportGenerator()
+    
+    def _generar_reporte_calidad_html(self, ncs_eficacia=None, ncs_caducar=None, ncs_sin_acciones=None, 
+                                     destinatarios_calidad="", destinatarios_admin="") -> str:
+        """Genera el HTML para el reporte de calidad"""
+        try:
+            # Usar listas vacías si no se proporcionan datos
+            ncs_eficacia = ncs_eficacia or []
+            ncs_caducar = ncs_caducar or []
+            ncs_sin_acciones = ncs_sin_acciones or []
+            
+            # Generar reporte completo usando HTMLReportGenerator
+            html = self.html_generator.generar_reporte_completo(
+                ncs_eficacia=ncs_eficacia,
+                arapcs=[],  # No hay ARAPs en reporte de calidad
+                ncs_caducar=ncs_caducar,
+                ncs_sin_acciones=ncs_sin_acciones,
+                titulo="Reporte de Calidad - No Conformidades"
+            )
+            
+            return html
+            
+        except Exception as e:
+            logger.error(f"Error generando HTML de reporte de calidad: {e}")
+            return f"<html><body><h1>Error generando reporte</h1><p>{str(e)}</p></body></html>"
+    
+    def _generar_reporte_tecnico_html(self, arapcs=None, destinatarios_tecnicos="", destinatarios_admin="") -> str:
+        """Genera el HTML para el reporte técnico"""
+        try:
+            # Usar lista vacía si no se proporcionan datos
+            arapcs = arapcs or []
+            
+            # Generar reporte completo usando HTMLReportGenerator
+            html = self.html_generator.generar_reporte_completo(
+                ncs_eficacia=[],  # No hay NCs de eficacia en reporte técnico
+                arapcs=arapcs,
+                ncs_caducar=[],  # No hay NCs a caducar en reporte técnico
+                ncs_sin_acciones=[],  # No hay NCs sin acciones en reporte técnico
+                titulo="Reporte Técnico - ARAPs Próximas a Vencer"
+            )
+            
+            return html
+            
+        except Exception as e:
+            logger.error(f"Error generando HTML de reporte técnico: {e}")
+            return f"<html><body><h1>Error generando reporte</h1><p>{str(e)}</p></body></html>"
+    
+    def _generar_notificacion_individual_html(self, arap, responsable_email) -> str:
+        """Genera el HTML para una notificación individual de ARAP"""
+        try:
+            fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+            
+            # Calcular días restantes
+            dias_restantes = 0
+            if arap.get('FechaFinPrevista'):
+                try:
+                    if isinstance(arap['FechaFinPrevista'], str):
+                        fecha_fin = datetime.strptime(arap['FechaFinPrevista'], "%Y-%m-%d")
+                    else:
+                        fecha_fin = arap['FechaFinPrevista']
+                    dias_restantes = (fecha_fin - datetime.now()).days
+                except:
+                    dias_restantes = 0
+            
+            # Determinar estado y color
+            if dias_restantes < 0:
+                estado = f"VENCIDA ({abs(dias_restantes)} días)"
+                color_estado = "#FF0000"
+            elif dias_restantes <= 7:
+                estado = f"PRÓXIMA A VENCER ({dias_restantes} días)"
+                color_estado = "#FFC107"
+            else:
+                estado = f"{dias_restantes} días restantes"
+                color_estado = "#17A2B8"
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Acción Correctiva Pendiente</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 10px; }}
+                    .header {{ background-color: #4472C4; color: white; padding: 10px; text-align: center; font-weight: bold; }}
+                    .content {{ padding: 15px; }}
+                    .alert {{ background-color: #FFE6E6; border-left: 4px solid {color_estado}; padding: 10px; margin: 10px 0; }}
+                    .info-table {{ border-collapse: collapse; width: 100%; margin-top: 10px; }}
+                    .info-table th {{ background-color: #4472C4; color: white; padding: 8px; text-align: left; }}
+                    .info-table td {{ padding: 8px; border: 1px solid #ccc; }}
+                    .footer {{ margin-top: 20px; font-size: 10px; color: #666; text-align: center; }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Acción Correctiva/Preventiva Pendiente</h1>
+                    <p>Generado el: {fecha_actual}</p>
+                </div>
+                
+                <div class="content">
+                    <div class="alert">
+                        <strong>Estado:</strong> {estado}
+                    </div>
+                    
+                    <table class="info-table">
+                        <tr>
+                            <th>Código NC</th>
+                            <td>{arap.get('NumeroNC', 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <th>Descripción</th>
+                            <td>{arap.get('Descripcion', 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <th>Responsable</th>
+                            <td>{arap.get('Responsable', 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Fin Prevista</th>
+                            <td>{arap.get('FechaFinPrevista', 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <th>Días Restantes</th>
+                            <td style="color: {color_estado}; font-weight: bold;">{dias_restantes}</td>
+                        </tr>
+                    </table>
+                    
+                    <p><strong>Por favor, revise el estado de esta acción y actualice la información correspondiente en el sistema.</strong></p>
+                </div>
+                
+                <div class="footer">
+                    <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return html
+            
+        except Exception as e:
+            logger.error(f"Error generando HTML de notificación individual: {e}")
+            return f"<html><body><h1>Error generando notificación</h1><p>{str(e)}</p></body></html>"
     
     def get_admin_emails(self) -> List[str]:
         """Obtiene los emails de administradores"""

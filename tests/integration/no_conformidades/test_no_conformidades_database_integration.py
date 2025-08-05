@@ -422,7 +422,7 @@ class TestNoConformidadesDatabaseIntegration:
             print(f"✓ Conexión establecida con base de datos de tareas")
             
             # Registrar tarea de prueba
-            task_name = "NCTest"
+            task_name = "NoConformidadesCalidad"
             print(f"Registrando tarea: {task_name}")
             result = register_task_completion(tareas_db, task_name)
             
