@@ -11,7 +11,7 @@ from pathlib import Path
 # Agregar el directorio src al path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from tareas import TareasManager
+from correo_tareas import CorreoTareasManager
 
 # Configurar logging
 logging.basicConfig(
@@ -19,7 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(Path(__file__).parent.parent / "logs" / "run_tareas.log", encoding='utf-8')
+        logging.FileHandler(Path(__file__).parent.parent / "logs" / "run_correo_tareas.log", encoding='utf-8')
     ]
 )
 
@@ -32,7 +32,7 @@ def main():
     
     try:
         # Crear instancia del manager
-        tareas_manager = TareasManager()
+        tareas_manager = CorreoTareasManager()
         
         # Ejecutar tarea de envío de correos
         success = tareas_manager.execute_continuous_task()

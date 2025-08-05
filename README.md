@@ -1,28 +1,6 @@
-# Sistema de Gestión de Tareas - Migración de VBS a Python
+# Sistema de Gestión de Tareas Empresariales
 
-Este proyecto es una migración del sistema legacy VBS a Python que implementa un **sistema de monitoreo continuo** para la gestión automatizada de tareas empresariales. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
-
-## Migración de VBS a Python
-
-Este proyecto representa la migración completa del sistema de automatización VBS legacy a Python moderno, manteniendo toda la funcionalidad original mientras se mejora la robustez, mantenibilidad y capacidades de testing.
-
-### 🎯 Objetivos de la Migración
-- **Modernización**: Migrar de VBS legacy a Python 3.11+
-- **Robustez**: Implementar manejo de errores robusto y logging detallado
-- **Testing**: Cobertura de tests >80% con tests unitarios, integración y funcionales
-- **Mantenibilidad**: Código modular, documentado y siguiendo mejores prácticas
-- **Configuración**: Sistema de configuración flexible multi-entorno
-- **Monitoreo**: Herramientas de monitoreo y debugging avanzadas
-
-### ✅ Estado de la Migración
-- **AGEDYS**: ✅ Completamente migrado y funcional
-- **BRASS**: ✅ Completamente migrado y funcional
-- **Expedientes**: ✅ Completamente migrado y funcional
-- **Correos**: ✅ Completamente migrado y funcional
-- **Tareas**: ✅ Completamente migrado y funcional
-- **No Conformidades**: ✅ Completamente migrado y funcional
-- **Riesgos**: ✅ Completamente migrado y funcional
-- **Script Maestro**: ✅ Completamente migrado y funcional con modo verbose
+Sistema de **monitoreo continuo** para la gestión automatizada de tareas empresariales desarrollado en Python. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
 
 ## 🎯 Objetivo Principal
 
@@ -48,7 +26,7 @@ El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza a
 
 #### Tareas Continuas (ejecutadas en cada ciclo):
 6. **Correos** (`run_correos.py`): Sistema de envío de correos
-7. **Tareas** (`run_tareas.py`): Sistema de gestión de tareas
+7. **Correo Tareas** (`run_correo_tareas.py`): Sistema de gestión de correos que interactúa con la base de datos de tareas
 
 ### 🚀 Modo Verbose del Script Maestro
 
@@ -90,13 +68,16 @@ El sistema ajusta automáticamente los tiempos de espera entre ciclos según el 
 
 ## 📋 Tabla de Contenidos
 
+- [🚀 Guía Rápida para Desarrolladores](#-guía-rápida-para-desarrolladores)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Características Implementadas](#características-implementadas)
 - [Configuración de Entornos](#configuración-de-entornos)
-- [Instalación](#instalación)
+- [📊 Estado de Cobertura de Tests](#-estado-de-cobertura-de-tests)
+- [Instalación (Método Tradicional)](#instalación-método-tradicional)
 - [Uso](#uso)
-- [Testing](#testing)
+- [🔧 Script de Configuración del Entorno Local](#-script-de-configuración-del-entorno-local)
 - [Seguridad](#seguridad)
+- [Testing](#testing)
 - [Variables de Entorno Principales](#variables-de-entorno-principales)
 - [Arquitectura](#arquitectura)
 
@@ -117,7 +98,7 @@ scripts-python/
 │   ├── run_brass.py            # Script principal para módulo BRASS
 │   ├── run_expedientes.py      # Script para módulo expedientes
 │   ├── run_correos.py          # Script para módulo correos
-│   ├── run_tareas.py           # Script para módulo tareas
+│   ├── run_correo_tareas.py    # Script para módulo correo tareas
 │   ├── run_no_conformidades.py # Script para no conformidades
 │   └── run_riesgos.py          # Script para módulo de riesgos
 ├── tools/                       # Herramientas de desarrollo y utilidades
@@ -158,9 +139,9 @@ scripts-python/
 │   ├── riesgos/                # Módulo de gestión de riesgos
 │   │   ├── __init__.py
 │   │   └── riesgos_manager.py  # Gestor de riesgos
-│   └── tareas/                 # Módulo de gestión de tareas
+│   └── correo_tareas/          # Módulo de gestión de correos que interactúa con la base de datos de tareas
 │       ├── __init__.py
-│       └── tareas_manager.py   # Gestor de tareas empresariales
+│       └── correo_tareas_manager.py   # Gestor de correos para tareas empresariales
 ├── tests/                      # Tests automatizados (cobertura >80%)
 │   ├── __init__.py
 │   ├── config.py              # Configuración de tests
@@ -181,7 +162,7 @@ scripts-python/
 │   │   ├── expedientes/        # Tests del módulo de expedientes
 │   │   ├── no_conformidades/   # Tests no conformidades
 │   │   ├── riesgos/            # Tests del módulo de riesgos
-│   │   └── tareas/             # Tests del módulo de tareas
+│   │   └── correo_tareas/      # Tests del módulo de correo tareas
 │   ├── integration/            # Tests de integración
 │   │   ├── __init__.py
 │   │   ├── agedys/             # Integración del sistema AGEDYS
@@ -190,7 +171,7 @@ scripts-python/
 │   │   ├── expedientes/        # Integración del sistema de expedientes
 │   │   ├── no_conformidades/   # Integración no conformidades
 │   │   ├── riesgos/            # Integración del sistema de riesgos
-│   │   ├── tareas/             # Integración del sistema de tareas
+│   │   ├── correo_tareas/      # Integración del sistema de correo tareas
 │   │   └── database/           # Integración con bases de datos
 │   ├── functional/             # Tests funcionales
 │   │   ├── access_sync/        # Sincronización con Access
@@ -234,7 +215,7 @@ scripts-python/
 
 ## Características Implementadas
 
-### ✅ Módulos Migrados y Funcionales
+### ✅ Módulos del Sistema
 - **AGEDYS**: Sistema completo de gestión de facturas y visados técnicos
 - **BRASS**: Sistema completo de gestión de tareas BRASS
 - **Expedientes**: Gestión de expedientes y documentación
@@ -270,7 +251,7 @@ scripts-python/
 - **Notificaciones**: Sistema de notificaciones por email
 - **Plantillas HTML**: Sistema de plantillas para reportes y emails
 - **Manejo de Errores**: Sistema robusto de manejo de excepciones
-- **Migración Completa**: Todos los sistemas VBS migrados a Python
+- **Sistema Modular**: Arquitectura modular y extensible
 
 ## Configuración de Entornos
 
@@ -444,7 +425,207 @@ python -m pytest --cov=src --cov-report=html
 python scripts/run_tests.py
 ```
 
-## Instalación
+## 🚀 Guía Rápida para Desarrolladores
+
+**¿Acabas de abrir este proyecto en un nuevo ordenador?** Esta guía te llevará desde cero hasta tener un entorno de desarrollo completamente funcional.
+
+### ✅ Prerrequisitos del Sistema
+
+Antes de comenzar, asegúrate de tener instalado:
+
+1. **Python 3.8 o superior**
+   ```powershell
+   # Verificar instalación
+   python --version
+   
+   # Si no está instalado, descargar desde: https://python.org
+   ```
+
+2. **Node.js (para MCPs de TRAE)**
+   ```powershell
+   # Verificar instalación
+   node --version
+   npm --version
+   
+   # Si no está instalado, descargar desde: https://nodejs.org
+   ```
+
+3. **Docker (para SMTP local)**
+   ```powershell
+   # Verificar instalación
+   docker --version
+   
+   # Si no está instalado, descargar Docker Desktop desde: https://docker.com
+   ```
+
+4. **Microsoft Access Database Engine** (para conectividad ODBC)
+   - Descargar desde Microsoft: "Microsoft Access Database Engine 2016 Redistributable"
+
+### 🛠️ Configuración Completa del Entorno
+
+#### Paso 1: Clonar y Preparar el Proyecto
+
+```powershell
+# Clonar el repositorio
+git clone <repo-url>
+cd scripts-python
+
+# Crear entorno virtual (solo la primera vez)
+python -m venv venv
+
+# Activar entorno virtual
+.\venv\Scripts\Activate.ps1
+
+# Verificar que el entorno virtual está activo (debe aparecer "(venv)" en el prompt)
+```
+
+**💡 Importante sobre el Entorno Virtual:**
+- **Primera vez**: Crear con `python -m venv venv`
+- **Cada sesión**: Activar con `.\venv\Scripts\Activate.ps1`
+- **Verificar activación**: Debe aparecer `(venv)` al inicio del prompt
+- **Desactivar**: Ejecutar `deactivate` cuando termines
+
+**Si tienes problemas de permisos en PowerShell:**
+```powershell
+# Permitir ejecución de scripts (solo una vez)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Luego activar normalmente
+.\venv\Scripts\Activate.ps1
+```
+
+#### Paso 2: Configurar Variables de Entorno
+
+```powershell
+# Copiar el archivo de ejemplo
+copy config\.env.example .env
+
+# Editar .env con tus configuraciones específicas
+# - Cambiar DB_PASSWORD por la contraseña real
+# - Ajustar rutas de red para entorno oficina
+# - Configurar email de destinatario
+notepad .env
+```
+
+#### Paso 3: Instalar Dependencias
+
+```powershell
+# Instalar dependencias de Python
+pip install -r requirements.txt
+
+# Verificar instalación
+pip list
+```
+
+#### Paso 4: Configurar SMTP Local con Docker
+
+```powershell
+# Ejecutar MailHog para desarrollo local
+docker run -d -p 1025:1025 -p 8025:8025 --name mailhog mailhog/mailhog
+
+# Verificar que está funcionando
+docker ps
+
+# Acceder a la interfaz web: http://localhost:8025
+```
+
+**💡 Configuración SMTP Local en .env:**
+```bash
+LOCAL_SMTP_SERVER=localhost
+LOCAL_SMTP_PORT=1025
+LOCAL_SMTP_USER=
+LOCAL_SMTP_PASSWORD=
+LOCAL_SMTP_TLS=false
+```
+
+#### Paso 5: Migrar Bases de Datos a Local
+
+```powershell
+# Verificar conectividad de red (ejecutar desde red de oficina o VPN)
+python tools/setup_local_environment.py --check-network
+
+# Migrar todas las bases de datos
+python tools/setup_local_environment.py
+
+# Verificar que las bases locales se crearon correctamente
+dir dbs-locales\
+```
+
+#### Paso 6: Verificar Configuración
+
+```powershell
+# Ejecutar tests para verificar que todo funciona
+python scripts/run_tests.py
+
+# Probar el panel de control web
+python server.py
+# Abrir: http://localhost:8080
+
+# Probar envío de email de prueba (opcional)
+python examples/smtp_config_demo.py
+```
+
+### 🎯 Comandos de Verificación Rápida
+
+```powershell
+# IMPORTANTE: Asegúrate de que el entorno virtual esté activo antes de ejecutar estos comandos
+# Debe aparecer (venv) al inicio del prompt. Si no, ejecuta: .\venv\Scripts\Activate.ps1
+
+# Verificar entorno completo
+python --version                                    # Python instalado
+node --version                                      # Node.js instalado  
+docker --version                                    # Docker instalado
+python tools/setup_local_environment.py --check-network  # Conectividad red
+docker ps | findstr mailhog                        # MailHog funcionando
+python -c "import pyodbc; print('ODBC OK')"       # Driver Access instalado
+
+# Verificar que el entorno virtual está activo
+python -c "import sys; print('Entorno virtual activo:' if 'venv' in sys.executable else 'Entorno virtual NO activo')"
+```
+
+### ⚠️ Solución de Problemas Comunes
+
+**Error de conectividad de red:**
+- Asegúrate de estar conectado a la red de oficina o VPN
+- Verifica las rutas de red en el archivo `.env`
+
+**Error de ODBC:**
+- Instala Microsoft Access Database Engine 2016 Redistributable
+- Reinicia PowerShell después de la instalación
+
+**MailHog no funciona:**
+```powershell
+# Detener y reiniciar MailHog
+docker stop mailhog
+docker rm mailhog
+docker run -d -p 1025:1025 -p 8025:8025 --name mailhog mailhog/mailhog
+```
+
+**Problemas con entorno virtual:**
+```powershell
+# Si no se activa correctamente (problema de permisos)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\venv\Scripts\Activate.ps1
+
+# Si el entorno virtual no existe, crearlo primero
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# Verificar que está activo (debe mostrar "Entorno virtual activo:")
+python -c "import sys; print('Entorno virtual activo:' if 'venv' in sys.executable else 'Entorno virtual NO activo')"
+
+# Para desactivar el entorno virtual
+deactivate
+```
+
+**Recordatorio importante:**
+- **Siempre activa el entorno virtual** antes de trabajar: `.\venv\Scripts\Activate.ps1`
+- **Cada nueva sesión de PowerShell** requiere activar el entorno virtual
+- **Verifica que está activo** viendo `(venv)` en el prompt antes de ejecutar comandos Python
+
+---
+
+## Instalación (Método Tradicional)
 
 1. **Clonar el repositorio y navegar al directorio**
    ```bash
@@ -452,7 +633,25 @@ python scripts/run_tests.py
    cd scripts-python
    ```
 
-2. **Configurar variables de entorno**
+2. **Crear y activar entorno virtual de Python (recomendado)**
+   ```bash
+   # Crear entorno virtual
+   python -m venv venv
+   
+   # Activar entorno virtual
+   # En Windows (PowerShell):
+   .\venv\Scripts\Activate.ps1
+   
+   # En Windows (CMD):
+   venv\Scripts\activate.bat
+   
+   # En Linux/macOS:
+   source venv/bin/activate
+   ```
+   
+   **💡 Nota**: Una vez activado el entorno virtual, verás `(venv)` al inicio de tu línea de comandos. Para desactivar el entorno virtual, simplemente ejecuta `deactivate`.
+
+3. **Configurar variables de entorno**
    ```bash
    # Copiar el archivo de ejemplo desde config/
    cp config/.env.example .env
@@ -463,18 +662,18 @@ python scripts/run_tests.py
    # - Configurar email de destinatario
    ```
 
-3. **Instalar dependencias**
+4. **Instalar dependencias**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configurar entorno local (opcional)**
+5. **Configurar entorno local (opcional)**
    ```bash
    # Ejecutar herramienta de configuración
    python tools/setup_local_environment.py
    ```
 
-5. **Instalar driver ODBC para Access** (si no está instalado)
+6. **Instalar driver ODBC para Access** (si no está instalado)
    - Descargar Microsoft Access Database Engine
 
 ## Uso
@@ -556,9 +755,9 @@ python scripts/run_correos.py --force           # Fuerza ejecución
 python scripts/run_correos.py --dry-run         # Modo simulación
 
 # Tareas - Sistema de gestión de tareas
-python scripts/run_tareas.py                    # Ejecución normal
-python scripts/run_tareas.py --force            # Fuerza ejecución
-python scripts/run_tareas.py --dry-run          # Modo simulación
+python scripts/run_correo_tareas.py                    # Ejecución normal
+python scripts/run_correo_tareas.py --force            # Fuerza ejecución
+python scripts/run_correo_tareas.py --dry-run          # Modo simulación
 
 # Tests
 python scripts/run_tests.py
@@ -566,16 +765,71 @@ python scripts/run_tests.py
 
 ### 🛠️ Herramientas de Desarrollo
 
-**Configuración y Mantenimiento:**
+#### 🔧 Configuración del Entorno Local para Desarrollo
+
+**El script `setup_local_environment.py` es una herramienta esencial para desarrolladores** que automatiza la configuración del entorno local de desarrollo:
+
 ```bash
-# Configurar entorno local
+# Proceso completo: copia bases de datos + actualiza vínculos
 python tools/setup_local_environment.py
 
+# Solo actualizar vínculos (si ya tienes las bases locales)
+python tools/setup_local_environment.py --links-only
+
+# Solo verificar conectividad de red y mostrar configuración
+python tools/setup_local_environment.py --check-network
+```
+
+**🎯 Funcionalidades del Script:**
+
+1. **Descubrimiento Automático**: Lee automáticamente las variables de entorno del `.env` para encontrar todas las bases de datos configuradas (pares `OFFICE_DB_*` y `LOCAL_DB_*`)
+
+2. **Verificación de Red**: Comprueba que puedas acceder a las ubicaciones de red de oficina antes de intentar copiar
+
+3. **Copia Inteligente de Bases de Datos**:
+   - **Bases normales**: Copia completa desde oficina a local
+   - **Base de correos**: Modo ligero (solo últimos 5 registros para desarrollo)
+   - **Manejo de contraseñas**: Crea bases locales con la misma contraseña que las remotas
+
+4. **Actualización de Vínculos**: Actualiza automáticamente todas las tablas vinculadas para que apunten a las bases de datos locales
+
+5. **Logging Detallado**: Genera un log completo del proceso en `setup_local_environment.log`
+
+**📋 Casos de Uso Típicos:**
+
+```bash
+# Primer setup en un nuevo entorno de desarrollo
+python tools/setup_local_environment.py --check-network  # Verificar configuración
+python tools/setup_local_environment.py                  # Setup completo
+
+# Actualizar solo vínculos después de cambios en .env
+python tools/setup_local_environment.py --links-only
+
+# Verificar problemas de conectividad
+python tools/setup_local_environment.py --check-network
+```
+
+**⚠️ Importante para Desarrolladores:**
+- **Ejecutar desde la red de oficina** o con VPN para acceder a las bases remotas
+- **Verificar el archivo `.env`** antes de ejecutar el script
+- **Usar `--check-network`** para diagnosticar problemas de conectividad
+- **El script es seguro**: no modifica las bases de datos de oficina, solo las copia
+
+#### 📊 Otras Herramientas de Desarrollo
+
+**Configuración y Mantenimiento:**
+```bash
 # Generar reportes de cobertura
 python tools/generate_coverage_report.py
 
 # Ejecución continua de tests
 python tools/continuous_runner.py
+
+# Verificar estado de correos
+python tools/check_email_status.py
+
+# Verificar estructura de bases de datos
+python tools/check_email_structure.py
 ```
 
 ## Seguridad

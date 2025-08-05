@@ -18,7 +18,7 @@ from common.database import AccessDatabase
 logger = logging.getLogger(__name__)
 
 
-class TareasManager:
+class CorreoTareasManager:
     """Gestor para el módulo de tareas"""
     
     def __init__(self):
@@ -33,7 +33,7 @@ class TareasManager:
         # Conexión a base de datos Access de tareas
         self.db_conn = AccessDatabase(config.get_db_connection_string('tareas'))
         
-        logger.info("TareasManager inicializado correctamente")
+        logger.info("CorreoTareasManager inicializado correctamente")
     
     def _enviar_correo_individual(self, correo: Dict[str, Any]) -> bool:
         """

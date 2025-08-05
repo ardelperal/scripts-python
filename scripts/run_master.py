@@ -87,7 +87,7 @@ class MasterRunner:
             'riesgos': 'run_riesgos.py',
             'no_conformidades': 'run_no_conformidades.py',
             'agedys': 'run_agedys.py',
-            'tareas': 'run_tareas.py'
+            'tareas': 'run_correo_tareas.py'
         }
         
         # Scripts de tareas diarias (orden de ejecución)

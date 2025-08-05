@@ -1,5 +1,5 @@
 """
-Configuración específica para tests de integración de Tareas
+Configuración específica para tests de integración de Correo Tareas
 """
 import pytest
 import os
@@ -24,13 +24,13 @@ def local_db_connections():
 
 
 @pytest.fixture
-def local_tareas_manager():
+def local_correo_tareas_manager():
     """
-    Fixture que proporciona una instancia de TareasManager configurada
+    Fixture que proporciona una instancia de CorreoTareasManager configurada
     específicamente para usar bases de datos locales en las pruebas
     """
     # Crear una instancia personalizada que use conexiones locales
-    class LocalTareasManager:
+    class LocalCorreoTareasManager:
         def __init__(self):
             # Conexión forzada a base de datos local de tareas
             tareas_local_path = config.get_local_db_path('tareas')
@@ -45,10 +45,10 @@ def local_tareas_manager():
             self.smtp_password = getattr(config, 'smtp_password', None)
             self.smtp_tls = getattr(config, 'smtp_tls', False)
         
-        # Importar todos los métodos de TareasManager
+        # Importar todos los métodos de CorreoTareasManager
         def __getattr__(self, name):
-            from tareas.tareas_manager import TareasManager
-            original_manager = TareasManager()
+            from correo_tareas.correo_tareas_manager import CorreoTareasManager
+            original_manager = CorreoTareasManager()
             method = getattr(original_manager, name)
             
             # Si es un método, reemplazar la conexión de BD
@@ -70,4 +70,4 @@ def local_tareas_manager():
             else:
                 return method
     
-    return LocalTareasManager()
+    return LocalCorreoTareasManager()
