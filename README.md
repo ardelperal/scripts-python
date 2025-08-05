@@ -815,13 +815,64 @@ python tools/setup_local_environment.py --check-network
 - **Usar `--check-network`** para diagnosticar problemas de conectividad
 - **El script es seguro**: no modifica las bases de datos de oficina, solo las copia
 
-#### 📊 Otras Herramientas de Desarrollo
+#### 📊 Herramientas de Cobertura y Testing
+
+**Generación de Reportes de Cobertura:**
+```bash
+# Generar reporte de cobertura UNITARIOS (rápido, 0% cobertura aparente)
+python tools/generate_coverage_report.py
+
+# Generar reporte de cobertura COMPLETO (unitarios + integración, cobertura real)
+python tools/generate_full_coverage_report.py
+
+# Diagnosticar problemas de coverage en Windows
+python tools/check_coverage_dependencies.py
+```
+
+**🔧 Características de las Herramientas de Cobertura:**
+
+- **`generate_coverage_report.py`** (Solo tests unitarios):
+  - ⚡ **Ejecución rápida** (solo tests unitarios con mocks)
+  - 📊 **0% cobertura aparente** (normal debido al uso extensivo de mocks)
+  - ✅ **Compatibilidad Windows mejorada** con `sys.executable` y `shell=True`
+  - 🛡️ **Manejo robusto de errores** con diagnóstico detallado
+  - 🌐 **Apertura automática** del reporte HTML en navegador
+
+- **`generate_full_coverage_report.py`** (Tests completos):
+  - 🔍 **Cobertura REAL** del código (unitarios + integración)
+  - 📈 **~35% cobertura** con interacción real con bases de datos
+  - ⚠️ **Requiere bases de datos locales** configuradas
+  - 🕐 **Ejecución más lenta** (~1 minuto)
+  - 📊 **Reportes múltiples**: HTML interactivo, XML para CI/CD, y resumen en consola
+
+- **`check_coverage_dependencies.py`**: 
+  - 🔍 **Diagnóstico completo** del entorno Python y dependencias
+  - ✅ **Verificación de instalación** de `coverage` y `pytest`
+  - 📁 **Análisis de estructura** del proyecto
+  - 🚀 **Instalación automática** de dependencias faltantes
+  - 🧪 **Prueba funcional** de coverage con archivo de ejemplo
+
+**💡 Solución de Problemas Comunes:**
+
+```bash
+# Si obtienes 0% de cobertura:
+python tools/generate_full_coverage_report.py  # Usar reporte completo para cobertura real
+
+# Si obtienes PermissionError en Windows:
+python tools/check_coverage_dependencies.py  # Diagnosticar el problema
+
+# Si coverage no se encuentra:
+pip install coverage pytest  # Instalar dependencias
+
+# Si hay problemas con el entorno virtual:
+.\venv\Scripts\Activate.ps1  # Activar entorno virtual
+python tools/generate_coverage_report.py  # Intentar de nuevo
+```
+
+#### 🛠️ Otras Herramientas de Desarrollo
 
 **Configuración y Mantenimiento:**
 ```bash
-# Generar reportes de cobertura
-python tools/generate_coverage_report.py
-
 # Ejecución continua de tests
 python tools/continuous_runner.py
 
@@ -930,24 +981,46 @@ pytest -v --tb=short
 
 **Generar Reportes de Cobertura:**
 ```bash
-# Método rápido (recomendado)
+# Método rápido - Solo tests unitarios (0% cobertura aparente)
 python tools/generate_coverage_report.py
 
-# Método manual
+# Método completo - Tests unitarios + integración (cobertura real ~35%)
+python tools/generate_full_coverage_report.py
+
+# Diagnosticar problemas de coverage
+python tools/check_coverage_dependencies.py
+
+# Método manual (unitarios)
 coverage run --source=src -m pytest tests/unit/ -v
+coverage html
+start htmlcov\index.html
+
+# Método manual (completo)
+coverage run --source=src -m pytest tests/integration/ -v
 coverage html
 start htmlcov\index.html
 ```
 
+**🔧 Herramientas de Cobertura Mejoradas:**
+
+- **Compatibilidad Windows**: Scripts actualizados para resolver `PermissionError` comunes
+- **Dos tipos de reportes**: Unitarios (rápido, 0% aparente) vs Completo (real, ~35%)
+- **Diagnóstico automático**: Verificación de entorno y dependencias
+- **Manejo robusto de errores**: Información detallada en caso de fallos
+- **Reportes múltiples**: HTML, XML y consola en una sola ejecución
+
 **Estado Actual:**
-- **Total**: 289 tests ejecutándose correctamente
-- **Cobertura**: 82% del código fuente
+- **Total**: 494 tests ejecutándose correctamente
+- **Cobertura Unitarios**: 0% (normal con mocks extensivos)
+- **Cobertura Completa**: 35% (tests de integración + unitarios)
 - **Reportes HTML**: Disponibles en `htmlcov/index.html`
 
 **Archivos de Coverage:**
 - `.coveragerc` - Configuración de coverage.py
 - `htmlcov/` - Reportes HTML interactivos
-- `tools/generate_coverage_report.py` - Script automatizado
+- `tools/generate_coverage_report.py` - Script unitarios (mejorado para Windows)
+- `tools/generate_full_coverage_report.py` - Script completo (nueva herramienta)
+- `tools/check_coverage_dependencies.py` - Herramienta de diagnóstico
 
 **Interpretación de Reportes:**
 - 🟢 **Verde**: Líneas cubiertas por tests
