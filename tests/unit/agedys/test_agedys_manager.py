@@ -91,17 +91,20 @@ class TestAgedysManager:
     
     def test_get_facturas_pendientes_visado_tecnico(self, agedys_manager):
         """Test obtener facturas pendientes de visado técnico"""
+        mock_user = [{'Id': 1, 'Nombre': 'Usuario Test'}]
         mock_facturas = [
             {'NFactura': 'F001', 'Suministrador': 'Proveedor1', 'ImporteFactura': 100.50},
             {'NFactura': 'F002', 'Suministrador': 'Proveedor2', 'ImporteFactura': 200.75}
         ]
-        agedys_manager.db.execute_query.return_value = mock_facturas
+        
+        # Configurar side_effect para devolver usuario primero, luego facturas para las siguientes consultas
+        agedys_manager.db.execute_query.side_effect = [mock_user] + [mock_facturas] * 4
         
         result = agedys_manager.get_facturas_pendientes_visado_tecnico('Usuario1')
         
         assert result == mock_facturas
-        # El método ejecuta hasta 4 queries, pero puede fallar algunas por TbUsuariosAplicaciones
-        assert agedys_manager.db.execute_query.call_count >= 2  # Al menos las 2 últimas queries
+        # El método ejecuta 1 query de usuario + hasta 4 queries de facturas
+        assert agedys_manager.db.execute_query.call_count >= 2
     
     def test_get_facturas_pendientes_visado_tecnico_exception(self, agedys_manager):
         """Test obtener facturas pendientes - excepción"""
@@ -386,43 +389,28 @@ class TestAgedysManager:
     
     def test_run_success_complete_flow(self, agedys_manager, mock_utils):
         """Test flujo completo exitoso - registro de notificaciones"""
-        # Mock de métodos del manager
-        with patch.object(agedys_manager, 'get_usuarios_facturas_pendientes_visado_tecnico') as mock_get_usuarios_facturas, \
-             patch.object(agedys_manager, 'get_facturas_pendientes_visado_tecnico') as mock_get_facturas, \
-             patch.object(agedys_manager, 'get_usuarios_dpds_sin_visado_calidad') as mock_get_usuarios_dpds, \
-             patch.object(agedys_manager, 'get_dpds_sin_visado_calidad') as mock_get_dpds, \
-             patch.object(agedys_manager, 'get_usuarios_dpds_rechazados_calidad') as mock_get_usuarios_rechazados, \
-             patch.object(agedys_manager, 'get_dpds_rechazados_calidad') as mock_get_dpds_rechazados, \
-             patch.object(agedys_manager, 'get_usuarios_economia') as mock_get_economia, \
-             patch.object(agedys_manager, 'get_dpds_fin_agenda_tecnica_por_recepcionar') as mock_get_dpds_economia, \
-             patch.object(agedys_manager, 'get_usuarios_tareas') as mock_get_usuarios_tareas, \
-             patch.object(agedys_manager, 'get_dpds_sin_pedido') as mock_get_dpds_sin_pedido:
+        # Mock de métodos de procesamiento por fases
+        with patch.object(agedys_manager, 'process_calidad_tasks') as mock_process_calidad, \
+             patch.object(agedys_manager, 'process_economia_tasks') as mock_process_economia, \
+             patch.object(agedys_manager, 'process_tecnicos_tasks') as mock_process_tecnicos:
             
-            # Configurar datos de prueba
-            mock_get_usuarios_facturas.return_value = [{'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}]
-            mock_get_facturas.return_value = [{'NumeroFactura': 'F001'}]
-            mock_get_usuarios_dpds.return_value = [{'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}]
-            mock_get_dpds.return_value = [{'CODPROYECTOS': 'DPD001'}]
-            mock_get_usuarios_rechazados.return_value = []
-            mock_get_dpds_rechazados.return_value = []
-            mock_get_economia.return_value = []
-            mock_get_dpds_economia.return_value = []
-            mock_get_usuarios_tareas.return_value = []
-            mock_get_dpds_sin_pedido.return_value = []
+            # Configurar mocks para que no lancen excepciones
+            mock_process_calidad.return_value = None
+            mock_process_economia.return_value = None
+            mock_process_tecnicos.return_value = 2  # Simular 2 técnicos procesados
             
             result = agedys_manager.run(dry_run=False)
             
             assert result is True
-            # Verificar que el proceso se ejecutó correctamente
-            mock_get_usuarios_facturas.assert_called_once()
-            mock_get_facturas.assert_called_once()
-            mock_get_usuarios_dpds.assert_called_once()
-            mock_get_dpds.assert_called_once()
+            # Verificar que todas las fases se ejecutaron
+            mock_process_calidad.assert_called_once_with(False)
+            mock_process_economia.assert_called_once_with(False)
+            mock_process_tecnicos.assert_called_once_with(False)
     
     def test_run_exception(self, agedys_manager):
         """Test ejecutar proceso principal - excepción"""
-        with patch.object(agedys_manager, 'get_usuarios_facturas_pendientes_visado_tecnico') as mock_get_usuarios:
-            mock_get_usuarios.side_effect = Exception("Test Error")
+        with patch.object(agedys_manager, 'process_calidad_tasks') as mock_process_calidad:
+            mock_process_calidad.side_effect = Exception("Test Error")
             
             result = agedys_manager.run(dry_run=False)
             

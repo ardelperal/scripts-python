@@ -37,8 +37,9 @@ class LocalEnvironmentSetup:
         # Inicializar logger
         self.logger = logging.getLogger(__name__)
         
-        load_dotenv()
-        self.project_root = Path(__file__).parent
+        # Configurar project_root como la raíz del proyecto (un nivel arriba de tools)
+        self.project_root = Path(__file__).parent.parent
+        load_dotenv(self.project_root / '.env')
         self.db_password = os.getenv('DB_PASSWORD', '')
         
         # Descubrir automáticamente las bases de datos desde el .env

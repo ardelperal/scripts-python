@@ -260,7 +260,7 @@ El sistema soporta dos entornos configurables mediante el archivo `.env` con **s
 ### Configuración inicial
 ```bash
 # Copiar plantilla de configuración
-cp config/.env.example .env
+cp .env.example .env
 
 # Editar configuraciones específicas (NUNCA incluir contraseñas reales en el README)
 nano .env  # o tu editor preferido
@@ -653,8 +653,8 @@ deactivate
 
 3. **Configurar variables de entorno**
    ```bash
-   # Copiar el archivo de ejemplo desde config/
-   cp config/.env.example .env
+   # Copiar el archivo de ejemplo desde la raíz
+   cp .env.example .env
    
    # Editar .env con tus configuraciones específicas
    # - Cambiar DB_PASSWORD por la contraseña real

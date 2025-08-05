@@ -462,10 +462,11 @@ class TestAgedysIntegration:
         # Verificar que se registraron emails (mock_utils['register_email_in_database'] debería haberse llamado)
         assert mock_utils['register_email_in_database'].call_count > 0
     
+    @patch('src.agedys.agedys_manager.utils.register_email_in_database')
     @patch('src.common.utils.get_technical_users')
     @patch('src.agedys.agedys_manager.get_economy_users')
     @patch('src.common.utils.get_quality_users')
-    def test_database_query_parameters_integration(self, mock_get_quality_users, mock_get_economy_users, mock_get_technical_users, agedys_manager, mock_utils):
+    def test_database_query_parameters_integration(self, mock_get_quality_users, mock_get_economy_users, mock_get_technical_users, mock_register_email, agedys_manager, mock_utils):
         """Test de integración para verificar parámetros de consultas de base de datos"""
         # Configurar mocks de usuarios que coincidan con los datos de las consultas
         mock_get_quality_users.return_value = [
@@ -477,6 +478,9 @@ class TestAgedysIntegration:
         mock_get_technical_users.return_value = [
             {'UsuarioRed': 'testuser', 'CorreoUsuario': 'testuser@test.com'}
         ]
+        
+        # Configurar el mock de register_email_in_database
+        mock_register_email.return_value = True
         # Configurar datos de prueba usando campos reales
         mock_facturas = [
             {
@@ -518,8 +522,11 @@ class TestAgedysIntegration:
         
         # Configurar mock de base de datos
         def mock_db_query(query, *args):
+            # Consulta de ID y nombre de usuario
+            if 'SELECT Id, Nombre FROM TbUsuariosAplicaciones WHERE UsuarioRed' in query:
+                return [{'Id': 118, 'Nombre': 'testuser'}]
             # Consultas de DPDs sin visado de calidad (get_all_dpds_sin_visado_calidad)
-            if ('TbProyectos' in query and 'TbVisadosGenerales' in query and 
+            elif ('TbProyectos' in query and 'TbVisadosGenerales' in query and 
                 'ROFechaRechazo IS NULL' in query and 'ROFechaVisado IS NULL' in query and
                 'FechaFinAgendaTecnica IS NULL' in query):
                 return mock_dpds_calidad
@@ -538,10 +545,14 @@ class TestAgedysIntegration:
             # Consultas de usuarios con facturas pendientes
             elif 'TbFacturasDetalle' in query and 'UsuarioRed' in query:
                 return mock_usuarios_facturas
-            # Consultas de facturas pendientes
+            # Consultas específicas de facturas pendientes de visado técnico
+            elif ('TbFacturasDetalle' in query and 'TbVisadoFacturas_Nueva' in query and 
+                  ('FRECHAZOTECNICO IS NULL' in query or 'FVISADOTECNICO IS NULL' in query or 'IDFactura IS NULL' in query)):
+                return mock_facturas
+            # Consultas de facturas pendientes generales
             elif 'TbFacturasDetalle' in query and 'NFactura' in query:
                 return mock_facturas
-            # Consulta de ID de usuario
+            # Consulta de ID de usuario (fallback)
             elif 'SELECT Id FROM TbUsuariosAplicaciones' in query:
                 return [{'Id': 118}]
             return []
@@ -568,9 +579,9 @@ class TestAgedysIntegration:
         assert result is True
         
         # Verificar que se registraron emails
-        print(f"Mock call count: {mock_utils['register_email_in_database'].call_count}")
-        print(f"Mock calls: {mock_utils['register_email_in_database'].call_args_list}")
-        assert mock_utils['register_email_in_database'].call_count > 0
+        print(f"Mock call count: {mock_register_email.call_count}")
+        print(f"Mock calls: {mock_register_email.call_args_list}")
+        assert mock_register_email.call_count > 0
     
     def test_css_loading_integration(self, mock_utils):
         """Test de integración para la carga de CSS"""

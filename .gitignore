@@ -52,6 +52,7 @@ coverage.xml
 # Logs
 logs/
 *.log
+setup_local_environment.log
 
 # Database files
 *.accdb

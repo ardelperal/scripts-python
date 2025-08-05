@@ -798,11 +798,11 @@ class AgedysManager:
 
         return self.generate_html_table_facturas(facturas, "Facturas Pendientes de Visado Técnico")
 
-    def register_facturas_pendientes_notification(self, usuario: str, correo: str, facturas: List[Dict[str, Any]], dry_run: bool = False):
+    def register_facturas_pendientes_notification(self, usuario: str, correo: str, facturas: List[Dict[str, Any]], dry_run: bool = False) -> bool:
         """Registra notificación de facturas pendientes de visado técnico"""
         if not facturas:
             LoggingHelper.log_skipped_action("register_facturas_pendientes_notification", usuario, "No hay facturas pendientes")
-            return
+            return True
 
         try:
             # Generar contenido HTML
@@ -835,8 +835,11 @@ class AgedysManager:
 
                 LoggingHelper.log_email_action("send", usuario, correo, "REGISTRADO", f"{len(facturas)} facturas")
 
+            return True
+
         except Exception as e:
             LoggingHelper.log_database_error("register_facturas_pendientes_notification", usuario, str(e))
+            return False
 
     def register_dpds_sin_visado_notification(self, usuario: str, correo: str, dpds: List[Dict[str, Any]], dry_run: bool = False):
         """Registra notificación de DPDs sin visado"""

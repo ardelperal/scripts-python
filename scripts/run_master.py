@@ -111,8 +111,8 @@ class MasterRunner:
     def _load_config(self):
         """Carga la configuración desde archivo .env"""
         try:
-            # Intentar cargar desde .env
-            env_file = self.project_root / "config" / ".env"
+            # Intentar cargar desde .env en la raíz del proyecto
+            env_file = self.project_root / ".env"
             if env_file.exists():
                 self._load_env_file(env_file)
             else:

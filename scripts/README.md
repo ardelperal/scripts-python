@@ -98,7 +98,7 @@ python run_no_conformidades.py
 
 ## ⚙️ Configuración
 
-Los scripts utilizan variables de entorno definidas en `config/.env`. Consulte el README principal del proyecto para la configuración completa.
+Los scripts utilizan variables de entorno definidas en `.env` en la raíz del proyecto. Consulte el README principal del proyecto para la configuración completa.
 
 ### Variables Clave para Scripts:
 - `MASTER_CYCLE_*`: Tiempos de ciclo del master runner
