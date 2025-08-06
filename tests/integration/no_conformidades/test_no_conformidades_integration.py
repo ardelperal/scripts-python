@@ -55,9 +55,9 @@ class TestNoConformidadesIntegration:
     
     @pytest.fixture
     def mock_email_notifications(self):
-        """Mock de notificaciones por email"""
-        with patch('src.no_conformidades.email_notifications.enviar_notificacion_calidad') as mock_enviar_calidad, \
-             patch('src.no_conformidades.email_notifications.enviar_notificacion_tecnica') as mock_enviar_tecnica:
+        """Mock de notificaciones por email usando report_registrar"""
+        with patch('src.no_conformidades.report_registrar.enviar_notificacion_calidad') as mock_enviar_calidad, \
+             patch('src.no_conformidades.report_registrar.enviar_notificacion_tecnica') as mock_enviar_tecnica:
             
             mock_enviar_calidad.return_value = True
             mock_enviar_tecnica.return_value = True

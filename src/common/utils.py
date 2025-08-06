@@ -668,6 +668,7 @@ def get_economy_users(config, logger) -> List[Dict[str, str]]:
 def get_user_email(username: str, config, logger=None) -> str:
     """
     Obtiene el email de un usuario específico desde la base de datos
+    Implementación que coincide exactamente con el VBS original (función getCorreo)
     
     Args:
         username: Nombre de usuario (UsuarioRed)
@@ -683,18 +684,18 @@ def get_user_email(username: str, config, logger=None) -> str:
         # Usar la conexión de tareas para obtener el email
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
+        # Query simplificada que coincide exactamente con el VBS original
         query = """
             SELECT CorreoUsuario 
             FROM TbUsuariosAplicaciones 
-            WHERE UsuarioRed = ? 
-            AND ParaTareasProgramadas = True 
-            AND FechaBaja IS NULL
+            WHERE UsuarioRed = ?
         """
         
         result = db_connection.execute_query(query, [username])
         
         if result and len(result) > 0:
-            return result[0].get('CorreoUsuario', '')
+            email = result[0].get('CorreoUsuario', '')
+            return email if email else ""
         
         return ""
         

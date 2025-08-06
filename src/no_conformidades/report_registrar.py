@@ -14,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from common.html_report_generator import HTMLReportGenerator
 from common.config import Config
+from common.database import AccessDatabase
 
 config = Config()
 logger = logging.getLogger(__name__)
@@ -263,22 +264,24 @@ class ReportRegistrar:
             if ars_proximas_vencer_8_15:
                 html += "<h3>Acciones Próximas a Vencer (8-15 días)</h3>"
                 html += self.html_generator.generate_table(ars_proximas_vencer_8_15, 
-                    ["Código NC", "Descripción", "Fecha Fin Prevista", "Días Restantes"])
+                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
 
             if ars_proximas_vencer_1_7:
                 html += "<h3>Acciones Próximas a Vencer (1-7 días)</h3>"
                 html += self.html_generator.generate_table(ars_proximas_vencer_1_7, 
-                    ["Código NC", "Descripción", "Fecha Fin Prevista", "Días Restantes"])
+                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
 
             if ars_vencidas:
                 html += "<h3>Acciones Vencidas</h3>"
                 html += self.html_generator.generate_table(ars_vencidas, 
-                    ["Código NC", "Descripción", "Fecha Fin Prevista", "Días Vencidos"])
+                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
 
             html += """
                 <hr>
-                <p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>
-                <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>
+                    <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
+                </div>
             </body>
             </html>
             """
@@ -480,10 +483,10 @@ def enviar_notificacion_tecnica(datos_tecnicos: Dict[str, Any]) -> bool:
     """
     try:
         # Crear instancia del manager para obtener destinatarios
-        manager = EmailNotificationManager()
+        manager = ReportRegistrar()
         
         # Obtener destinatarios técnicos
-        destinatarios_tecnicos = manager.get_technical_emails()
+        destinatarios_tecnicos = manager.get_quality_emails()  # Usar quality_emails ya que no existe get_technical_emails
         destinatarios_admin = manager.get_admin_emails()
         
         # Verificar que hay destinatarios
@@ -549,7 +552,7 @@ def enviar_notificacion_individual_arapc(arapc_data: Dict[str, Any], usuario_res
             return False
         
         # Obtener emails de administradores
-        manager = EmailNotificationManager()
+        manager = ReportRegistrar()
         destinatarios_admin = manager.get_admin_emails()
         admin_str = "; ".join(destinatarios_admin) if destinatarios_admin else ""
         

@@ -206,8 +206,17 @@ def ejecutar_tarea_tecnica(dry_run=False):
                 # Convertir set a string separado por comas
                 correos_cc = "; ".join(sorted(correos_calidad_cc)) if correos_calidad_cc else ""
 
+                # Obtener el correo electrónico del técnico
+                from src.common.utils import get_user_email
+                correo_tecnico = get_user_email(tecnico, nc_manager.config, logger)
+                
+                if not correo_tecnico:
+                    logger.error(f"ERROR: No se pudo obtener el correo del técnico {tecnico}. No se registrará la notificación.")
+                    total_notificaciones += 1
+                    continue
+
                 total_notificaciones += 1
-                logger.info(f"Generando notificación para {tecnico}...")
+                logger.info(f"Generando notificación para {tecnico} ({correo_tecnico})...")
                 if correos_cc:
                     logger.info(f"  - Con copia a responsables de calidad: {correos_cc}")
                 
@@ -219,7 +228,7 @@ def ejecutar_tarea_tecnica(dry_run=False):
                 )
 
                 if dry_run:
-                    logger.info(f"DRY-RUN: Se enviaría notificación a {tecnico}")
+                    logger.info(f"DRY-RUN: Se enviaría notificación a {correo_tecnico}")
                     if correos_cc:
                         logger.info(f"DRY-RUN: Con copia a: {correos_cc}")
                     resultado = True
@@ -229,7 +238,7 @@ def ejecutar_tarea_tecnica(dry_run=False):
                         application="NoConformidades",
                         subject=asunto,
                         body=cuerpo,
-                        recipients=tecnico,
+                        recipients=correo_tecnico,
                         admin_emails=correos_cc
                     )
 

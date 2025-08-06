@@ -1,33 +1,55 @@
-# Tests para No Conformidades
+# Tests Unitarios - Módulo No Conformidades
 
-Esta carpeta contiene los tests unitarios para el módulo de No Conformidades.
+Este directorio contiene los tests unitarios para el módulo de No Conformidades.
 
-## Estructura
+## Estructura de Tests
 
-- `test_no_conformidades_manager.py`: Tests para el manager principal y las clases de datos (NoConformidad, ARAPC, Usuario)
-- `test_email_notifications.py`: Tests para las notificaciones por email
-- `test_html_report_generator.py`: Tests para el generador de reportes HTML
+### Tests Actuales
 
-## Ejecutar tests
+- `test_no_conformidades_manager.py`: Tests para la clase principal NoConformidadesManager
+- `test_report_registrar.py`: Tests para las funciones de generación y envío de reportes
+- `test_html_report_generator.py`: Tests para la generación de reportes HTML
 
-Para ejecutar todos los tests de no_conformidades:
+## Ejecutar Tests
+
+### Todos los tests unitarios del módulo:
 ```bash
-pytest tests/unit/no_conformidades/ -v
+python -m pytest tests/unit/no_conformidades/ -v
 ```
 
-Para ejecutar un archivo específico:
+### Test específico:
 ```bash
-pytest tests/unit/no_conformidades/test_email_notifications.py -v
+python -m pytest tests/unit/no_conformidades/test_no_conformidades_manager.py -v
 ```
 
-Para ejecutar con cobertura:
+### Con cobertura:
 ```bash
-pytest tests/unit/no_conformidades/ --cov=src.no_conformidades --cov-report=html
+python -m pytest tests/unit/no_conformidades/ --cov=src.no_conformidades --cov-report=html
 ```
 
-## Notas importantes
+## Notas Importantes
 
-- Los tests utilizan mocks para simular las conexiones a base de datos
-- Se verifica el formato de fecha correcto para Access (#mm/dd/yyyy#)
-- Se valida el uso de la función `get_max_id` para obtener el siguiente IDCorreo
-- Los tests están organizados por funcionalidad para facilitar el mantenimiento
+- Los tests utilizan mocks para las conexiones a bases de datos
+- Se valida el formateo correcto de fechas para Access (formato MM/DD/YYYY)
+- Los tests verifican la lógica de negocio sin depender de datos reales
+- Se prueban tanto casos exitosos como manejo de errores
+
+## Cobertura de Tests
+
+Los tests cubren:
+- ✅ Inicialización y configuración del manager
+- ✅ Conexiones a bases de datos
+- ✅ Obtención de datos de NC y ARAPC
+- ✅ Generación de reportes HTML
+- ✅ Envío de notificaciones por correo
+- ✅ Registro de correos enviados
+- ✅ Manejo de errores y casos edge
+- ✅ Formateo de fechas y datos
+- ✅ Aplicación de estilos CSS y clases
+
+## Dependencias de Test
+
+- pytest
+- unittest.mock
+- datetime
+- Mocks de las clases principales del módulo

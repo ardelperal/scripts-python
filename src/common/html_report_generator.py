@@ -7,7 +7,7 @@ import os
 import logging
 from datetime import datetime
 from typing import List, Dict
-from no_conformidades.no_conformidades_manager import NoConformidad, ARAPC, Usuario
+# Clases de datos eliminadas - ya no se necesitan
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,13 @@ class HTMLReportGenerator:
             "Fecha Registro": "FECHAAPERTURA",
             "Código NC": "CodigoNoConformidad",
             "Fecha Fin Prevista": "FechaFinPrevista",
-            "Días Vencidos": "Dias"
+            "Días Vencidos": "Dias",
+            # Mapeos adicionales para correos técnicos
+            "Acción Correctiva": "AccionCorrectiva",
+            "Acción Realizada": "AccionRealizada",
+            "Nemotécnico": "Nemotecnico",
+            "Días para Caducar": "DiasParaCaducar",
+            "Días": "DiasParaCaducar"  # Nuevo mapeo para "Días"
         }
 
         html = "<table class='table'>\n"
@@ -57,8 +63,26 @@ class HTMLReportGenerator:
                     cell_value = cell_value.strftime('%d/%m/%Y')
                 elif cell_value is None:
                     cell_value = 'N/A'
-                    
-                html += f"    <td>{cell_value}</td>\n"
+                elif header in ["Días para Caducar", "Días"] and isinstance(cell_value, (int, float)):
+                    # Formatear días para caducar con colores como en el correo de calidad
+                    if cell_value < 0:
+                        # Días vencidos - color rojo
+                        cell_value = f'<span class="dias-indicador negativo">{cell_value}</span>'
+                    elif cell_value == 0:
+                        # Vence hoy - color naranja
+                        cell_value = f'<span class="dias-indicador critico">0</span>'
+                    elif cell_value <= 7:
+                        # Próximo a vencer - color naranja
+                        cell_value = f'<span class="dias-indicador critico">{cell_value}</span>'
+                    else:
+                        # Normal - color verde
+                        cell_value = f'<span class="dias-indicador normal">{cell_value}</span>'
+                
+                # Aplicar centrado a ciertas columnas
+                if header in ["Código NC", "Nemotécnico", "Fecha Fin Prevista", "Días", "Días para Caducar"]:
+                    html += f"    <td class='centrado'>{cell_value}</td>\n"
+                else:
+                    html += f"    <td>{cell_value}</td>\n"
             html += "  </tr>\n"
 
         html += "</table>"
@@ -67,7 +91,7 @@ class HTMLReportGenerator:
     def get_css_styles(self) -> str:
         """Lee y devuelve los estilos CSS desde el archivo."""
         try:
-            css_path = os.path.join(os.path.dirname(__file__), '..', '..', 'herramientas', 'CSS.txt')
+            css_path = os.path.join(os.path.dirname(__file__), '..', '..', 'herramientas', 'CSS_moderno.css')
             with open(css_path, 'r', encoding='utf-8') as f:
                 return f.read()  # Solo devolver el contenido CSS sin las etiquetas <style>
         except Exception as e:
@@ -263,7 +287,7 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_tabla_nc_sin_acciones(self, ncs: List[NoConformidad]) -> str:
+    def generar_tabla_nc_sin_acciones(self, ncs: List[Dict]) -> str:
         """Genera tabla HTML para NCs sin acciones definidas"""
         if not ncs:
             return '<p class="info">No hay No Conformidades sin acciones definidas.</p>'
@@ -311,10 +335,10 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_resumen_estadisticas(self, ncs_eficacia: List[NoConformidad], 
-                                   arapcs: List[ARAPC], 
-                                   ncs_caducar: List[NoConformidad],
-                                   ncs_sin_acciones: List[NoConformidad]) -> str:
+    def generar_resumen_estadisticas(self, ncs_eficacia: List[Dict], 
+                                   arapcs: List[Dict], 
+                                   ncs_caducar: List[Dict],
+                                   ncs_sin_acciones: List[Dict]) -> str:
         """Genera un resumen con estadísticas generales"""
         total_ncs_eficacia = len(ncs_eficacia)
         total_arapcs = len(arapcs)
@@ -371,10 +395,10 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_reporte_completo(self, ncs_eficacia: List[NoConformidad], 
-                               arapcs: List[ARAPC], 
-                               ncs_caducar: List[NoConformidad],
-                               ncs_sin_acciones: List[NoConformidad],
+    def generar_reporte_completo(self, ncs_eficacia: List[Dict], 
+                               arapcs: List[Dict], 
+                               ncs_caducar: List[Dict],
+                               ncs_sin_acciones: List[Dict],
                                titulo: str = "Reporte de No Conformidades") -> str:
         """Genera un reporte HTML completo"""
         

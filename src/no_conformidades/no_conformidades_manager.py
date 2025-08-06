@@ -15,7 +15,7 @@ if src_dir not in os.sys.path:
     os.sys.path.insert(0, src_dir)
 
 from common.base_task import TareaDiaria
-from common.config import config
+from common.config import config, Config
 from common.database import AccessDatabase
 from common.utils import (
     load_css_content, safe_str, generate_html_header, generate_html_footer,
@@ -858,7 +858,7 @@ class NoConformidadesManager(TareaDiaria):
         """Genera el cuerpo del email para el informe individual de un técnico."""
         html = f"""\
         <html>
-        <head>{self.css}</head>
+        <head>{self.css_content}</head>
         <body>
             <h2>Informe de Acciones Correctivas Pendientes</h2>
             <p>A continuación se detallan las acciones correctivas (ARAPs) que requieren su atención.</p>
@@ -885,7 +885,7 @@ class NoConformidadesManager(TareaDiaria):
     
     def generate_quality_report_html(self, nc_pendientes_eficacia, nc_sin_acciones, ar_vencidas_calidad, ar_proximas_vencer_calidad, **kwargs):
         """Genera el cuerpo del email para el reporte de Calidad con las 4 secciones requeridas."""
-        html = self._get_modern_html_header("INFORME TAREAS NO CONFORMIDADES")
+        html = self._get_modern_html_header()
 
         # Sección 1: ARs Próximas a Caducar o Caducadas
         if ar_proximas_vencer_calidad:
@@ -921,27 +921,27 @@ class NoConformidadesManager(TareaDiaria):
 
     def generate_technician_report_html(self, ar_15_dias, ar_7_dias, ar_vencidas, **kwargs):
         """Genera el cuerpo del email para el reporte de Técnicos con las 3 secciones requeridas."""
-        html = self._get_modern_html_header("TAREAS DE ACCIONES CORRECTIVAS A PUNTO DE CADUCAR O CADUCADAS")
+        html = self._get_modern_html_header()
 
         # Sección 1: ARs con fecha fin prevista a 8-15 días
         if ar_15_dias:
             html += '<div class="seccion">\n'
             html += '<h3>1. Acciones Correctivas con fecha fin prevista a 8-15 días</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_15_dias)
+            html += self._generate_modern_ar_tecnico_table_html(ar_15_dias, "Acciones Correctivas con fecha fin prevista a 8-15 días")
             html += '</div>\n'
 
         # Sección 2: ARs con fecha fin prevista a 1-7 días
         if ar_7_dias:
             html += '<div class="seccion">\n'
             html += '<h3>2. Acciones Correctivas con fecha fin prevista a 1-7 días</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_7_dias)
+            html += self._generate_modern_ar_tecnico_table_html(ar_7_dias, "Acciones Correctivas con fecha fin prevista a 1-7 días")
             html += '</div>\n'
 
         # Sección 3: ARs con fecha fin prevista 0 o negativa (vencidas)
         if ar_vencidas:
             html += '<div class="seccion">\n'
             html += '<h3>3. Acciones Correctivas con fecha fin prevista 0 o negativa (vencidas)</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_vencidas)
+            html += self._generate_modern_ar_tecnico_table_html(ar_vencidas, "Acciones Correctivas vencidas")
             html += '</div>\n'
 
         html += self._get_modern_html_footer()
