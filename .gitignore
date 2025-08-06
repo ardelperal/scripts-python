@@ -75,3 +75,12 @@ templates/*.html
 
 # Debug files
 debug_*.py
+debug_html/
+test_*.py
+verify_*.py
+ejemplo_*.html
+
+# Development files
+herramientas/*.txt
+herramientas/*.css
+!herramientas/CSS_moderno.css

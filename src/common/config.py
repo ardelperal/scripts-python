@@ -41,7 +41,10 @@ class Config:
             self.db_expedientes_path = self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
             self.db_no_conformidades_path = self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_Datos.accdb')
             self.db_lanzadera_path = self.root_dir / os.getenv('LOCAL_DB_LANZADERA', 'dbs-locales/Lanzadera_Datos.accdb')
-            self.css_file_path = self.root_dir / os.getenv('LOCAL_CSS_FILE', 'herramientas/CSS.txt')
+            # Configuración de CSS
+            self.css_classic_file_path = self.root_dir / os.getenv('LOCAL_CSS_CLASSIC_FILE', 'herramientas/CSS.txt')
+            self.css_modern_file_path = self.root_dir / os.getenv('LOCAL_CSS_MODERN_FILE', 'herramientas/CSS_moderno.css')
+            self.nc_css_style = os.getenv('NC_CSS_STYLE', 'modern')  # 'classic' o 'modern'
         else:  # oficina
             self.db_agedys_path = Path(os.getenv('OFFICE_DB_AGEDYS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb'))
             self.db_brass_path = Path(os.getenv('OFFICE_DB_BRASS', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Gestion_Brass_Gestion_Datos.accdb'))
@@ -51,7 +54,10 @@ class Config:
             self.db_expedientes_path = Path(os.getenv('OFFICE_DB_EXPEDIENTES', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Expedientes_datos.accdb'))
             self.db_no_conformidades_path = Path(os.getenv('OFFICE_DB_NO_CONFORMIDADES', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\NoConformidades_datos.accdb'))
             self.db_lanzadera_path = Path(os.getenv('OFFICE_DB_LANZADERA', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\0Lanzadera\Lanzadera_Datos.accdb'))
-            self.css_file_path = Path(os.getenv('OFFICE_CSS_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
+            # Configuración de CSS
+            self.css_classic_file_path = Path(os.getenv('OFFICE_CSS_CLASSIC_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
+            self.css_modern_file_path = Path(os.getenv('OFFICE_CSS_MODERN_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS_moderno.css'))
+            self.nc_css_style = os.getenv('NC_CSS_STYLE', 'modern')  # 'classic' o 'modern'
         
         # Directorio para logs
         self.logs_dir = self.root_dir / 'logs'
@@ -130,6 +136,34 @@ class Config:
         """Crea directorios necesarios si no existen"""
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         
+    def get_css_file_path(self, style: str = None) -> Path:
+        """Retorna la ruta del archivo CSS según el estilo especificado o la configuración"""
+        if style is None:
+            style = self.nc_css_style
+        
+        if style == 'modern':
+            return self.css_modern_file_path
+        else:  # classic
+            return self.css_classic_file_path
+    
+    def get_nc_css_content(self) -> str:
+        """Retorna el contenido del CSS para No Conformidades según la configuración"""
+        css_path = self.get_css_file_path()
+        try:
+            with open(css_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            # Fallback al CSS clásico si no se encuentra el moderno
+            if self.nc_css_style == 'modern':
+                try:
+                    with open(self.css_classic_file_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+                except FileNotFoundError:
+                    return ""
+            return ""
+        except Exception:
+            return ""
+
     def get_local_db_path(self, db_type: str) -> Path:
         """Retorna siempre la ruta local de la base de datos, independientemente del entorno"""
         if db_type == 'agedys':

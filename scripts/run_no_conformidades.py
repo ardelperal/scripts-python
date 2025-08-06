@@ -24,10 +24,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from src.common.logger import setup_logger
 from src.common.utils import (
     should_execute_task, should_execute_quality_task, get_admin_emails_string, get_quality_emails_string, 
-    register_task_completion, register_email_in_database
+    get_technical_emails_string, register_task_completion, register_email_in_database
 )
 from src.no_conformidades.no_conformidades_manager import NoConformidadesManager
-from src.no_conformidades.email_notifications import EmailNotificationManager
+from src.no_conformidades.report_registrar import ReportRegistrar
 from src.common.user_adapter import get_users_with_fallback
 
 
@@ -80,84 +80,73 @@ Ejemplos de uso:
 
 
 def ejecutar_tarea_calidad(dry_run=False):
-    """Ejecuta la tarea de calidad (equivalente a RealizarTareaCalidad)"""
+    """Ejecuta la tarea de calidad generando un informe consolidado."""
     logger = setup_logger(__name__)
     logger.info("=== INICIANDO TAREA DE CALIDAD ===")
-    
     if dry_run:
         logger.info("MODO DRY-RUN: No se enviarán emails reales")
-    
-    email_manager = EmailNotificationManager()
-    
+
+    email_manager = ReportRegistrar()
+
     try:
-        # Usar context manager para manejo automático de conexiones
         with NoConformidadesManager() as nc_manager:
-            # Obtener datos para el reporte de calidad
-            logger.info("Obteniendo datos para reporte de calidad...")
-            
-            ncs_eficacia = nc_manager.get_nc_pendientes_eficacia()
-            ncs_caducar = nc_manager.get_nc_proximas_caducar()
-            ncs_sin_acciones = nc_manager.get_nc_registradas_sin_acciones()
-            
-            # Log de resultados
-            logger.info(f"NCs pendientes eficacia: {len(ncs_eficacia)}")
-            logger.info(f"NCs próximas a caducar: {len(ncs_caducar)}")
+            logger.info("Obteniendo datos para el reporte de calidad...")
+            # 1. ARs próximas a vencer (calidad)
+            ars_proximas_vencer = nc_manager.get_ars_proximas_vencer_calidad()
+            # 2. NCs resueltas pendientes de control de eficacia
+            ncs_pendientes_eficacia = nc_manager.get_ncs_pendientes_eficacia()
+            # 3. NCs registradas sin acciones correctivas
+            ncs_sin_acciones = nc_manager.get_ncs_sin_acciones()
+            # 4. ARs para replanificar
+            ars_para_replanificar = nc_manager.get_ars_para_replanificar()
+
+            logger.info(f"ARs próximas a vencer (calidad): {len(ars_proximas_vencer)}")
+            logger.info(f"NCs pendientes de eficacia: {len(ncs_pendientes_eficacia)}")
             logger.info(f"NCs sin acciones: {len(ncs_sin_acciones)}")
-            
-            # Verificar si hay datos para reportar
-            total_items = len(ncs_eficacia) + len(ncs_caducar) + len(ncs_sin_acciones)
-            
-            if total_items == 0:
-                logger.info("No hay elementos para reportar en la tarea de calidad")
-            else:
-                # Obtener destinatarios usando funciones comunes
-                correos_calidad = get_quality_emails_string("1", nc_manager.config, logger)  # App ID 1 para NC
-                correos_admin = get_admin_emails_string(nc_manager.db_tareas)  # Solo necesita db_connection
-                
-                logger.info(f"Destinatarios calidad: {correos_calidad}")
-                logger.info(f"Destinatarios admin: {correos_admin}")
-                
-                # Registrar reporte de calidad en base de datos
-                if correos_calidad or correos_admin:
-                    # Generar el contenido del email
-                    asunto = f"Reporte de No Conformidades - Calidad ({total_items} pendientes)"
+            logger.info(f"ARs para replanificar: {len(ars_para_replanificar)}")
+
+            if ars_proximas_vencer or ncs_pendientes_eficacia or ncs_sin_acciones or ars_para_replanificar:
+                correos_calidad = get_quality_emails_string(app_id="8", config=nc_manager.config, logger=logger, db_connection=nc_manager.db_tareas)
+
+                if correos_calidad:
+                    logger.info("Generando reporte de calidad...")
+                    asunto = "Informe Tareas No Conformidades (No Conformidades)"
                     cuerpo = email_manager._generar_reporte_calidad_html(
-                        ncs_eficacia=ncs_eficacia,
-                        ncs_caducar=ncs_caducar,
+                        ncs_eficacia=ncs_pendientes_eficacia,
+                        ncs_caducar=ars_proximas_vencer,
                         ncs_sin_acciones=ncs_sin_acciones,
                         destinatarios_calidad=correos_calidad,
-                        destinatarios_admin=correos_admin
+                        destinatarios_admin=""
                     )
-                    
-                    destinatarios = correos_calidad if correos_calidad else ""
-                    admin_emails = correos_admin if correos_admin else ""
-                    
+
                     if dry_run:
-                        logger.info("DRY-RUN: Se habría registrado reporte de calidad en base de datos")
-                        resultado_email = True
+                        logger.info(f"DRY-RUN: Se enviaría reporte a {correos_calidad}")
+                        resultado = True
                     else:
-                        resultado_email = register_email_in_database(
+                        # Para el reporte de calidad NO se envían técnicos en BCC
+                        resultado = register_email_in_database(
                             db_connection=nc_manager.db_tareas,
                             application="NoConformidades",
                             subject=asunto,
                             body=cuerpo,
-                            recipients=destinatarios,
-                            admin_emails=admin_emails
+                            recipients=correos_calidad,
+                            admin_emails=""  # Sin BCC para el reporte de calidad
                         )
                     
-                    if resultado_email:
-                        logger.info("Reporte de calidad registrado correctamente en base de datos")
+                    if resultado:
+                        logger.info("Reporte de calidad registrado correctamente.")
                     else:
-                        logger.error("Error registrando reporte de calidad en base de datos")
+                        logger.error("Error al registrar el reporte de calidad.")
                 else:
-                    logger.warning("No hay destinatarios configurados para el reporte de calidad")
-            
-            # Registrar la ejecución de la tarea usando función común
+                    logger.warning("No se encontraron destinatarios de calidad. No se enviará el reporte.")
+            else:
+                logger.info("No hay datos para generar el reporte de calidad.")
+
             if not dry_run:
                 register_task_completion(nc_manager.db_tareas, "NoConformidadesCalidad")
             else:
-                logger.info("DRY-RUN: Se habría registrado la ejecución de la tarea")
-        
+                logger.info("DRY-RUN: Se habría registrado la ejecución de la tarea.")
+
         logger.info("=== TAREA DE CALIDAD COMPLETADA ===")
         return True
         
@@ -167,117 +156,112 @@ def ejecutar_tarea_calidad(dry_run=False):
 
 
 def ejecutar_tarea_tecnica(dry_run=False):
-    """Ejecuta la tarea técnica (equivalente a RealizarTareaTecnicos)"""
+    """Ejecuta la tarea técnica enviando notificaciones individuales por técnico."""
     logger = setup_logger(__name__)
     logger.info("=== INICIANDO TAREA TÉCNICA ===")
-    
     if dry_run:
         logger.info("MODO DRY-RUN: No se enviarán emails reales")
-    
-    email_manager = EmailNotificationManager()
-    
+
+    email_manager = ReportRegistrar()
+    exitosos = 0
+    total_notificaciones = 0
+
     try:
-        # Usar context manager para manejo automático de conexiones
         with NoConformidadesManager() as nc_manager:
-            # Obtener ARAPs próximas a vencer
-            logger.info("Obteniendo ARAPs próximas a vencer...")
-            
-            arapcs = nc_manager.get_arapcs_proximas_vencer()
-            
-            # Log de resultados
-            logger.info(f"ARAPs próximas a vencer: {len(arapcs)}")
-            
-            if len(arapcs) == 0:
-                logger.info("No hay ARAPs próximas a vencer")
-            else:
-                # Obtener destinatarios usando función común
-                correos_admin = get_admin_emails_string(nc_manager.db_tareas)  # Solo necesita db_connection
+            tecnicos = nc_manager.get_tecnicos_con_nc_activas()
+            if not tecnicos:
+                logger.info("No hay técnicos con NC activas para notificar.")
+                if not dry_run:
+                    register_task_completion(nc_manager.db_tareas, "NoConformidadesTecnica")
+                return True
+
+            for tecnico in tecnicos:
+                # Obtener ARs para este técnico
+                ars_por_vencer_8_15 = nc_manager.get_ars_tecnico_por_vencer(tecnico, 8, 15, "IDCorreo15")
+                ars_por_vencer_1_7 = nc_manager.get_ars_tecnico_por_vencer(tecnico, 1, 7, "IDCorreo7")
+                ars_vencidas = nc_manager.get_ars_tecnico_vencidas(tecnico, "IDCorreo0")
+
+                if not ars_por_vencer_8_15 and not ars_por_vencer_1_7 and not ars_vencidas:
+                    logger.info(f"El técnico {tecnico} no tiene ARs para notificar.")
+                    continue
+
+                # Obtener correos de responsables de calidad específicos
+                # Solo para consultas 2.1.b (1-7 días) y 2.1.c (vencidas)
+                correos_calidad_cc = set()
                 
-                logger.info(f"Destinatarios admin: {correos_admin}")
+                # Obtener correos de calidad para ARs de 1-7 días
+                for ar in ars_por_vencer_1_7:
+                    if 'CodigoNoConformidad' in ar:
+                        correo_calidad = nc_manager.get_correo_calidad_por_nc(ar['CodigoNoConformidad'])
+                        if correo_calidad:
+                            correos_calidad_cc.add(correo_calidad)
                 
-                # Registrar reporte técnico general en base de datos
-                if correos_admin:
-                    # Generar el contenido del email
-                    asunto = f"Reporte Técnico - ARAPs próximas a vencer ({len(arapcs)} elementos)"
-                    cuerpo = email_manager._generar_reporte_tecnico_html(
-                        arapcs=arapcs,
-                        destinatarios_tecnicos="",
-                        destinatarios_admin=correos_admin
-                    )
-                    
-                    if dry_run:
-                        logger.info("DRY-RUN: Se habría registrado reporte técnico general en base de datos")
-                        resultado_email = True
-                    else:
-                        resultado_email = register_email_in_database(
-                            db_connection=nc_manager.db_tareas,
-                            application="NoConformidades",
-                            subject=asunto,
-                            body=cuerpo,
-                            recipients="",
-                            admin_emails=correos_admin
-                        )
-                    
-                    if resultado_email:
-                        logger.info("Reporte técnico general registrado correctamente en base de datos")
-                    else:
-                        logger.error("Error registrando reporte técnico general en base de datos")
+                # Obtener correos de calidad para ARs vencidas
+                for ar in ars_vencidas:
+                    if 'CodigoNoConformidad' in ar:
+                        correo_calidad = nc_manager.get_correo_calidad_por_nc(ar['CodigoNoConformidad'])
+                        if correo_calidad:
+                            correos_calidad_cc.add(correo_calidad)
+
+                # Convertir set a string separado por comas
+                correos_cc = "; ".join(sorted(correos_calidad_cc)) if correos_calidad_cc else ""
+
+                # Obtener el correo electrónico del técnico
+                from src.common.utils import get_user_email
+                correo_tecnico = get_user_email(tecnico, nc_manager.config, logger)
                 
-                # Registrar notificaciones individuales en base de datos
-                logger.info("Registrando notificaciones individuales en base de datos...")
+                if not correo_tecnico:
+                    logger.error(f"ERROR: No se pudo obtener el correo del técnico {tecnico}. No se registrará la notificación.")
+                    total_notificaciones += 1
+                    continue
+
+                total_notificaciones += 1
+                logger.info(f"Generando notificación para {tecnico} ({correo_tecnico})...")
+                if correos_cc:
+                    logger.info(f"  - Con copia a responsables de calidad: {correos_cc}")
                 
-                # Obtener usuarios técnicos usando función común
-                usuarios_tecnicos = get_users_with_fallback(
-                    user_type='technical',
-                    app_id="1",  # App ID 1 para NC
-                    config=nc_manager.config,
-                    logger=logger
+                asunto = "Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)"
+                cuerpo = email_manager.generate_technical_report_html(
+                    ars_proximas_vencer_8_15=ars_por_vencer_8_15,
+                    ars_proximas_vencer_1_7=ars_por_vencer_1_7,
+                    ars_vencidas=ars_vencidas
                 )
-                
-                exitosos = 0
-                total = 0
-                
-                # Registrar una notificación individual por cada ARAP
-                for arap in arapcs:
-                    # Buscar el responsable de esta ARAP
-                    responsable_email = None
-                    for usuario in usuarios_tecnicos:
-                        if usuario.get('UsuarioRed') == arap.get('Responsable'):
-                            responsable_email = usuario.get('CorreoUsuario')
-                            break
-                    
-                    if responsable_email:
-                        asunto = f"ARAP próxima a vencer - {arap.get('NumeroNC', 'N/A')}"
-                        cuerpo = email_manager._generar_notificacion_individual_html(arap, responsable_email)
-                        
-                        if dry_run:
-                            logger.info(f"DRY-RUN: Se habría registrado notificación individual para {responsable_email}")
-                            resultado = True
-                        else:
-                            resultado = register_email_in_database(
-                                db_connection=nc_manager.db_tareas,
-                                application="NoConformidades",
-                                subject=asunto,
-                                body=cuerpo,
-                                recipients=responsable_email,
-                                admin_emails=""
-                            )
-                        
-                        if resultado:
-                            exitosos += 1
-                        total += 1
-                    else:
-                        logger.warning(f"No se encontró email para responsable: {arap.get('Responsable', 'N/A')}")
-                        total += 1
-                
-                logger.info(f"Notificaciones individuales registradas: {exitosos}/{total}")
-            
-            # Registrar la ejecución de la tarea usando función común
+
+                if dry_run:
+                    logger.info(f"DRY-RUN: Se enviaría notificación a {correo_tecnico}")
+                    if correos_cc:
+                        logger.info(f"DRY-RUN: Con copia a: {correos_cc}")
+                    resultado = True
+                else:
+                    resultado = register_email_in_database(
+                        db_connection=nc_manager.db_tareas,
+                        application="NoConformidades",
+                        subject=asunto,
+                        body=cuerpo,
+                        recipients=correo_tecnico,
+                        admin_emails=correos_cc
+                    )
+
+                if resultado:
+                    exitosos += 1
+                    logger.info(f"Notificación para {tecnico} registrada correctamente.")
+                    # Registrar avisos para las ARs notificadas
+                    for ar in ars_por_vencer_8_15:
+                        nc_manager.registrar_aviso_ar(ar['IDAccionRealizada'], 1, "IDCorreo15")
+                    for ar in ars_por_vencer_1_7:
+                        nc_manager.registrar_aviso_ar(ar['IDAccionRealizada'], 1, "IDCorreo7")
+                    for ar in ars_vencidas:
+                        nc_manager.registrar_aviso_ar(ar['IDAccionRealizada'], 1, "IDCorreo0")
+                else:
+                    logger.error(f"Error al registrar la notificación para {tecnico}.")
+
+            logger.info(f"Notificaciones técnicas procesadas: {exitosos}/{total_notificaciones}")
+
             if not dry_run:
                 register_task_completion(nc_manager.db_tareas, "NoConformidadesTecnica")
             else:
                 logger.info("DRY-RUN: Se habría registrado la ejecución de la tarea")
-        
+
         logger.info("=== TAREA TÉCNICA COMPLETADA ===")
         return True
         

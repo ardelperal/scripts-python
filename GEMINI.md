@@ -1,107 +1,190 @@
-# Gemini Project Analysis
+GEMINI_MODEL=gemini-2.5-pro
 
-This document provides a summary of the project's conventions, tools, and commands to help Gemini assist you more effectively.
+Siempre has de hablar en español
 
-## Project Overview
+<Modulo de No Conformidades>
+Lógica Completa para el Proceso de Notificación por Correo en Módulo de No Conformidades
+1) Tareas para Miembros de Calidad
+Se generan 4 consultas SQL principales que deben obtener distintos conjuntos de datos que alimentarán las tablas HTML que forman el cuerpo del correo:
 
-This project is a Python-based system for managing and automating business tasks, migrated from a legacy VBS system. The core of the project is the `run_master.py` script, which acts as a continuous monitoring daemon, executing various modules according to a schedule.
+1.1.a) ARs próximas a caducar o caducadas (sin fecha fin real):
 
-## Key Technologies and Tools
+sql
+SELECT DISTINCT DateDiff('d',Now(),[FPREVCIERRE]) AS DiasParaCierre, 
+    TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
+FROM TbNoConformidades 
+INNER JOIN (TbNCAccionCorrectivas 
+  INNER JOIN TbNCAccionesRealizadas 
+  ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva) 
+ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad 
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL AND 
+      DateDiff('d',Now(),[FPREVCIERRE]) < 16;
+1.1.b) No Conformidades resueltas pendientes de Control de Eficacia:
 
-*   **Programming Language:** Python 3.11+
-*   **Package Manager:** pip with `requirements.txt`
-*   **Testing:** `pytest` for unit, integration, and functional tests.
-*   **Code Coverage:** `coverage.py` with HTML reports.
-*   **Linting/Formatting:** `black`, `flake8`, `mypy`.
-*   **Database:** Microsoft Access, accessed via `pyodbc` and `pywin32`.
-*   **Data Processing:** `pandas`
-*   **Configuration:** `python-dotenv` for environment variables.
+sql
+SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD,  
+    TbNoConformidades.FECHACIERRE, TbNoConformidades.FechaPrevistaControlEficacia,
+    DateDiff('d',Now(),[FechaPrevistaControlEficacia]) AS Dias
+FROM TbNoConformidades
+INNER JOIN (TbNCAccionCorrectivas 
+  INNER JOIN TbNCAccionesRealizadas 
+  ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
+ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
+WHERE DateDiff('d',Now(),[FechaPrevistaControlEficacia]) < 30
+  AND TbNCAccionesRealizadas.FechaFinReal IS NOT NULL
+  AND TbNoConformidades.RequiereControlEficacia = 'Sí'
+  AND TbNoConformidades.FechaControlEficacia IS NULL;
+1.1.c) No Conformidades sin Acciones Correctivas registradas:
 
-## Project Structure
+sql
+SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico,
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
+FROM TbNoConformidades
+LEFT JOIN TbNCAccionCorrectivas 
+  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
+WHERE TbNCAccionCorrectivas.IDNoConformidad IS NULL;
+1.1.d) ARs para Replanificar (fecha prevista cercana o pasada, sin fecha fin real):
 
-The project is organized into the following main directories:
+sql
+SELECT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNCAccionCorrectivas.AccionCorrectiva AS Accion, TbNCAccionesRealizadas.AccionRealizada AS Tarea,
+    TbUsuariosAplicaciones.Nombre AS Tecnico, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNCAccionesRealizadas.FechaFinPrevista,
+    DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) AS Dias
+FROM (TbNoConformidades 
+  INNER JOIN (TbNCAccionCorrectivas 
+    INNER JOIN TbNCAccionesRealizadas 
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
+  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
+LEFT JOIN TbUsuariosAplicaciones 
+  ON TbNCAccionesRealizadas.Responsable = TbUsuariosAplicaciones.UsuarioRed
+WHERE DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) < 16 
+  AND TbNCAccionesRealizadas.FechaFinReal IS NULL;
+Una vez se obtienen los datos de cada consulta, se generan tablas HTML con esa información.
 
-*   `src/`: Contains the main source code, organized by module (`agedys`, `brass`, `correos`, etc.) and a `common` directory for shared utilities.
-*   `scripts/`: Contains the main execution scripts, including the master runner (`run_master.py`).
-*   `tests/`: Contains all tests, organized into `unit`, `integration`, and `functional` subdirectories.
-*   `config/`: Contains environment variable templates.
-*   `dbs-locales/`: Contains local Access databases for development.
-*   `docs/`: Contains project documentation.
-*   `legacy/`: Contains the original VBS scripts.
-*   `tools/`: Contains development and utility scripts.
+El cuerpo del correo para este grupo será la concatenación (o conjunto) de estas tablas HTML.
 
-## Environments
+Destinatarios: Correos electrónicos de los Miembros de Calidad responsables (se obtienen de manera común / previa).
 
-The project supports two environments, configured via the `ENVIRONMENT` variable in the `.env` file:
+Asunto: "Informe Tareas No Conformidades (No Conformidades)"
 
-*   `local`: Uses local Access databases in `dbs-locales/` and a local SMTP server (MailHog).
-*   `oficina`: Uses network-based Access databases and the corporate SMTP server.
+Finalmente, se usa la función común de registro de correos para guardar este correo en la base de datos.
 
-## Commands
+2) Tareas para Técnicos
+Se detectan los técnicos que tienen al menos una NC activa con AR pendiente mediante esta consulta:
 
-### Installation
+sql
+SELECT DISTINCT TbNoConformidades.RESPONSABLETELEFONICA
+FROM (TbNoConformidades
+  INNER JOIN TbNCAccionCorrectivas ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
+  INNER JOIN TbNCAccionesRealizadas ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL 
+  AND TbNoConformidades.Borrado = False 
+  AND DateDiff('d', Now(), [FechaFinPrevista]) <= 15;
+Por cada técnico (variable p_Usuario = RESPONSABLETELEFONICA) se deben generar tres consultas SQL distintas, agregando el filtro de ese usuario:
 
-```bash
-pip install -r requirements.txt
-```
+2.1.a) ARs con fecha fin prevista a 8-15 días, sin fecha fin real, y que no estén ya avisadas con IDCorreo15:
 
-### Running the Application
+sql
+SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
+    TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
+    TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista,
+    TbUsuariosAplicaciones.Nombre, DateDiff('d',Now(),[FechaFinPrevista]) AS DiasParaCaducar,
+    TbUsuariosAplicaciones.CorreoUsuario AS CorreoCalidad, TbExpedientes.Nemotecnico
+FROM ((TbNoConformidades 
+  LEFT JOIN TbUsuariosAplicaciones ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed)
+  INNER JOIN (TbNCAccionCorrectivas 
+    INNER JOIN (TbNCAccionesRealizadas 
+      LEFT JOIN TbNCARAvisos ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR)
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
+  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
+LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
+  AND DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN 8 AND 15
+  AND TbNCARAvisos.IDCorreo15 IS NULL
+  AND TbNoConformidades.RESPONSABLETELEFONICA = '" & p_Usuario & "';
+2.1.b) ARs con fecha fin prevista a 1-7 días, sin fecha fin real, sin aviso previo IDCorreo7:
 
-The main entry point is the `run_master.py` script:
+Misma consulta que 2.1.a cambiando el rango y campo de control a IDCorreo7:
 
-```bash
-# Run the master script in continuous mode
-python scripts/run_master.py
+sql
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
+  AND DateDiff('d',Now(),[FechaFinPrevista]) > 0 AND DateDiff('d',Now(),[FechaFinPrevista]) <= 7
+  AND TbNCARAvisos.IDCorreo7 IS NULL
+  AND TbNoConformidades.RESPONSABLETELEFONICA = '" & p_Usuario & "';
+2.1.c) ARs con fecha fin prevista 0 o negativa, sin fecha fin real, sin aviso previo IDCorreo0:
 
-# Run with verbose logging
-python scripts/run_master.py --verbose
-```
+sql
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
+  AND DateDiff('d',Now(),[FechaFinPrevista]) <= 0
+  AND TbNCARAvisos.IDCorreo0 IS NULL
+  AND TbNoConformidades.RESPONSABLETELEFONICA = '" & p_Usuario & "';
+Después de ejecutar estas consultas para el usuario, generas las tablas HTML correspondientes (una tabla para cada consulta, si hay resultados).
 
-Individual modules can also be run separately:
+Condiciones del registro de correo para técnicos:
 
-```bash
-python scripts/run_agedys.py
-python scripts/run_brass.py
-# ...and so on for other modules
-```
+Si no hay registros en ninguna de las 3 consultas, no se registra correo.
+el campo Aplicacion =NoConformidades
+El caxmpo Asunto=Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)
+El cuerpo del correo es la concatenación de las tablas HTML generadas.
 
-### Testing
+Destinatario: Correo del usuario técnico (p_Usuario).
 
-Tests are run using `pytest`:
+Destinatarios en copia solo si existen datos en consultas 2.1.b y 2.1.c para ese usuario.
 
-```bash
-# Run all tests
-pytest
+Para ello, se debe obtener los correos electrónicos de los responsables de calidad relacionados con esas NC y AR que aparecen en esas consultas.
 
-# Run unit tests
-pytest tests/unit/
+Registro de correo:
 
-# Run integration tests
-pytest tests/integration/
+Se usa la función de registro común para crear el correo (que te devuelve un IDCorreo).
 
-# Generate a coverage report
-pytest --cov=src --cov-report=html
-```
+Para cada conjunto de resultados (2.1.a, 2.1.b y 2.1.c) que haya registrado datos, debes crear un registro en TbNCARAvisos asociando:
 
-### Linting and Formatting
+El IDCorreo generado
 
-```bash
-# Format code with black
-black .
+El ID de AR correspondiente
 
-# Check for style issues with flake8
-flake8 .
+El tipo de aviso (IDCorreo15, IDCorreo7 o IDCorreo0) para evitar que se reenvíe nuevamente el mismo aviso.
 
-# Check for type errors with mypy
-mypy .
-```
+Al finalizar el bucle para cada usuario (técnico), guardar en la tabla correspondiente (me imagino que con los datos del envío y posibles estados para seguimiento).
 
-## Gemini's Role
+Recomendación de Pasos para Implementación o Para Dar Instrucciones a la IA
+Obtener y generar el correo para Miembros de Calidad:
 
-Based on this analysis, I can help with the following:
+Ejecutar las 4 consultas (1.1.a a 1.1.d).
 
-*   **Understanding the code:** I can explain the functionality of different modules and how they interact.
-*   **Writing and running tests:** I can create new tests for existing or new functionality and run them for you.
-*   **Debugging issues:** I can help you debug problems by analyzing logs and running scripts in verbose mode.
-*   **Adding new features:** I can help you add new modules or extend existing ones, following the established conventions.
-*   **Refactoring code:** I can help you refactor the code to improve its structure and maintainability.
+Crear las tablas HTML para cada resultado no vacío.
+
+Si hay al menos una tabla, componer el cuerpo del correo concatenando estas tablas.
+
+Enviar/Registrar el correo con todos los Miembros de Calidad como destinatarios.
+
+Para técnicos:
+
+Ejecutar la consulta de técnicos con NC activas.
+
+Para cada técnico obtenido:
+
+Ejecutar las 3 consultas específicas con filtro por ese técnico.
+
+Crear tablas HTML para los resultados de cada consulta.
+
+Componer cuerpo concatenando las tablas no vacías.
+
+Si no hay tablas vacías, no registrar correo y pasar al siguiente técnico.
+
+Si se registra correo:
+
+Añadir en copia a responsables de calidad si hay datos en 2.1.b o 2.1.c.
+
+Registrar en TbNCARAvisos la relación entre el correo y las ARs para las categorías correspondientes (no duplicar avisos).
+
+Finalizar ciclo de técnicos:
+
+Guardar log o estado que indique que se ha procesado el envío.
+
+</Modulo de No Conformidades>

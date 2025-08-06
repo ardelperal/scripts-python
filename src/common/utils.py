@@ -293,23 +293,70 @@ def get_admin_users(db_connection) -> List[Dict[str, str]]:
         return []
 
 
-def get_admin_emails_string(db_connection) -> str:
+def get_technical_emails_string(db_connection, config, logger) -> str:
     """
-    Obtiene la cadena de correos de administradores separados por ;
+    Obtiene una cadena con los emails de los administradores separados por punto y coma
     
     Args:
         db_connection: Conexión a la base de datos de tareas
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
         
     Returns:
-        String con correos separados por ;
+        Cadena de emails
     """
     try:
-        admin_users = get_admin_users(db_connection)
-        emails = [user['CorreoUsuario'] for user in admin_users if user['CorreoUsuario']]
-        return ';'.join(emails)
+        from .user_adapter import get_users_with_fallback
+        technical_users = get_users_with_fallback(
+            user_type='technical', 
+            db_connection=db_connection,
+            config=config,
+            logger=logger
+        )
+        return "; ".join([user['CorreoUsuario'] for user in technical_users if user.get('CorreoUsuario')])
     except Exception as e:
-        logging.error(f"Error obteniendo emails de administradores: {e}")
+        logging.error(f"Error obteniendo emails de técnicos: {e}")
         return ""
+
+def get_quality_emails_string(db_connection, config, logger) -> str:
+    """
+    Obtiene una cadena con los emails de los usuarios de calidad separados por punto y coma
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
+        
+    Returns:
+        Cadena de emails
+    """
+    try:
+        from .user_adapter import get_users_with_fallback
+        quality_users = get_users_with_fallback(
+            user_type='quality',
+            db_connection=db_connection,
+            config=config,
+            logger=logger
+        )
+        return "; ".join([user['CorreoUsuario'] for user in quality_users if user.get('CorreoUsuario')])
+    except Exception as e:
+        logging.error(f"Error obteniendo emails de calidad: {e}")
+        return ""
+
+def get_admin_emails_string(db_connection, config, logger) -> str:
+    """
+    Obtiene una cadena con los emails de los administradores separados por punto y coma
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        config: Configuración de la aplicación
+        logger: Logger para registrar eventos
+        
+    Returns:
+        Cadena de emails
+    """
+    # Por ahora, los administradores son los mismos que los técnicos
+    return get_technical_emails_string(db_connection, config, logger)
 
 
 def send_email(to_address: str, subject: str, body: str, is_html: bool = True, 
@@ -621,6 +668,7 @@ def get_economy_users(config, logger) -> List[Dict[str, str]]:
 def get_user_email(username: str, config, logger=None) -> str:
     """
     Obtiene el email de un usuario específico desde la base de datos
+    Implementación que coincide exactamente con el VBS original (función getCorreo)
     
     Args:
         username: Nombre de usuario (UsuarioRed)
@@ -636,18 +684,18 @@ def get_user_email(username: str, config, logger=None) -> str:
         # Usar la conexión de tareas para obtener el email
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
+        # Query simplificada que coincide exactamente con el VBS original
         query = """
             SELECT CorreoUsuario 
             FROM TbUsuariosAplicaciones 
-            WHERE UsuarioRed = ? 
-            AND ParaTareasProgramadas = True 
-            AND FechaBaja IS NULL
+            WHERE UsuarioRed = ?
         """
         
         result = db_connection.execute_query(query, [username])
         
         if result and len(result) > 0:
-            return result[0].get('CorreoUsuario', '')
+            email = result[0].get('CorreoUsuario', '')
+            return email if email else ""
         
         return ""
         
@@ -659,24 +707,31 @@ def get_user_email(username: str, config, logger=None) -> str:
         return ""
 
 
-def get_quality_emails_string(app_id: str, config, logger) -> str:
+def get_quality_emails_string(app_id: str, config, logger, db_connection) -> str:
     """
-    Obtiene la cadena de correos de usuarios de calidad separados por ;
+    Obtiene una cadena con los emails de los usuarios de calidad separados por punto y coma
     
     Args:
         app_id: ID de la aplicación
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
+        db_connection: Conexión a la base de datos de tareas
         
     Returns:
-        String con correos separados por ;
+        Cadena de emails
     """
     try:
-        quality_users = get_quality_users(app_id, config, logger)
-        emails = [user['CorreoUsuario'] for user in quality_users if user['CorreoUsuario']]
-        return ';'.join(emails)
+        from .user_adapter import get_users_with_fallback
+        quality_users = get_users_with_fallback(
+            user_type='quality', 
+            app_id=app_id, 
+            config=config, 
+            logger=logger,
+            db_connection=db_connection
+        )
+        return "; ".join([user['CorreoUsuario'] for user in quality_users if user.get('CorreoUsuario')])
     except Exception as e:
-        logger.error(f"Error obteniendo emails de calidad para {app_id}: {e}")
+        logging.error(f"Error obteniendo emails de calidad: {e}")
         return ""
 
 
