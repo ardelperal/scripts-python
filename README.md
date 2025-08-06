@@ -85,119 +85,149 @@ El sistema ajusta automáticamente los tiempos de espera entre ciclos según el 
 
 ```
 scripts-python/
-├── .env                          # Variables de entorno (local)
-├── requirements.txt              # Dependencias Python
-├── pyproject.toml               # Configuración de pytest y herramientas
 ├── .coveragerc                  # Configuración coverage.py
+├── .env.example                 # Plantilla de variables de entorno
+├── .gitignore                   # Archivos ignorados por Git
+├── GEMINI.md                    # Documentación específica Gemini
 ├── README.md                    # Documentación principal
-├── config/                      # Configuración del proyecto
-│   └── .env.example            # Plantilla de variables de entorno
+├── pyproject.toml               # Configuración de pytest y herramientas
+├── requirements.txt             # Dependencias Python
+├── .trae/                       # Configuración Trae AI
+│   └── rules/
+│       └── project_rules.md     # Reglas del proyecto
+├── dbs-locales/                 # Bases de datos locales
+├── docs/                        # Documentación
+│   ├── NO_CONFORMIDADES.md      # Documentación no conformidades
+│   ├── coverage_setup_summary.md # Resumen configuración coverage
+│   ├── htmlcov_usage_guide.md   # Guía uso reportes HTML
+│   ├── migracion_riesgos.md     # Guía migración GestionRiesgos.vbs
+│   ├── panel_control_guia.md    # Guía del panel de control
+│   ├── riesgos.md               # Documentación módulo de riesgos
+│   ├── smtp_config_changes.md   # Cambios configuración SMTP
+│   └── smtp_override_config.md  # Configuración override SMTP
+├── examples/                    # Ejemplos y demos
+│   ├── README.md                # Documentación de ejemplos
+│   ├── database_connectivity_demo.py # Demo conectividad BD
+│   ├── ejemplo_riesgos.py       # Ejemplo uso módulo riesgos
+│   ├── smtp_config_demo.py      # Demo configuración SMTP
+│   └── smtp_override_demo.py    # Demo override SMTP
+├── herramientas/                # Archivos de configuración
+│   └── CSS_moderno.css          # Estilos CSS modernos
+├── legacy/                      # Sistema VBS original
+│   ├── AGEDYS.VBS               # Sistema AGEDYS original
+│   ├── BRASS.vbs                # Sistema BRASS original
+│   ├── EnviarCorreoNoEnviado.vbs # Sistema correos original
+│   ├── EnviarCorreoTareas.vbs   # Sistema tareas original
+│   ├── Expedientes.vbs          # Sistema expedientes original
+│   ├── GestionRiesgos.vbs       # Sistema riesgos original
+│   ├── NoConformidades.vbs      # Sistema no conformidades original
+│   ├── Nuevo Documento de texto.html # Archivo HTML legacy
+│   └── script-continuo.vbs      # Script continuo original
+├── logs/                        # Archivos de log del sistema
+│   └── run_master_status.json   # Estado del script maestro
 ├── scripts/                     # Scripts principales de ejecución
-│   ├── run_master.py           # Script maestro - daemon principal con modo verbose
-│   ├── run_agedys.py           # Script para módulo AGEDYS
-│   ├── run_brass.py            # Script principal para módulo BRASS
-│   ├── run_expedientes.py      # Script para módulo expedientes
-│   ├── run_correos.py          # Script para módulo correos
-│   ├── run_correo_tareas.py    # Script para módulo correo tareas
-│   ├── run_no_conformidades.py # Script para no conformidades
-│   └── run_riesgos.py          # Script para módulo de riesgos
-├── tools/                       # Herramientas de desarrollo y utilidades
-│   ├── setup_local_environment.py  # Configuración entorno local
-│   ├── generate_coverage_report.py # Generador reportes de cobertura
-│   ├── continuous_runner.py        # Ejecución continua de tests
-│   ├── check_email_status.py       # Verificación estado emails
-│   └── check_email_structure.py    # Verificación estructura emails
+│   ├── README.md                # Documentación de scripts
+│   ├── migrations/              # Scripts de migración
+│   │   └── add_status_to_tareas_db.py # Migración estado tareas
+│   ├── run_agedys.py            # Script para módulo AGEDYS
+│   ├── run_brass.py             # Script principal para módulo BRASS
+│   ├── run_correo_tareas.py     # Script para módulo correo tareas
+│   ├── run_correos.py           # Script para módulo correos
+│   ├── run_expedientes.py       # Script para módulo expedientes
+│   ├── run_master.py            # Script maestro - daemon principal con modo verbose
+│   ├── run_master_new.py        # Nueva versión del script maestro
+│   ├── run_no_conformidades.py  # Script para no conformidades
+│   └── run_riesgos.py           # Script para módulo de riesgos
 ├── src/                         # Código fuente
 │   ├── __init__.py
+│   ├── agedys/                  # Módulo AGEDYS (migrado)
+│   │   ├── __init__.py
+│   │   ├── agedys_manager.py    # Gestor principal AGEDYS
+│   │   └── agedys_task.py       # Tareas AGEDYS
+│   ├── brass/                   # Módulo BRASS (migrado)
+│   │   ├── __init__.py
+│   │   ├── brass_manager.py     # Gestor principal BRASS
+│   │   ├── brass_task.py        # Tareas BRASS
+│   │   └── run_brass.py         # Script BRASS interno
 │   ├── common/                  # Utilidades compartidas
 │   │   ├── __init__.py
-│   │   ├── config.py           # Configuración multi-entorno
-│   │   ├── database.py         # Capa abstracción bases datos Access
-│   │   ├── database_adapter.py # Adaptador de bases de datos
+│   │   ├── access_connection_pool.py # Pool de conexiones Access
 │   │   ├── base_email_manager.py # Gestor base para emails
+│   │   ├── base_task.py         # Clase base para tareas
+│   │   ├── config.py            # Configuración multi-entorno
+│   │   ├── database.py          # Capa abstracción bases datos Access
+│   │   ├── database_adapter.py  # Adaptador de bases de datos
 │   │   ├── html_report_generator.py # Generador reportes HTML
-│   │   ├── logger.py           # Sistema de logging
-│   │   ├── notifications.py    # Sistema de notificaciones
-│   │   ├── user_adapter.py     # Adaptador de usuarios
-│   │   └── utils.py           # Utilidades HTML, logging, fechas
-│   ├── agedys/                 # Módulo AGEDYS (migrado)
+│   │   ├── logger.py            # Sistema de logging
+│   │   ├── notifications.py     # Sistema de notificaciones
+│   │   ├── task_registry.py     # Registro de tareas
+│   │   ├── user_adapter.py      # Adaptador de usuarios
+│   │   └── utils.py             # Utilidades HTML, logging, fechas
+│   ├── correo_tareas/           # Módulo de gestión de correos que interactúa con la base de datos de tareas
 │   │   ├── __init__.py
-│   │   └── agedys_manager.py   # Gestor principal AGEDYS
-│   ├── brass/                  # Módulo BRASS (migrado)
+│   │   ├── correo_tareas_manager.py # Gestor de correos para tareas empresariales
+│   │   └── correo_tareas_task.py # Tareas de correo
+│   ├── correos/                 # Módulo de correos
 │   │   ├── __init__.py
-│   │   └── brass_manager.py    # Gestor principal BRASS
-│   ├── correos/                # Módulo de correos
+│   │   ├── correos_manager.py   # Gestor de correos
+│   │   └── correos_task.py      # Tareas de correos
+│   ├── expedientes/             # Módulo de expedientes
 │   │   ├── __init__.py
-│   │   └── correos_manager.py  # Gestor de correos
-│   ├── expedientes/            # Módulo de expedientes
-│   │   ├── __init__.py
-│   │   └── expedientes_manager.py # Gestor de expedientes
-│   ├── no_conformidades/       # Módulo de no conformidades
+│   │   ├── expedientes_manager.py # Gestor de expedientes
+│   │   └── expedientes_task.py  # Tareas de expedientes
+│   ├── no_conformidades/        # Módulo de no conformidades
 │   │   ├── __init__.py
 │   │   ├── no_conformidades_manager.py # Gestor principal
-│   │   └── email_notifications.py     # Notificaciones email
-│   ├── riesgos/                # Módulo de gestión de riesgos
-│   │   ├── __init__.py
-│   │   └── riesgos_manager.py  # Gestor de riesgos
-│   └── correo_tareas/          # Módulo de gestión de correos que interactúa con la base de datos de tareas
+│   │   ├── no_conformidades_task.py # Tareas no conformidades
+│   │   ├── report_registrar.py  # Registrador de reportes
+│   │   └── run_no_conformidades.py # Script no conformidades interno
+│   └── riesgos/                 # Módulo de gestión de riesgos
 │       ├── __init__.py
-│       └── correo_tareas_manager.py   # Gestor de correos para tareas empresariales
-├── tests/                      # Tests automatizados (cobertura >80%)
+│       └── riesgos_manager.py   # Gestor de riesgos
+├── tests/                       # Tests automatizados (cobertura >80%)
 │   ├── __init__.py
-│   ├── config.py              # Configuración de tests
-│   ├── conftest.py            # Configuración global pytest
-│   ├── data/                  # Datos de test
+│   ├── config.py                # Configuración de tests
+│   ├── conftest.py              # Configuración global pytest
+│   ├── data/                    # Datos de test
 │   │   └── __init__.py
-│   ├── fixtures/              # Datos y utilidades de prueba
+│   ├── fixtures/                # Datos y utilidades de prueba
 │   │   ├── __init__.py
 │   │   ├── create_demo_databases.py
 │   │   ├── create_test_emails_demo.py
 │   │   └── setup_smtp_local.py
-│   ├── unit/                   # Tests unitarios por módulo
+│   ├── functional/              # Tests funcionales
+│   │   ├── access_sync/         # Sincronización con Access
+│   │   └── correos_workflows/   # Flujos completos de correos
+│   ├── integration/             # Tests de integración
 │   │   ├── __init__.py
-│   │   ├── common/             # Tests módulos comunes
-│   │   ├── agedys/             # Tests específicos AGEDYS
-│   │   ├── brass/              # Tests específicos BRASS
-│   │   ├── correos/            # Tests del módulo de correos
-│   │   ├── expedientes/        # Tests del módulo de expedientes
-│   │   ├── no_conformidades/   # Tests no conformidades
-│   │   ├── riesgos/            # Tests del módulo de riesgos
-│   │   └── correo_tareas/      # Tests del módulo de correo tareas
-│   ├── integration/            # Tests de integración
-│   │   ├── __init__.py
-│   │   ├── agedys/             # Integración del sistema AGEDYS
-│   │   ├── brass/              # Integración del sistema brass
-│   │   ├── correos/            # Integración del sistema de correos
-│   │   ├── expedientes/        # Integración del sistema de expedientes
-│   │   ├── no_conformidades/   # Integración no conformidades
-│   │   ├── riesgos/            # Integración del sistema de riesgos
-│   │   ├── correo_tareas/      # Integración del sistema de correo tareas
-│   │   └── database/           # Integración con bases de datos
-│   ├── functional/             # Tests funcionales
-│   │   ├── access_sync/        # Sincronización con Access
-│   │   └── correos_workflows/  # Flujos completos de correos
-│   └── manual/                 # Tests manuales esenciales
-│       ├── test_agedys_manual.py       # Test manual AGEDYS
-│       ├── test_env_config.py          # Test configuración entorno
-│       ├── test_network_verification.py # Test verificación red
-│       ├── test_smtp_riesgos.py        # Test SMTP riesgos
-│       └── test_user_functions.py      # Test funciones usuario
-├── templates/                  # Plantillas HTML
-├── dbs-locales/               # Bases de datos locales
-├── herramientas/              # Archivos de configuración
-│   ├── CSS1.css               # Estilos CSS principales
-│   └── Festivos.txt           # Archivo de días festivos
-├── docs/                      # Documentación
-│   ├── coverage_setup_summary.md # Resumen configuración coverage
-│   ├── htmlcov_usage_guide.md     # Guía uso reportes HTML
-│   ├── panel_control_guia.md      # Guía del panel de control
-│   ├── smtp_config_changes.md     # Cambios configuración SMTP
-│   ├── smtp_override_config.md    # Configuración override SMTP
-│   ├── riesgos.md                 # Documentación módulo de riesgos
-│   ├── migracion_riesgos.md       # Guía migración GestionRiesgos.vbs
-│   └── NO_CONFORMIDADES.md        # Documentación no conformidades
-├── examples/                    # Ejemplos y demos
-│   ├── README.md               # Documentación de ejemplos
+│   │   ├── agedys/              # Integración del sistema AGEDYS
+│   │   ├── brass/               # Integración del sistema brass
+│   │   ├── correo_tareas/       # Integración del sistema de correo tareas
+│   │   ├── correos/             # Integración del sistema de correos
+│   │   ├── database/            # Integración con bases de datos
+│   │   ├── expedientes/         # Integración del sistema de expedientes
+│   │   ├── no_conformidades/    # Integración no conformidades
+│   │   └── riesgos/             # Integración del sistema de riesgos
+│   └── unit/                    # Tests unitarios por módulo
+│       ├── __init__.py
+│       ├── agedys/              # Tests específicos AGEDYS
+│       ├── brass/               # Tests específicos BRASS
+│       ├── common/              # Tests módulos comunes
+│       ├── correos/             # Tests del módulo de correos
+│       ├── expedientes/         # Tests del módulo de expedientes
+│       ├── no_conformidades/    # Tests no conformidades
+│       └── riesgos/             # Tests del módulo de riesgos
+└── tools/                       # Herramientas de desarrollo y utilidades
+    ├── README.md                # Documentación de herramientas
+    ├── check_coverage_dependencies.py # Verificación dependencias coverage
+    ├── check_email_recipients.py # Verificación destinatarios email
+    ├── check_email_status.py    # Verificación estado emails
+    ├── check_email_structure.py # Verificación estructura emails
+    ├── continuous_runner.py     # Ejecución continua de tests
+    ├── generate_coverage_report.py # Generador reportes de cobertura
+    ├── generate_full_coverage_report.py # Generador reportes completos
+    ├── prepare_test_emails.py   # Preparación emails de prueba
+    └── setup_local_environment.py # Configuración entorno local
 │   ├── database_connectivity_demo.py # Demo conectividad BD
 │   ├── smtp_config_demo.py     # Demo configuración SMTP
 │   ├── smtp_override_demo.py   # Demo override SMTP
@@ -223,6 +253,183 @@ scripts-python/
 - **Tareas**: Sistema de gestión de tareas empresariales
 - **No Conformidades**: Gestión de no conformidades y seguimiento
 - **Riesgos**: Gestión completa de riesgos empresariales
+
+## 📋 Lógica de Negocio - Módulo de No Conformidades
+
+El módulo de No Conformidades gestiona el seguimiento automatizado de no conformidades y sus acciones correctivas/preventivas (ARAPs), generando notificaciones por correo electrónico para diferentes tipos de usuarios según el estado y vencimiento de las tareas.
+
+### 🎯 Objetivo Principal
+
+Automatizar el proceso de notificación y seguimiento de:
+- **No Conformidades (NCs)** abiertas y sus estados
+- **Acciones Correctivas/Preventivas (ARAPs)** asociadas
+- **Control de Eficacia** de las acciones implementadas
+- **Vencimientos y alertas** por proximidad de fechas límite
+
+### 🔄 Flujo de Ejecución
+
+El sistema ejecuta dos procesos principales de manera secuencial:
+
+1. **Generación de correos para Miembros de Calidad** (`_generar_correo_calidad()`)
+2. **Generación de correos individuales para Técnicos** (`_generar_correos_tecnicos()`)
+
+### 👥 Proceso para Miembros de Calidad
+
+Se genera un **único correo consolidado** con información de 4 consultas SQL principales:
+
+#### 1. ARs Próximas a Caducar o Caducadas
+```sql
+-- Obtiene ARs sin fecha fin real y próximas a vencer (< 16 días)
+SELECT DISTINCT DateDiff('d',Now(),[FPREVCIERRE]) AS DiasParaCierre, 
+    TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
+FROM TbNoConformidades 
+INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva) 
+ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad 
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL 
+  AND DateDiff('d',Now(),[FPREVCIERRE]) < 16;
+```
+
+#### 2. NCs Pendientes de Control de Eficacia
+```sql
+-- NCs resueltas que requieren verificación de eficacia (< 30 días)
+SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD,  
+    TbNoConformidades.FECHACIERRE, TbNoConformidades.FechaPrevistaControlEficacia,
+    DateDiff('d',Now(),[FechaPrevistaControlEficacia]) AS Dias
+FROM TbNoConformidades INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
+ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
+WHERE DateDiff('d',Now(),[FechaPrevistaControlEficacia]) < 30
+  AND TbNCAccionesRealizadas.FechaFinReal IS NOT NULL
+  AND TbNoConformidades.RequiereControlEficacia = 'Sí'
+  AND TbNoConformidades.FechaControlEficacia IS NULL;
+```
+
+#### 3. NCs sin Acciones Correctivas
+```sql
+-- NCs que no tienen acciones correctivas registradas
+SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico,
+    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
+FROM TbNoConformidades LEFT JOIN TbNCAccionCorrectivas 
+    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
+WHERE TbNCAccionCorrectivas.IDNoConformidad IS NULL;
+```
+
+#### 4. ARs para Replanificar
+```sql
+-- ARs con fecha prevista cercana o pasada, sin completar (< 16 días)
+SELECT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
+    TbNCAccionCorrectivas.AccionCorrectiva AS Accion, TbNCAccionesRealizadas.AccionRealizada AS Tarea,
+    TbUsuariosAplicaciones.Nombre AS Tecnico, TbNoConformidades.RESPONSABLECALIDAD, 
+    TbNCAccionesRealizadas.FechaFinPrevista,
+    DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) AS Dias
+FROM (TbNoConformidades INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
+    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
+LEFT JOIN TbUsuariosAplicaciones ON TbNCAccionesRealizadas.Responsable = TbUsuariosAplicaciones.UsuarioRed
+WHERE DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) < 16 
+  AND TbNCAccionesRealizadas.FechaFinReal IS NULL;
+```
+
+**Características del correo de Calidad:**
+- **Destinatarios**: Miembros del equipo de Calidad
+- **Asunto**: "Informe Tareas No Conformidades (No Conformidades)"
+- **Contenido**: Tablas HTML modernas con datos consolidados
+- **Condición**: Se envía solo si hay datos en al menos una consulta
+
+### 🔧 Proceso para Técnicos
+
+Se generan **correos individuales** para cada técnico con ARs pendientes, basados en 3 categorías de vencimiento:
+
+#### Identificación de Técnicos Activos
+```sql
+-- Obtiene técnicos con al menos una NC activa con AR pendiente
+SELECT DISTINCT TbNoConformidades.RESPONSABLETELEFONICA
+FROM (TbNoConformidades INNER JOIN TbNCAccionCorrectivas 
+    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
+    INNER JOIN TbNCAccionesRealizadas 
+    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva
+WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL 
+  AND TbNoConformidades.Borrado = False 
+  AND DateDiff('d', Now(), [FechaFinPrevista]) <= 15;
+```
+
+#### Categorías de ARs por Técnico
+
+Para cada técnico identificado, se ejecutan 3 consultas específicas:
+
+**1. ARs Próximas a Vencer (8-15 días)**
+- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN 8 AND 15`
+- **Control**: `TbNCARAvisos.IDCorreo15 IS NULL` (no avisadas previamente)
+- **Propósito**: Alerta temprana para planificación
+
+**2. ARs Próximas a Vencer (1-7 días)**
+- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) > 0 AND DateDiff('d',Now(),[FechaFinPrevista]) <= 7`
+- **Control**: `TbNCARAvisos.IDCorreo7 IS NULL` (no avisadas previamente)
+- **Propósito**: Alerta urgente de vencimiento inminente
+
+**3. ARs Vencidas (≤ 0 días)**
+- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) <= 0`
+- **Control**: `TbNCARAvisos.IDCorreo0 IS NULL` (no avisadas previamente)
+- **Propósito**: Notificación de tareas vencidas
+
+**Características de los correos de Técnicos:**
+- **Destinatarios**: Técnico individual (`RESPONSABLETELEFONICA`)
+- **Asunto**: "Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)"
+- **Contenido**: Tablas HTML específicas por categoría de vencimiento
+- **Condición**: Se envía solo si hay datos en al menos una categoría
+- **Copia**: Se incluyen destinatarios en copia solo para categorías 2 y 3 (urgentes y vencidas)
+
+### 🎨 Generación de Reportes HTML
+
+El sistema genera reportes HTML modernos con:
+
+- **Header personalizado** con logo SVG y estilos CSS
+- **Tablas responsivas** con indicadores visuales de estado
+- **Códigos de color** para diferentes niveles de urgencia:
+  - 🟢 Verde: Más de 7 días
+  - 🟡 Amarillo: 1-7 días
+  - 🔴 Rojo: Vencidas (≤ 0 días)
+- **Footer informativo** con disclaimers
+- **Archivos de debug** guardados en `src/no_conformidades/debug_html/`
+
+### 🗃️ Control de Avisos
+
+El sistema mantiene un registro de avisos enviados en la tabla `TbNCARAvisos`:
+
+- **Campos de control**: `IDCorreo15`, `IDCorreo7`, `IDCorreo0`
+- **Prevención de duplicados**: No se envían avisos ya notificados
+- **Trazabilidad**: Registro de fecha y ID de correo para cada aviso
+- **Gestión automática**: Inserción/actualización según existencia previa
+
+### ⚙️ Configuración y Parámetros
+
+- **Días de alerta ARAP**: 16 días (configurable)
+- **Días de alerta NC**: 30 días para control de eficacia
+- **Rangos de notificación técnicos**: 15, 7 y 0 días
+- **Aplicación**: `NoConformidades` (campo en registro de correos)
+- **Conexiones BD**: Base de datos NC y Tareas (separadas)
+- **CSS**: Estilos modernos cargados desde archivo de configuración
+
+### 🚀 Ejecución y Monitoreo
+
+El módulo puede ejecutarse:
+
+- **Automáticamente**: Como parte del Master Runner
+- **Manualmente**: Con opciones de forzado específicas:
+  - `--force-calidad`: Solo correos de calidad
+  - `--force-tecnicos`: Solo correos de técnicos
+  - `--debug`: Modo debug con logging detallado
+
+**Logging detallado** incluye:
+- Número de registros encontrados por consulta
+- Técnicos procesados y correos generados
+- Errores y excepciones con contexto
+- Tiempos de ejecución y estado de conexiones
 
 ### 🔧 Infraestructura y Herramientas
 - **Sistema de Testing**: Tests automatizados con cobertura >80%

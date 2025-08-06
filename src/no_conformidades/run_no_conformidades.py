@@ -6,23 +6,21 @@ import os
 import sys
 from pathlib import Path
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('no_conformidades.log', encoding='utf-8')
-    ]
-)
-
-logger = logging.getLogger(__name__)
-
 # Agregar el directorio src al path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(current_dir)
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
+
+# Importar utilidades comunes
+from common.utils import setup_logging
+
+# Configurar logging usando la función estándar
+project_root = Path(src_dir).parent
+log_file = project_root / "logs" / "no_conformidades.log"
+setup_logging(log_file=log_file)
+
+logger = logging.getLogger(__name__)
 
 from no_conformidades.no_conformidades_task import NoConformidadesTask
 

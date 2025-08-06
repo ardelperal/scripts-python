@@ -214,7 +214,7 @@ El módulo utiliza el sistema de logging centralizado:
 ```python
 # Configuración en .env
 NO_CONFORMIDADES_LOG_LEVEL=INFO
-NO_CONFORMIDADES_LOG_FILE=no_conformidades.log
+NO_CONFORMIDADES_LOG_FILE=logs/no_conformidades.log
 
 # Logs generados
 - Conexiones a base de datos
