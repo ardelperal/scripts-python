@@ -5,7 +5,6 @@ Convierte los datos de no conformidades en reportes HTML formateados
 
 from datetime import datetime
 from typing import List, Dict
-from no_conformidades.no_conformidades_manager import NoConformidad, ARAPC, Usuario
 
 
 class HTMLReportGenerator:
@@ -63,7 +62,7 @@ class HTMLReportGenerator:
         </html>
         """
     
-    def generar_tabla_nc_eficacia(self, ncs: List[NoConformidad]) -> str:
+    def generar_tabla_nc_eficacia(self, ncs: List[Dict]) -> str:
         """Genera tabla HTML para NCs pendientes de control de eficacia"""
         if not ncs:
             return '<div class="info">No hay No Conformidades pendientes de control de eficacia.</div>'
@@ -85,15 +84,15 @@ class HTMLReportGenerator:
         """
         
         for nc in ncs:
-            fecha_apertura = nc.fecha_apertura.strftime("%d/%m/%Y") if nc.fecha_apertura else ""
-            fecha_cierre = nc.fecha_prev_cierre.strftime("%d/%m/%Y") if nc.fecha_prev_cierre else ""
+            fecha_apertura = nc.get('fecha_apertura', '').strftime("%d/%m/%Y") if nc.get('fecha_apertura') else ""
+            fecha_cierre = nc.get('fecha_prev_cierre', '').strftime("%d/%m/%Y") if nc.get('fecha_prev_cierre') else ""
             
             html += f"""
                 <tr>
-                    <td>{nc.codigo}</td>
-                    <td>{nc.nemotecnico}</td>
-                    <td>{nc.descripcion}</td>
-                    <td>{nc.responsable_calidad}</td>
+                    <td>{nc.get('codigo', '')}</td>
+                    <td>{nc.get('nemotecnico', '')}</td>
+                    <td>{nc.get('descripcion', '')}</td>
+                    <td>{nc.get('responsable_calidad', '')}</td>
                     <td>{fecha_apertura}</td>
                     <td>{fecha_cierre}</td>
                 </tr>
@@ -106,7 +105,7 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_tabla_arapc(self, arapcs: List[ARAPC]) -> str:
+    def generar_tabla_arapc(self, arapcs: List[Dict]) -> str:
         """Genera tabla HTML para ARAPs próximas a vencer"""
         if not arapcs:
             return '<div class="info">No hay Acciones Correctivas/Preventivas próximas a vencer.</div>'
@@ -128,10 +127,10 @@ class HTMLReportGenerator:
         """
         
         for arapc in arapcs:
-            fecha_fin = arapc.fecha_fin_prevista.strftime("%d/%m/%Y") if arapc.fecha_fin_prevista else ""
+            fecha_fin = arapc.get('fecha_fin_prevista', '').strftime("%d/%m/%Y") if arapc.get('fecha_fin_prevista') else ""
             
             # Determinar estado y clase CSS
-            dias_restantes = (arapc.fecha_fin_prevista - datetime.now()).days if arapc.fecha_fin_prevista else 0
+            dias_restantes = (arapc.get('fecha_fin_prevista') - datetime.now()).days if arapc.get('fecha_fin_prevista') else 0
             if dias_restantes < 0:
                 estado = f"VENCIDA ({abs(dias_restantes)} días)"
                 clase_css = "overdue"
@@ -144,10 +143,10 @@ class HTMLReportGenerator:
             
             html += f"""
                 <tr class="{clase_css}">
-                    <td>{arapc.id_accion}</td>
-                    <td>{arapc.codigo_nc}</td>
-                    <td>{arapc.descripcion}</td>
-                    <td>{arapc.responsable}</td>
+                    <td>{arapc.get('id_accion', '')}</td>
+                    <td>{arapc.get('codigo_nc', '')}</td>
+                    <td>{arapc.get('descripcion', '')}</td>
+                    <td>{arapc.get('responsable', '')}</td>
                     <td>{fecha_fin}</td>
                     <td>{estado}</td>
                 </tr>
@@ -160,7 +159,7 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_tabla_nc_caducar(self, ncs: List[NoConformidad]) -> str:
+    def generar_tabla_nc_caducar(self, ncs: List[Dict]) -> str:
         """Genera tabla HTML para NCs próximas a caducar"""
         if not ncs:
             return '<div class="info">No hay No Conformidades próximas a caducar.</div>'
@@ -183,26 +182,26 @@ class HTMLReportGenerator:
         """
         
         for nc in ncs:
-            fecha_apertura = nc.fecha_apertura.strftime("%d/%m/%Y") if nc.fecha_apertura else ""
-            fecha_cierre = nc.fecha_prev_cierre.strftime("%d/%m/%Y") if nc.fecha_prev_cierre else ""
+            fecha_apertura = nc.get('fecha_apertura', '').strftime("%d/%m/%Y") if nc.get('fecha_apertura') else ""
+            fecha_cierre = nc.get('fecha_prev_cierre', '').strftime("%d/%m/%Y") if nc.get('fecha_prev_cierre') else ""
             
             # Determinar clase CSS según días restantes
-            if nc.dias_para_cierre < 0:
+            if nc.get('dias_para_cierre', 0) < 0:
                 clase_css = "overdue"
-                estado_dias = f"CADUCADA ({abs(nc.dias_para_cierre)} días)"
-            elif nc.dias_para_cierre <= 7:
+                estado_dias = f"CADUCADA ({abs(nc.get('dias_para_cierre', 0))} días)"
+            elif nc.get('dias_para_cierre', 0) <= 7:
                 clase_css = "near-due"
-                estado_dias = f"{nc.dias_para_cierre} días"
+                estado_dias = f"{nc.get('dias_para_cierre', 0)} días"
             else:
                 clase_css = ""
-                estado_dias = f"{nc.dias_para_cierre} días"
+                estado_dias = f"{nc.get('dias_para_cierre', 0)} días"
             
             html += f"""
                 <tr class="{clase_css}">
-                    <td>{nc.codigo}</td>
-                    <td>{nc.nemotecnico}</td>
-                    <td>{nc.descripcion}</td>
-                    <td>{nc.responsable_calidad}</td>
+                    <td>{nc.get('codigo', '')}</td>
+                    <td>{nc.get('nemotecnico', '')}</td>
+                    <td>{nc.get('descripcion', '')}</td>
+                    <td>{nc.get('responsable_calidad', '')}</td>
                     <td>{fecha_apertura}</td>
                     <td>{fecha_cierre}</td>
                     <td>{estado_dias}</td>
@@ -216,7 +215,7 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_tabla_nc_sin_acciones(self, ncs: List[NoConformidad]) -> str:
+    def generar_tabla_nc_sin_acciones(self, ncs: List[Dict]) -> str:
         """Genera tabla HTML para NCs sin acciones definidas"""
         if not ncs:
             return '<div class="info">No hay No Conformidades sin acciones definidas.</div>'
@@ -241,15 +240,15 @@ class HTMLReportGenerator:
         """
         
         for nc in ncs:
-            fecha_apertura = nc.fecha_apertura.strftime("%d/%m/%Y") if nc.fecha_apertura else ""
-            fecha_cierre = nc.fecha_prev_cierre.strftime("%d/%m/%Y") if nc.fecha_prev_cierre else ""
+            fecha_apertura = nc.get('fecha_apertura', '').strftime("%d/%m/%Y") if nc.get('fecha_apertura') else ""
+            fecha_cierre = nc.get('fecha_prev_cierre', '').strftime("%d/%m/%Y") if nc.get('fecha_prev_cierre') else ""
             
             html += f"""
                 <tr>
-                    <td>{nc.codigo}</td>
-                    <td>{nc.nemotecnico}</td>
-                    <td>{nc.descripcion}</td>
-                    <td>{nc.responsable_calidad}</td>
+                    <td>{nc.get('codigo', '')}</td>
+                    <td>{nc.get('nemotecnico', '')}</td>
+                    <td>{nc.get('descripcion', '')}</td>
+                    <td>{nc.get('responsable_calidad', '')}</td>
                     <td>{fecha_apertura}</td>
                     <td>{fecha_cierre}</td>
                 </tr>
@@ -262,10 +261,10 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_resumen_estadisticas(self, ncs_eficacia: List[NoConformidad], 
-                                   arapcs: List[ARAPC], 
-                                   ncs_caducar: List[NoConformidad],
-                                   ncs_sin_acciones: List[NoConformidad]) -> str:
+    def generar_resumen_estadisticas(self, ncs_eficacia: List[Dict], 
+                                   arapcs: List[Dict], 
+                                   ncs_caducar: List[Dict],
+                                   ncs_sin_acciones: List[Dict]) -> str:
         """Genera un resumen con estadísticas generales"""
         total_ncs_eficacia = len(ncs_eficacia)
         total_arapcs = len(arapcs)
@@ -274,11 +273,11 @@ class HTMLReportGenerator:
         
         # Contar ARAPs vencidas
         arapcs_vencidas = sum(1 for arapc in arapcs 
-                             if arapc.fecha_fin_prevista and 
-                             (arapc.fecha_fin_prevista - datetime.now()).days < 0)
+                             if arapc.get('fecha_fin_prevista') and 
+                             (arapc.get('fecha_fin_prevista') - datetime.now()).days < 0)
         
         # Contar NCs caducadas
-        ncs_caducadas = sum(1 for nc in ncs_caducar if nc.dias_para_cierre < 0)
+        ncs_caducadas = sum(1 for nc in ncs_caducar if nc.get('dias_para_cierre', 0) < 0)
         
         html = f"""
         <div class="section-title">Resumen Ejecutivo</div>
@@ -322,10 +321,10 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_reporte_completo(self, ncs_eficacia: List[NoConformidad], 
-                               arapcs: List[ARAPC], 
-                               ncs_caducar: List[NoConformidad],
-                               ncs_sin_acciones: List[NoConformidad],
+    def generar_reporte_completo(self, ncs_eficacia: List[Dict], 
+                               arapcs: List[Dict], 
+                               ncs_caducar: List[Dict],
+                               ncs_sin_acciones: List[Dict],
                                titulo: str = "Reporte de No Conformidades") -> str:
         """Genera un reporte HTML completo"""
         

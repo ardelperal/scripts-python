@@ -97,7 +97,7 @@ class AccessDatabase:
             logger.debug(f"Consulta ejecutada: {len(result)} filas retornadas")
             return result
         except Exception as e:
-            logger.error(f"Error ejecutando consulta: {e}")
+            logger.error(f"Error ejecutando consulta: {e}", exc_info=True)
             raise
     
     def execute_non_query(self, query: str, params: Optional[tuple] = None) -> int:
