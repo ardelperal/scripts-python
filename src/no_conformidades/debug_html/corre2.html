@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Aviso de Acciones de Resolución</title>
+    <style>/* CSS Moderno para Informes de No Conformidades */
+/* Codificación: UTF-8 */
+
+body {
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+    background: #f7fafd;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+}
+
+.container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,40,120,0.08);
+    padding: 40px 32px;
+    max-width: 90vw;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #0070f0;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+    text-align: center;
+}
+
+h2 {
+    color: #0070f0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 32px 0 16px 0;
+    border-bottom: 2px solid #e6f0ff;
+    padding-bottom: 8px;
+}
+
+h3 {
+    color: #0070f0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 24px 0 12px 0;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #e6f0ff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,112,240,0.05);
+    width: 100%;
+    margin-bottom: 32px;
+}
+
+th, td {
+    padding: 16px 18px;
+    text-align: left;
+    font-size: 1rem;
+    color: #222;
+    vertical-align: top;
+}
+
+th {
+    background-color: #0070f0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+tr:not(:last-child) td {
+    border-bottom: 1px solid #cce2ff;
+}
+
+tr:hover td {
+    background: #d6eaff;
+    transition: background 0.2s;
+}
+
+.centrado {
+    text-align: center;
+}
+
+/* Indicadores de días - Colores modernos y elegantes */
+.dias-negativo {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.dias-critico {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.dias-normal {
+    color: #27ae60;
+}
+
+/* Clases adicionales para compatibilidad */
+.dias-indicador {
+    font-weight: 500;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: inline-block;
+    min-width: 40px;
+}
+
+/* Clases combinadas para indicadores de días */
+.dias-indicador.negativo {
+    color: #e74c3c !important;
+    background-color: #ffeaea;
+    border: 1px solid #f5c6cb;
+    font-weight: bold;
+}
+
+.dias-indicador.critico {
+    color: #f39c12 !important;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    font-weight: bold;
+}
+
+.dias-indicador.normal {
+    color: #27ae60 !important;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    font-weight: 500;
+}
+
+.dias-alerta {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.seccion {
+    margin-bottom: 40px;
+}
+
+.tipo-correo {
+    background: #e6f0ff;
+    border-left: 4px solid #0070f0;
+    padding: 16px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.tipo-correo h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Estilos adicionales para estados */
+.estado-pendiente {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-vencido {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-proximo {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Círculos para indicadores */
+.circle {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.rojo {
+    background-color: #e74c3c;
+}
+
+.naranja {
+    background-color: #f39c12;
+}
+
+.verde {
+    background-color: #27ae60;
+}
+
+.numero {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Pie de página */
+.footer {
+    margin-top: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px 16px;
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+    }
+    
+    table {
+        font-size: 0.9rem;
+    }
+    
+    th, td {
+        padding: 12px 8px;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    h3 {
+        font-size: 1.1rem;
+    }
+}</style>
+</head>
+<body>
+    <h2>Aviso de Acciones de Resolución Próximas a Vencer o Vencidas</h2>
+    <p>Este es un resumen de las Acciones de Resolución asignadas que requieren su atención.</p>
+<h3>Acciones Vencidas</h3><table class='table'>
+  <tr>
+    <th class='Cabecera'>Código NC</th>
+    <th class='Cabecera'>Nemotécnico</th>
+    <th class='Cabecera'>Acción Correctiva</th>
+    <th class='Cabecera'>Acción Realizada</th>
+    <th class='Cabecera'>Fecha Fin Prevista</th>
+    <th class='Cabecera'>Días para Caducar</th>
+  </tr>
+  <tr>
+    <td>NC0107</td>
+    <td>8X8</td>
+    <td>Sesiones de ingeniería con ELBIT</td>
+    <td>Liberar nueva versión de software que corrija estas incidencias</td>
+    <td>30/07/2025</td>
+    <td>7 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0109</td>
+    <td>SDR 22</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0109</td>
+    <td>SDR 22</td>
+    <td>Recibir y probar el requisito REQ-64 - llamada prioritaria con el nuevo software</td>
+    <td>Cierre de la concesión DC-4300320-17 y aprobación de la concesión DC-4300320-24 (CD-25) ampliando el plazo de cumplimiento a 31 de julio de 2025 o fin del expediente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0113</td>
+    <td>SDR 22</td>
+    <td>Verificar el requisito en las pruebas a con la nueva versión del CMS</td>
+    <td>Verificar el requisito en las pruebas a con la nueva versión del CMS. Realización de las Pruebas Oficiales</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0113</td>
+    <td>SDR 22</td>
+    <td>Modificar Security Suite</td>
+    <td>Cierre de la concesión DC-4300320-18 y aprobación de la concesión DC-4300320-25 ampliando el plazo de cumplimiento a 31 de julio de 2025 o fin del expediente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0113</td>
+    <td>SDR 22</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0118</td>
+    <td>SDR 22</td>
+    <td>Recibir y probar los requisitos correspondientes a la Integracción con GESCOMET</td>
+    <td>Cierre de la concesión DC-4300320-19 (CD-020) y aprobación de la concesión DC-4300320-26 (CD-027) ampliando el plazo de cumplimiento hasta 31 de julio de 2025 o fin del expediente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0118</td>
+    <td>SDR 22</td>
+    <td>Recibir y probar los requisitos correspondientes a la Integracción con GESCOMET</td>
+    <td>Formalizacion de un nuevo prestamo de equipos GESCOM con la versión actualizada a fecha de las pruebas</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0118</td>
+    <td>SDR 22</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo software</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0119</td>
+    <td>SDR 22</td>
+    <td>Reporte a Elbit</td>
+    <td>Se recibe respuesta de ELBIT, trasladando la resolución a la autorización por el Ministerio de Defensa de Israel y de España, y de una nueva versón del software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0119</td>
+    <td>SDR 22</td>
+    <td>Actualizar el firmware de los equipos radio, recibir la información pertinente por parte de ELBIT, y verificar los requisitos en las pruebas a finales de 2023.</td>
+    <td>Cierre de la concesión DC-4300320-20 (CD-021) y aprobación de la concesión DC-4300320-27 (CD-028) ampliando el plazo de cumplimiento hasta 31 de julio de 2025 o fin de expediente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0120</td>
+    <td>SDR 22</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo paquete de herramientas software</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo paquete de herramientas software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0120</td>
+    <td>SDR 22</td>
+    <td>Modificar el paquete de herramientas software suministrado para que contemplen estas funcionalidades, y verificar las funcionalidades y requisitos en las pruebas a finales de 2023.</td>
+    <td>Cierre de la concesión DC-4300320-21 (CD-022) y aprobación de la concesión DC-4300320-28 (CD-029) ampliando el plazo de cumplimiento hasta 31 de julio de 2025 o fin de expediente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0122</td>
+    <td>SDR 22</td>
+    <td>Modificar el firmware de las radios, y verificar el cumplimiento del requisito sobre las formas de onda WB y WMA en las pruebas a realizar en junio de 2025.</td>
+    <td>Cierre de la concesión DC-4300320-23 (CD-024) y aprobación de la concesión DC-4300320-30 (CD-031) ampliando el plazo de cumplimiento hasta finales de julio de 2025</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0124</td>
+    <td>SDR 22</td>
+    <td>Modificar el firmware de las radios, y verificar el cumplimiento del requisito de carga remota del fichero de configuración vía radio (OTA) en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte</td>
+    <td>Cierre de la concesión DC-4300320-22 (CD-023) y aprobación de la concesión DC-4300320-29 (CD-030) ampliando el plazo de cumplimiento hasta finales de julio de 2025</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0134</td>
+    <td>SDR 22</td>
+    <td>Registro de la Incidencia funcional y resolución de la misma</td>
+    <td>Registro de la Incidencia funcional y resolución de la misma. No resuleta con la versión 2.0.7., se prorroga la accion a la espera de la nueva versión SW</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0134</td>
+    <td>SDR 22</td>
+    <td>Pruebas Oficiales con la nueva version de SW</td>
+    <td>Realizar las pruebas internas y oficiales con la nueva versión sw</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0161</td>
+    <td>SDR 23</td>
+    <td>Modificar el firmware de las radios, y verificar el correcto cumplimiento de la funcionalidad “llamada prioritaria” en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0162</td>
+    <td>SDR 23</td>
+    <td>Modificar la herramienta Security Suite, y verificar el requisito en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte</td>
+    <td>Pruebas oficiales y aceptacion por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0163</td>
+    <td>SDR 23</td>
+    <td>Verificar la integración de las radios con el gestor de Comunicaciones GESCOMET y verificar el cumplimiento de los requisitos en las pruebas que se realizarán antes del 31 de julio de 2025 o final del Expte</td>
+    <td>Pruebas oficiales y aceptación por la OP de la integracion</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0163</td>
+    <td>SDR 23</td>
+    <td>Verificar la integración de las radios con el gestor de Comunicaciones GESCOMET y verificar el cumplimiento de los requisitos en las pruebas que se realizarán antes del 31 de julio de 2025 o final del Expte</td>
+    <td>Formalizacion de un nuevo prestamo de equipos GESCOM con la versión actualizada a fecha de las pruebas</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0164</td>
+    <td>SDR 23</td>
+    <td>Actualizar el firmware de los equipos radio, recibir la información pertinente por parte de ELBIT, y verificar los requisitos en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas oficiales y aceptación de la funcionalidad de ortogonalidad por la OP</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0165</td>
+    <td>SDR 23</td>
+    <td>Modificar el paquete de herramientas software suministrado para que contemplen estas funcionalidades, y verificar las funcionalidades y requisitos en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas oficiales y aceptación por la OP del paquete de herramientas de apoyo</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0166</td>
+    <td>SDR 23</td>
+    <td>Actualizar el firmware de la radio y el PC Suite, y verificar el correcto cumplimiento de la funcionalidad “carga de ficheros de configuración via radio (OTA)” en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas Oficiales y aceptación por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0167</td>
+    <td>SDR 23</td>
+    <td>Modificar el firmware de las radios, y verificar el cumplimiento del requisito sobre las formas de onda WB y WMA en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0168</td>
+    <td>SDR 23</td>
+    <td>Modificar el firmware de las radios, y verificar el cumplimiento de los requisitos sobre la forma de onda WMA en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte.</td>
+    <td>Pruebas oficiales y aceptación por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0169</td>
+    <td>SDR 22</td>
+    <td>Modificar el firmware de las radios, y verificar el cumplimiento de los requisitos sobre la forma de onda WMA en las pruebas a realizar antes del 31 de julio de 2025 o final del Expte..</td>
+    <td>Pruebas oficiales y aceptaci-on por la OP del nuevo software</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0221</td>
+    <td>8X8</td>
+    <td>Corregir incidencia</td>
+    <td>Reparar la base 1054, cuya sustitución no ha podido completarse por problemas durante la soldadura.</td>
+    <td>30/06/2025</td>
+    <td>37 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0234</td>
+    <td>SDR 22</td>
+    <td>Actualización y revisión de las guias de instalación</td>
+    <td>se revisarán las guías de instalación y se actualizarán corrigiéndose los errores detectados.</td>
+    <td>15/07/2025</td>
+    <td>22 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0235</td>
+    <td>SDR 24</td>
+    <td>Entrega de los compresores</td>
+    <td>Albaran de entrega de los compresores al cliente</td>
+    <td>31/07/2025</td>
+    <td>6 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0236</td>
+    <td>SDR 22</td>
+    <td>Proceso de retrofit en las radios</td>
+    <td>Formar adecuadamente con la ayuda del fabricante a los técnicos que desarrollen el proceso de retrofit de las radios</td>
+    <td>30/06/2025</td>
+    <td>37 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0240</td>
+    <td>8X8</td>
+    <td>Averiguar motivo de los mensajes BITE</td>
+    <td>Comunicación de cierre por parte de TESS</td>
+    <td>30/07/2025</td>
+    <td>7 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0242</td>
+    <td>8X8</td>
+    <td>Comprobar que las bases llevan su placa correspondiente</td>
+    <td>Cambiar las placas de las siguientes bases que vienen con las placas erróneas</td>
+    <td>30/07/2025</td>
+    <td>7 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0242</td>
+    <td>8X8</td>
+    <td>Comprobar que las bases llevan su placa correspondiente</td>
+    <td>Comprobar que el resto de bases viene con las placas correctas</td>
+    <td>30/07/2025</td>
+    <td>7 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0242</td>
+    <td>8X8</td>
+    <td>Comprobar que las bases llevan su placa correspondiente</td>
+    <td>Pedir cambio de NOC para las nuevas bases</td>
+    <td>30/07/2025</td>
+    <td>7 días vencidos</td>
+  </tr>
+  <tr>
+    <td>NC0248</td>
+    <td>8X8</td>
+    <td>Corregir incidencia</td>
+    <td>Reparar la base 1054, cuya sustitución no ha podido completarse por problemas durante la soldadura.</td>
+    <td>30/06/2025</td>
+    <td>37 días vencidos</td>
+  </tr>
+</table>
+                <hr>
+                <div style="text-align: center; margin-top: 20px;">
+                    <p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>
+                    <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
+                </div>
+            </body>
+            </html>
+            

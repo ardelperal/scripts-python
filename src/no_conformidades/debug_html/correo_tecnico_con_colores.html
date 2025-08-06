@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Aviso de Acciones de Resolución</title>
+    <style>/* CSS Moderno para Informes de No Conformidades */
+/* Codificación: UTF-8 */
+
+body {
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+    background: #f7fafd;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+}
+
+.container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,40,120,0.08);
+    padding: 40px 32px;
+    max-width: 90vw;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #0070f0;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+    text-align: center;
+}
+
+h2 {
+    color: #0070f0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 32px 0 16px 0;
+    border-bottom: 2px solid #e6f0ff;
+    padding-bottom: 8px;
+}
+
+h3 {
+    color: #0070f0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 24px 0 12px 0;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #e6f0ff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,112,240,0.05);
+    width: 100%;
+    margin-bottom: 32px;
+}
+
+th, td {
+    padding: 16px 18px;
+    text-align: left;
+    font-size: 1rem;
+    color: #222;
+    vertical-align: top;
+}
+
+th {
+    background-color: #0070f0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+tr:not(:last-child) td {
+    border-bottom: 1px solid #cce2ff;
+}
+
+tr:hover td {
+    background: #d6eaff;
+    transition: background 0.2s;
+}
+
+.centrado {
+    text-align: center;
+}
+
+/* Indicadores de días - Colores modernos y elegantes */
+.dias-negativo {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.dias-critico {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.dias-normal {
+    color: #27ae60;
+}
+
+/* Clases adicionales para compatibilidad */
+.dias-indicador {
+    font-weight: 500;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: inline-block;
+    min-width: 40px;
+}
+
+/* Clases combinadas para indicadores de días */
+.dias-indicador.negativo {
+    color: #e74c3c !important;
+    background-color: #ffeaea;
+    border: 1px solid #f5c6cb;
+    font-weight: bold;
+}
+
+.dias-indicador.critico {
+    color: #f39c12 !important;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    font-weight: bold;
+}
+
+.dias-indicador.normal {
+    color: #27ae60 !important;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    font-weight: 500;
+}
+
+.dias-alerta {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.seccion {
+    margin-bottom: 40px;
+}
+
+.tipo-correo {
+    background: #e6f0ff;
+    border-left: 4px solid #0070f0;
+    padding: 16px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.tipo-correo h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Estilos adicionales para estados */
+.estado-pendiente {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-vencido {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-proximo {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Círculos para indicadores */
+.circle {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.rojo {
+    background-color: #e74c3c;
+}
+
+.naranja {
+    background-color: #f39c12;
+}
+
+.verde {
+    background-color: #27ae60;
+}
+
+.numero {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Pie de página */
+.footer {
+    margin-top: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px 16px;
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+    }
+    
+    table {
+        font-size: 0.9rem;
+    }
+    
+    th, td {
+        padding: 12px 8px;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    h3 {
+        font-size: 1.1rem;
+    }
+}</style>
+</head>
+<body>
+    <h2>Aviso de Acciones de Resolución Próximas a Vencer o Vencidas</h2>
+    <p>Este es un resumen de las Acciones de Resolución asignadas que requieren su atención.</p>
+
+<h3>Acciones Próximas a Vencer (8-15 días)</h3>
+<table class='table'>
+  <tr>
+    <th class='Cabecera'>Código NC</th>
+    <th class='Cabecera'>Nemotécnico</th>
+    <th class='Cabecera'>Acción Correctiva</th>
+    <th class='Cabecera'>Acción Realizada</th>
+    <th class='Cabecera'>Fecha Fin Prevista</th>
+    <th class='Cabecera'>Días</th>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0225</td>
+    <td class='centrado'>MC3 24</td>
+    <td>Equipar del suministro faltante</td>
+    <td>Instalar ratones y cajones de almacenamiento</td>
+    <td class='centrado'>20/08/2025</td>
+    <td class='centrado'><span class="dias-indicador normal">14</span></td>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0230</td>
+    <td class='centrado'>SDR 23</td>
+    <td>Actualizar documentación</td>
+    <td>Revisar y firmar actas de reunión</td>
+    <td class='centrado'>15/08/2025</td>
+    <td class='centrado'><span class="dias-indicador normal">9</span></td>
+  </tr>
+</table>
+
+<h3>Acciones Próximas a Vencer (1-7 días)</h3>
+<table class='table'>
+  <tr>
+    <th class='Cabecera'>Código NC</th>
+    <th class='Cabecera'>Nemotécnico</th>
+    <th class='Cabecera'>Acción Correctiva</th>
+    <th class='Cabecera'>Acción Realizada</th>
+    <th class='Cabecera'>Fecha Fin Prevista</th>
+    <th class='Cabecera'>Días</th>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0164</td>
+    <td class='centrado'>SDR 23</td>
+    <td>Actualizar firmware</td>
+    <td>Verificar requisitos en pruebas</td>
+    <td class='centrado'>10/08/2025</td>
+    <td class='centrado'><span class="dias-indicador critico">4</span></td>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0168</td>
+    <td class='centrado'>8X8</td>
+    <td>Corregir transmisión</td>
+    <td>Implementar solución WMA</td>
+    <td class='centrado'>07/08/2025</td>
+    <td class='centrado'><span class="dias-indicador critico">1</span></td>
+  </tr>
+</table>
+
+<h3>Acciones Vencidas</h3>
+<table class='table'>
+  <tr>
+    <th class='Cabecera'>Código NC</th>
+    <th class='Cabecera'>Nemotécnico</th>
+    <th class='Cabecera'>Acción Correctiva</th>
+    <th class='Cabecera'>Acción Realizada</th>
+    <th class='Cabecera'>Fecha Fin Prevista</th>
+    <th class='Cabecera'>Días</th>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0142</td>
+    <td class='centrado'>MC3 24</td>
+    <td>Revisar configuración</td>
+    <td>Actualizar parámetros de red</td>
+    <td class='centrado'>05/08/2025</td>
+    <td class='centrado'><span class="dias-indicador negativo">-1</span></td>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0155</td>
+    <td class='centrado'>SDR 23</td>
+    <td>Corregir error de transmisión</td>
+    <td>Implementar parche de seguridad</td>
+    <td class='centrado'>01/08/2025</td>
+    <td class='centrado'><span class="dias-indicador negativo">-5</span></td>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0233</td>
+    <td class='centrado'>5G FANETC</td>
+    <td>Implementar solución TUTUS</td>
+    <td>Buscar la viabilidad económica para solventar la implementación de esta solución.</td>
+    <td class='centrado'>31/07/2025</td>
+    <td class='centrado'><span class="dias-indicador negativo">-6</span></td>
+  </tr>
+  <tr>
+    <td class='centrado'>NC0120</td>
+    <td class='centrado'>SDR 22</td>
+    <td>Herramientas de apoyo</td>
+    <td>Desarrollar nuevas herramientas de software</td>
+    <td class='centrado'>25/07/2025</td>
+    <td class='centrado'><span class="dias-indicador negativo">-12</span></td>
+  </tr>
+  <tr>
+    <td>NC0107</td>
+    <td>8X8</td>
+    <td>Sesiones de ingeniería</td>
+    <td>Liberar nueva versión de software</td>
+    <td>05/08/2025</td>
+    <td><span class="dias-indicador critico">0</span></td>
+  </tr>
+</table>
+
+                <hr>
+                <div style="text-align: center; margin-top: 20px;">
+                    <p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>
+                    <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
+                </div>
+            </body>
+            </html>
