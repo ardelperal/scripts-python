@@ -148,7 +148,7 @@ def get_economy_users_alternative(config, logger) -> List[Dict[str, str]]:
         return []
 
 
-def get_users_with_fallback(user_type: str, app_id: str = None, config=None, logger=None, db_connection=None):
+def get_users_with_fallback(user_type: str, db_connection, config, logger, app_id: str = None):
     """
     Función que intenta usar las funciones originales de utils y si fallan por tabla inexistente,
     usa las funciones alternativas.
@@ -164,16 +164,16 @@ def get_users_with_fallback(user_type: str, app_id: str = None, config=None, log
         Lista de usuarios del tipo solicitado
     """
     try:
-        # Intentar usar las funciones originales primero
+        # Determinar qué función de obtención de usuarios usar
         if user_type == 'admin':
             from .utils import get_admin_users
             return get_admin_users(db_connection)
         elif user_type == 'technical':
-            from .utils import get_technical_users
-            return get_technical_users(app_id, config, logger)
+            # No existe una función específica para técnicos en utils, se usa la alternativa
+            return get_technical_users_alternative(app_id, config, logger)
         elif user_type == 'quality':
-            from .utils import get_quality_users
-            return get_quality_users(app_id, config, logger)
+            # No existe una función específica para calidad en utils, se usa la alternativa
+            return get_quality_users_alternative(app_id, config, logger)
             
     except Exception as e:
         # Si hay error (probablemente tabla inexistente), usar funciones alternativas

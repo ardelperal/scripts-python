@@ -3,7 +3,9 @@ import pytest
 import os
 from src.no_conformidades.no_conformidades_manager import NoConformidadesManager
 from src.common.database import AccessDatabase
-from src.common import config
+from src.common.config import Config
+
+config = Config()
 
 
 @pytest.fixture(scope="class")
@@ -63,9 +65,10 @@ def db_connections(verify_local_environment):
     
     try:
         # Crear conexiones usando las rutas locales
-        connections['no_conformidades'] = AccessDatabase(str(local_paths['no_conformidades']))
-        connections['tareas'] = AccessDatabase(str(local_paths['tareas']))
-        connections['correos'] = AccessDatabase(str(local_paths['correos']))
+        # Usar el método de config para obtener las cadenas de conexión
+        connections['no_conformidades'] = AccessDatabase(config.get_db_connection_string('no_conformidades'))
+        connections['tareas'] = AccessDatabase(config.get_db_connection_string('tareas'))
+        connections['correos'] = AccessDatabase(config.get_db_connection_string('correos'))
         
         yield connections
     finally:
@@ -85,3 +88,26 @@ def real_no_conformidades_manager():
     para tests de integración con bases de datos reales.
     """
     return NoConformidadesManager()
+
+@pytest.fixture
+def setup_test_database_for_no_conformidades(db_connections):
+    """
+    Prepara la base de datos de No Conformidades para las pruebas de notificación.
+    Limpia las tablas relevantes e inserta datos de prueba.
+    """
+    nc_db = db_connections['no_conformidades']
+    
+    # Limpiar tablas
+    nc_db.execute_non_query("DELETE FROM TbNCAccionesRealizadas")
+    nc_db.execute_non_query("DELETE FROM TbNCAccionCorrectivas")
+    nc_db.execute_non_query("DELETE FROM TbNoConformidades")
+
+    # Insertar datos de prueba
+    # (Los datos se insertarán en las pruebas específicas)
+    
+    yield nc_db
+    
+    # Limpieza después de la prueba
+    nc_db.execute_non_query("DELETE FROM TbNCAccionesRealizadas")
+    nc_db.execute_non_query("DELETE FROM TbNCAccionCorrectivas")
+    nc_db.execute_non_query("DELETE FROM TbNoConformidades")

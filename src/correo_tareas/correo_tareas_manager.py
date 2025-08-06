@@ -77,6 +77,14 @@ class CorreoTareasManager:
                 destinatarios.extend([email.strip() for email in correo['DestinatariosConCopia'].split(';')])
             if correo.get('DestinatariosConCopiaOculta'):
                 destinatarios.extend([email.strip() for email in correo['DestinatariosConCopiaOculta'].split(';')])
+
+            # Filtrar destinatarios vacíos
+            destinatarios = [d for d in destinatarios if d]            
+
+            if not destinatarios:
+                logger.error(f"Correo ID {correo['IDCorreo']} no tiene destinatarios. Marcando como no enviado.")
+                self._marcar_correo_no_enviado(correo['IDCorreo'], 'Sin destinatarios')
+                return False
             
             # Enviar correo
             success = self._enviar_smtp(msg, destinatarios)
@@ -137,6 +145,22 @@ class CorreoTareasManager:
             logger.error(f"Error enviando correo por SMTP: {e}")
             return False
     
+    def _marcar_correo_no_enviado(self, id_correo: int, motivo: str):
+        """Marcar un correo como no enviado en la base de datos, registrando el motivo."""
+        try:
+            update_data = {
+                "Enviado": False,
+                "Notas": f"Error al enviar: {motivo} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+            }
+            where_clause = f"IDCorreo = {id_correo}"
+            success = self.db_pool.update_record("TbCorreosEnviados", update_data, where_clause)
+            if success:
+                logger.info(f"Correo ID {id_correo} marcado como NO ENVIADO. Motivo: {motivo}")
+            else:
+                logger.error(f"Error marcando correo ID {id_correo} como NO ENVIADO")
+        except Exception as e:
+            logger.error(f"Error en _marcar_correo_no_enviado: {e}")
+
     def _marcar_correo_enviado(self, id_correo: int, fecha_envio: datetime):
         """Marcar correo como enviado en la base de datos Access usando pool thread-safe"""
         try:

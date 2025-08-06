@@ -140,7 +140,7 @@ class TestFileContent(unittest.TestCase):
             
             # Verificar que contiene las importaciones principales
             self.assertIn("NoConformidadesManager", contenido)
-            self.assertIn("EmailNotificationManager", contenido)
+            self.assertIn("ReportRegistrar", contenido)
     
     def test_contenido_env_principal(self):
         """Verificar que .env tiene configuraciones básicas de no conformidades"""

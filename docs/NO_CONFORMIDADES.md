@@ -81,7 +81,7 @@ python scripts/validate_no_conformidades.py
 from src.no_conformidades import (
     NoConformidadesManager, 
     HTMLReportGenerator, 
-    EmailNotificationManager
+    ReportRegistrar
 )
 
 # Inicializar el gestor
@@ -100,7 +100,7 @@ reporte = html_generator.generar_reporte_completo(
 )
 
 # Enviar notificaciones
-email_manager = EmailNotificationManager()
+email_manager = ReportRegistrar()
 email_manager.enviar_notificacion_calidad(
     ncs_eficacia, [], [], 
     "calidad@empresa.com", 
