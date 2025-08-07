@@ -717,12 +717,22 @@ notepad .env
 #### Paso 3: Instalar Dependencias
 
 ```powershell
-# Instalar dependencias de Python
-pip install -r requirements.txt
+# ENTORNO OFICINA (con proxy)
+# Instalar dependencias usando proxy corporativo
+pip install -r requirements.txt --proxy http://185.46.212.88:80
+
+# ENTORNO CASA (sin proxy)
+# Instalar dependencias directamente (forzar sin proxy aunque esté en variables de entorno)
+pip install -r requirements.txt --proxy ""
 
 # Verificar instalación
 pip list
 ```
+
+**💡 Nota sobre entornos:**
+- **Oficina**: Usar el comando con `--proxy http://185.46.212.88:80`
+- **Casa**: Usar el comando con `--proxy ""` para forzar sin proxy (incluso si está configurado en variables de entorno)
+- Si tienes dudas sobre qué entorno usar, prueba primero con `--proxy ""`. Si falla, usa el proxy corporativo.
 
 #### Paso 4: Configurar SMTP Local con Docker
 
@@ -985,6 +995,9 @@ python tools/setup_local_environment.py --links-only
 
 # Solo verificar conectividad de red y mostrar configuración
 python tools/setup_local_environment.py --check-network
+
+# Crear base de correos completamente vacía (solo estructura)
+python tools/setup_local_environment.py --empty-correos
 ```
 
 **🎯 Funcionalidades del Script:**
@@ -996,6 +1009,7 @@ python tools/setup_local_environment.py --check-network
 3. **Copia Inteligente de Bases de Datos**:
    - **Bases normales**: Copia completa desde oficina a local
    - **Base de correos**: Modo ligero (solo últimos 5 registros para desarrollo)
+   - **Base de correos vacía**: Opción `--empty-correos` para crear solo la estructura sin registros
    - **Manejo de contraseñas**: Crea bases locales con la misma contraseña que las remotas
 
 4. **Actualización de Vínculos**: Actualiza automáticamente todas las tablas vinculadas para que apunten a las bases de datos locales
@@ -1014,6 +1028,9 @@ python tools/setup_local_environment.py --links-only
 
 # Verificar problemas de conectividad
 python tools/setup_local_environment.py --check-network
+
+# Crear base de correos vacía para desarrollo sin datos
+python tools/setup_local_environment.py --empty-correos
 ```
 
 **⚠️ Importante para Desarrolladores:**

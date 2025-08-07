@@ -210,6 +210,179 @@ class LocalEnvironmentSetup:
             self.logger.error(f"  [X] Error configurando base de correos: {e}")
             return False
 
+    def _setup_correos_database_empty(self, office_path: str, local_path: str) -> bool:
+        """
+        Configura la base de datos de correos completamente vacía (sin registros)
+        Crea la base desde cero con estructura predefinida, sin necesidad de acceso a la red
+        
+        Args:
+            office_path: Ruta de la base de datos en oficina (no se usa en modo offline)
+            local_path: Ruta de la base de datos local
+            
+        Returns:
+            bool: True si la configuración fue exitosa
+        """
+        try:
+            local_name = os.path.basename(local_path)
+            
+            self.logger.info(f"[EMAIL] Configurando base de datos de correos VACÍA (sin registros)...")
+            self.logger.info(f"  [FOLDER] Destino: {local_name}")
+            self.logger.info(f"  [INFO] Modo offline - usando estructura predefinida")
+            
+            # Asegurar que el directorio local existe
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            
+            # Si la base local existe, eliminarla para recrearla
+            if os.path.exists(local_path):
+                self.logger.info(f"  [DELETE] Eliminando base local existente {local_name}...")
+                try:
+                    os.remove(local_path)
+                    self.logger.info(f"  [OK] Base local eliminada")
+                except Exception as e:
+                    self.logger.error(f"  [X] Error eliminando base local: {e}")
+                    return False
+            
+            # Crear la base de datos desde cero con estructura predefinida
+            if not self._create_correos_database_offline(local_path):
+                return False
+            
+            self.logger.info(f"  [OK] Base de datos de correos creada VACÍA exitosamente")
+            self.logger.info(f"  [INFO] La base contiene solo la estructura, sin registros")
+            return True
+                
+        except Exception as e:
+            self.logger.error(f"  [X] Error configurando base de correos vacía: {e}")
+            return False
+
+    def _create_correos_database_offline(self, local_path: str) -> bool:
+        """
+        Crea una base de datos de correos desde cero con estructura predefinida
+        No requiere acceso a la red ni a la base de datos remota
+        
+        Args:
+            local_path: Ruta de la base de datos local a crear
+            
+        Returns:
+            bool: True si la creación fue exitosa
+        """
+        import win32com.client
+        
+        try:
+            local_name = os.path.basename(local_path)
+            
+            self.logger.info(f"  [BUILD] Creando base de datos {local_name} desde cero...")
+            
+            # Asegurar que el directorio existe y usar ruta absoluta
+            local_dir = os.path.dirname(local_path)
+            os.makedirs(local_dir, exist_ok=True)
+            local_path_abs = os.path.abspath(local_path)
+            
+            self.logger.info(f"  [PIN] Ruta absoluta: {local_path_abs}")
+            
+            # Crear aplicación Access
+            access = win32com.client.Dispatch("Access.Application")
+            access.Visible = False
+            
+            try:
+                # Paso 1: Crear base de datos vacía
+                self.logger.info(f"  [ACTIONS] Creando archivo de base de datos...")
+                access.NewCurrentDatabase(local_path_abs)
+                
+                # Paso 2: Aplicar contraseña
+                self.logger.info(f"  [LOCK] Aplicando contraseña a la base de datos...")
+                access.CurrentDb().NewPassword("", self.db_password)
+                
+                # Paso 3: Crear estructura de tablas predefinida para correos
+                self.logger.info(f"  [BUILD] Creando estructura de tablas...")
+                
+                # Importar esquemas desde el archivo de configuración
+                try:
+                    from database_schemas import (
+                        get_all_correos_tables_sql, 
+                        get_correos_initial_data_sql
+                    )
+                    
+                    # Crear todas las tablas usando los esquemas definidos
+                    table_sqls = get_all_correos_tables_sql()
+                    for sql in table_sqls:
+                        access.CurrentDb().Execute(sql)
+                        # Extraer nombre de tabla del SQL para el log
+                        table_name = sql.split('[')[1].split(']')[0] if '[' in sql else 'tabla'
+                        self.logger.info(f"  [OK] Tabla {table_name} creada")
+                    
+                    # Insertar datos iniciales
+                    self.logger.info(f"  [BUILD] Insertando datos iniciales...")
+                    initial_data_sqls = get_correos_initial_data_sql()
+                    for sql in initial_data_sqls:
+                        access.CurrentDb().Execute(sql)
+                    
+                    self.logger.info(f"  [OK] Configuración básica insertada")
+                    
+                except ImportError:
+                    # Fallback a estructura básica si no existe database_schemas.py
+                    self.logger.warning(f"  [WARN] No se encontró database_schemas.py, usando estructura básica")
+                    
+                    # Tabla principal de correos
+                    sql_create_correos = """
+                    CREATE TABLE TbCorreos (
+                        IDCorreo AUTOINCREMENT PRIMARY KEY,
+                        Aplicacion TEXT(50),
+                        Asunto TEXT(255),
+                        Cuerpo MEMO,
+                        Destinatarios TEXT(255),
+                        DestinatariosCopia TEXT(255),
+                        FechaEnvio DATETIME,
+                        Estado TEXT(20),
+                        Prioridad TEXT(10),
+                        Adjuntos TEXT(255),
+                        FechaCreacion DATETIME,
+                        UsuarioCreacion TEXT(50)
+                    )
+                    """
+                    
+                    access.CurrentDb().Execute(sql_create_correos)
+                    self.logger.info(f"  [OK] Tabla TbCorreos creada")
+                    
+                    # Tabla de configuración de correos
+                    sql_create_config = """
+                    CREATE TABLE TbConfigCorreos (
+                        IDConfig AUTOINCREMENT PRIMARY KEY,
+                        Aplicacion TEXT(50),
+                        ServidorSMTP TEXT(100),
+                        Puerto INTEGER,
+                        UsuarioSMTP TEXT(100),
+                        PasswordSMTP TEXT(100),
+                        SSL YESNO,
+                        RemitenteDefecto TEXT(100),
+                        FechaModificacion DATETIME
+                    )
+                    """
+                    
+                    access.CurrentDb().Execute(sql_create_config)
+                    self.logger.info(f"  [OK] Tabla TbConfigCorreos creada")
+                    
+                    # Insertar configuración básica
+                    sql_insert_config = """
+                    INSERT INTO TbConfigCorreos (Aplicacion, ServidorSMTP, Puerto, SSL, RemitenteDefecto, FechaModificacion)
+                    VALUES ('General', 'smtp.office365.com', 587, True, 'noreply@empresa.com', Now())
+                    """
+                    access.CurrentDb().Execute(sql_insert_config)
+                    self.logger.info(f"  [OK] Configuración básica insertada")
+                
+                # Cerrar base de datos
+                access.CloseCurrentDatabase()
+                
+                self.logger.info(f"  [OK] Base de datos {local_name} creada exitosamente")
+                return True
+                
+            finally:
+                # Cerrar aplicación Access
+                access.Quit()
+                
+        except Exception as e:
+            self.logger.error(f"  [X] Error creando base de datos offline: {e}")
+            return False
+
     def _create_correos_database_from_scratch(self, office_path: str, local_path: str) -> bool:
         """
         Crea una base de datos Access desde cero con contraseña y estructura idéntica a la remota
@@ -745,6 +918,52 @@ class LocalEnvironmentSetup:
             bool: True si todas las copias fueron exitosas
         """
         self.logger.info("=== Iniciando copia de bases de datos ===")
+        
+        # Verificar si estamos en modo empty-correos
+        empty_correos_only = hasattr(self, 'empty_correos') and self.empty_correos
+        
+        if empty_correos_only:
+            self.logger.info("[EMPTY] Modo 'correos vacíos' - procesando solo base de correos")
+            # Solo procesar la base de datos de correos
+            for db_name, (office_var, local_var, filename) in self.databases.items():
+                if db_name == 'CORREOS' or 'correos' in filename.lower():
+                    try:
+                        # Obtener rutas desde variables de entorno
+                        office_path = os.getenv(office_var)
+                        local_path = os.getenv(local_var)
+                        
+                        if not office_path or not local_path:
+                            self.logger.error(f"Variables de entorno no encontradas para {db_name}")
+                            return False
+                        
+                        # Convertir rutas relativas a absolutas
+                        if not os.path.isabs(local_path):
+                            local_path = self.project_root / local_path
+                        
+                        self.logger.info(f"Creando {db_name} vacía...")
+                        self.logger.info(f"  Destino: {local_path}")
+                        
+                        # Crear directorio destino si no existe
+                        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                        
+                        # Crear base de datos de correos vacía
+                        if self._setup_correos_database_empty(office_path, local_path):
+                            self.logger.info(f"✓ {db_name} creada exitosamente (modo VACÍO)")
+                            self.logger.info("=== Copia completada: 1/1 exitosas ===")
+                            return True
+                        else:
+                            self.logger.error(f"✗ Error creando {db_name} en modo vacío")
+                            return False
+                            
+                    except Exception as e:
+                        self.logger.error(f"✗ Error creando {db_name}: {e}")
+                        return False
+            
+            # Si llegamos aquí, no se encontró la base de correos
+            self.logger.error("No se encontró configuración para base de datos de correos")
+            return False
+        
+        # Modo normal - procesar todas las bases de datos
         success_count = 0
         total_count = len(self.databases)
         
@@ -1341,8 +1560,11 @@ class LocalEnvironmentSetup:
             # Mostrar configuración descubierta
             self.show_configuration()
             
-            # Verificar accesibilidad de red ANTES de proceder (solo si no es modo force_links_only)
-            if not force_links_only:
+            # Verificar si solo necesitamos crear base de correos vacía
+            empty_correos_only = hasattr(self, 'empty_correos') and self.empty_correos
+            
+            # Verificar accesibilidad de red ANTES de proceder (saltar si es modo force_links_only o empty_correos_only)
+            if not force_links_only and not empty_correos_only:
                 if not self._check_network_accessibility():
                     self.logger.error("[X] No se puede acceder a las ubicaciones de red de oficina")
                     self.logger.warning("   Opciones disponibles:")
@@ -1358,12 +1580,23 @@ class LocalEnvironmentSetup:
                 
                 if not copy_success:
                     self.logger.warning("[!] Algunas copias fallaron, continuando con actualizacion de vinculos...")
+            elif empty_correos_only:
+                self.logger.info("[EMPTY] Modo 'correos vacíos' activado - saltando verificación de red")
+                # Paso 1: Crear solo la base de correos vacía
+                copy_success = self.copy_databases()
+                
+                if not copy_success:
+                    self.logger.warning("[!] Error creando base de correos vacía")
             else:
                 self.logger.info("[LINK] Modo 'solo vinculos' activado - saltando copia de bases de datos")
                 copy_success = True
             
-            # Paso 2: Actualizar vínculos
-            links_success = self.update_all_database_links()
+            # Paso 2: Actualizar vínculos (saltar si es modo empty_correos_only)
+            if empty_correos_only:
+                self.logger.info("[EMPTY] Modo 'correos vacíos' - saltando actualización de vínculos")
+                links_success = True
+            else:
+                links_success = self.update_all_database_links()
             
             # Resultado final
             if copy_success and links_success:
@@ -1389,6 +1622,7 @@ Ejemplos de uso:
   python setup_local_environment.py                    # Proceso completo
   python setup_local_environment.py --links-only       # Solo actualizar vínculos
   python setup_local_environment.py --check-network    # Solo verificar red
+  python setup_local_environment.py --empty-correos    # Crear base de correos vacía
         """
     )
     
@@ -1404,6 +1638,12 @@ Ejemplos de uso:
         help='Solo verificar accesibilidad de red y mostrar configuración'
     )
     
+    parser.add_argument(
+        '--empty-correos', 
+        action='store_true',
+        help='Crear la base de datos de correos completamente vacía (sin registros)'
+    )
+    
     args = parser.parse_args()
     
     print("=" * 60)
@@ -1413,6 +1653,10 @@ Ejemplos de uso:
     
     try:
         setup = LocalEnvironmentSetup()
+        
+        # Configurar la opción de correos vacíos si se especificó
+        if args.empty_correos:
+            setup.empty_correos = True
         
         if args.check_network:
             # Solo verificar red y mostrar configuración

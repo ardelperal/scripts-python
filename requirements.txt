@@ -6,10 +6,10 @@ pandas==2.1.1
 pyodbc==5.0.1
 
 # Windows COM para Access (crítica para funcionalidad COM)
-pywin32==306
+pywin32==311
 
 # Variables de entorno
-python-dotenv==1.0.0
+python-dotenv==1.1.1
 
 # Logging y utilidades
 python-dateutil==2.8.2
