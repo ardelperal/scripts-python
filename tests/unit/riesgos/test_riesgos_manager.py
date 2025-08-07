@@ -206,8 +206,8 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
     
     @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.riesgos.riesgos_manager.send_notification_email')
-    def test_execute_daily_task_success(self, mock_send_email, mock_get_emails):
+    @patch('src.common.utils.register_email_in_database')
+    def test_execute_daily_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tareas diarias."""
         # Configurar mocks
         self.manager.connect = Mock(return_value=True)
@@ -226,7 +226,7 @@ class TestRiesgosManager(unittest.TestCase):
         self.manager.connect.assert_called_once()
         self.manager.execute_technical_task.assert_called_once()
         self.manager.record_task_execution.assert_called_once_with('TECNICA')
-        mock_send_email.assert_called_once()
+        mock_register_email.assert_called_once()
         self.manager.disconnect.assert_called_once()
     
     def test_execute_daily_task_connection_failure(self):
@@ -239,8 +239,8 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
         self.manager.disconnect.assert_called_once()
     
-    @patch('src.riesgos.riesgos_manager.send_notification_email')
-    def test_execute_technical_task_success(self, mock_send_email):
+    @patch('src.common.utils.register_email_in_database')
+    def test_execute_technical_task_success(self, mock_register_email):
         """Prueba ejecución exitosa de tarea técnica."""
         # Configurar usuarios mock
         users = {
@@ -253,7 +253,7 @@ class TestRiesgosManager(unittest.TestCase):
         result = self.manager.execute_technical_task()
         
         self.assertTrue(result)
-        self.assertEqual(mock_send_email.call_count, 2)
+        self.assertEqual(mock_register_email.call_count, 2)
     
     def test_execute_technical_task_error(self):
         """Prueba error en ejecución de tarea técnica."""
@@ -264,8 +264,8 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
     
     @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.riesgos.riesgos_manager.send_notification_email')
-    def test_execute_quality_task_success(self, mock_send_email, mock_get_emails):
+    @patch('src.common.utils.register_email_in_database')
+    def test_execute_quality_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tarea de calidad."""
         mock_get_emails.return_value = "admin@test.com"
         self.manager._generate_quality_report_html = Mock(return_value="<html>Quality Report</html>")
@@ -274,7 +274,7 @@ class TestRiesgosManager(unittest.TestCase):
         result = self.manager.execute_quality_task()
         
         self.assertTrue(result)
-        mock_send_email.assert_called_once()
+        mock_register_email.assert_called_once()
     
     def test_execute_quality_task_error(self):
         """Prueba error en ejecución de tarea de calidad."""
@@ -285,8 +285,8 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
     
     @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.riesgos.riesgos_manager.send_notification_email')
-    def test_execute_monthly_quality_task_success(self, mock_send_email, mock_get_emails):
+    @patch('src.common.utils.register_email_in_database')
+    def test_execute_monthly_quality_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tarea de calidad mensual."""
         mock_get_emails.return_value = "admin@test.com"
         self.manager._generate_monthly_quality_report_html = Mock(return_value="<html>Monthly Report</html>")
@@ -295,7 +295,7 @@ class TestRiesgosManager(unittest.TestCase):
         result = self.manager.execute_monthly_quality_task()
         
         self.assertTrue(result)
-        mock_send_email.assert_called_once()
+        mock_register_email.assert_called_once()
     
     def test_execute_monthly_quality_task_error(self):
         """Prueba error en ejecución de tarea de calidad mensual."""

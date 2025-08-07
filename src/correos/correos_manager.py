@@ -1,6 +1,6 @@
 """
 Gestor de Correos
-Adaptación del script legacy EnviarCorreoNoEnviado.vbs
+Adaptación del script original EnviarCorreoNoEnviado.vbs
 """
 import smtplib
 import logging
@@ -38,7 +38,7 @@ class CorreosManager:
         """
         try:
             msg = MIMEMultipart()
-            # Construir el remitente usando el campo Aplicacion como en el legacy VBS
+            # Construir el remitente usando el campo Aplicacion como en el script original VBS
             aplicacion = correo.get('Aplicacion', 'Sistema')
             from_email = f"{aplicacion}.DySN@telefonica.com"
             msg['From'] = from_email

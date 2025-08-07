@@ -1,7 +1,7 @@
 """
 Script maestro de producción para ejecutar todos los scripts del sistema.
 
-Este script reemplaza al legacy script-continuo.vbs y maneja la ejecución
+Este script reemplaza al script original script-continuo.vbs y maneja la ejecución
 automática de todos los scripts de producción según horarios específicos.
 
 Funcionalidades:

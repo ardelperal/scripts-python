@@ -1,6 +1,6 @@
 """
 Módulo para gestión de notificaciones de email de no conformidades
-Implementa el patrón legacy de registro en base de datos
+Implementa el patrón de registro en base de datos
 """
 
 import sys
@@ -194,49 +194,7 @@ class ReportRegistrar:
             logger.error(f"Error obteniendo emails de calidad: {e}")
             return []
     
-    def _generar_reporte_calidad_html(self, ncs_eficacia, ncs_caducar, ncs_sin_acciones, destinatarios_calidad, destinatarios_admin):
-        """Genera el cuerpo del email para el reporte de calidad."""
-        try:
-            css_styles = self.html_generator.get_css_styles()
-            
-            html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Reporte de No Conformidades - Calidad</title>
-    <style>{css_styles}</style>
-</head>
-<body>
-    <h2>Reporte de No Conformidades - Calidad</h2>
-    <p>Este es un resumen de las No Conformidades que requieren su atención.</p>
-"""
 
-            if ncs_eficacia:
-                html += "<h3>NCs Pendientes de Control de Eficacia</h3>"
-                html += self.html_generator.generate_table(ncs_eficacia, ["Código", "Descripción", "Responsable Calidad", "Fecha Cierre", "Fecha Prevista Control Eficacia", "Días Restantes"])
-
-            if ncs_caducar:
-                html += "<h3>NCs Próximas a Caducar o Caducadas</h3>"
-                html += self.html_generator.generate_table(ncs_caducar, ["Código", "Descripción", "Responsable Calidad", "Fecha Cierre", "Fecha Límite", "Días Restantes"])
-
-            if ncs_sin_acciones:
-                html += "<h3>NCs Registradas Sin Acciones Asignadas</h3>"
-                html += self.html_generator.generate_table(ncs_sin_acciones, ["Código", "Descripción", "Responsable Calidad", "Fecha Registro"])
-
-            html += f"""
-                <hr>
-                <p><strong>Destinatarios (Calidad):</strong> {destinatarios_calidad}</p>
-                <p><strong>Destinatarios (Admin):</strong> {destinatarios_admin}</p>
-                <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
-            </body>
-            </html>
-            """
-            
-            return html
-            
-        except Exception as e:
-            logger.error(f"Error generando HTML de reporte de calidad: {e}")
-            return f"<html><body><h1>Error generando reporte</h1><p>{str(e)}</p></body></html>"
 
     def generate_technical_report_html(self, ars_proximas_vencer_8_15=None, ars_proximas_vencer_1_7=None, 
                                       ars_vencidas=None) -> str:
@@ -317,7 +275,7 @@ class ReportRegistrar:
 
 def _register_email_nc(application: str, subject: str, body: str, recipients: str, admin_emails: str = "") -> Optional[int]:
     """
-    Registra un email en TbCorreosEnviados siguiendo el patrón legacy
+    Registra un email en TbCorreosEnviados
     
     Args:
         application: Aplicación que envía el email
@@ -330,9 +288,8 @@ def _register_email_nc(application: str, subject: str, body: str, recipients: st
         IDCorreo si se registra exitosamente, None en caso de error
     """
     try:
-        # Obtener conexión a la base de datos de correos
-        db_path = config.get_database_path('correos')
-        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+        # Obtener conexión a la base de datos de tareas (no correos)
+        connection_string = config.get_db_tareas_connection_string()
         db = AccessDatabase(connection_string)
         
         with db.get_connection() as conn:
@@ -342,12 +299,12 @@ def _register_email_nc(application: str, subject: str, body: str, recipients: st
             next_id = db.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
             
             # Preparar datos para inserción con formato de fecha para Access
-            fecha_actual = datetime.now().strftime("#%m/%d/%Y %H:%M:%S#")
+            fecha_actual = datetime.now()
             
-            # Insertar el registro
+            # Insertar el registro usando los nombres de columnas correctos
             insert_query = """
                 INSERT INTO TbCorreosEnviados 
-                (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosCC, DestinatariosBCC, Fecha)
+                (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosConCopia, DestinatariosConCopiaOculta, FechaGrabacion)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """
             
@@ -373,7 +330,7 @@ def _register_email_nc(application: str, subject: str, body: str, recipients: st
 
 def _register_arapc_notification(id_correo: int, arapcs_15: List[int], arapcs_7: List[int], arapcs_0: List[int]) -> bool:
     """
-    Registra las notificaciones ARAPC en TbNCARAvisos siguiendo el patrón legacy
+    Registra las notificaciones ARAPC en TbNCARAvisos
     
     Args:
         id_correo: ID del correo registrado
@@ -385,34 +342,52 @@ def _register_arapc_notification(id_correo: int, arapcs_15: List[int], arapcs_7:
         True si se registra exitosamente, False en caso de error
     """
     try:
-        # Obtener conexión a la base de datos de no conformidades
+        # Obtener conexión a la base de datos de no conformidades (donde está TbNCARAvisos)
         db_path = config.get_database_path('no_conformidades')
-        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};PWD=dpddpd;"
         db = AccessDatabase(connection_string)
         
         with db.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Registrar cada ARAPC notificada
-            all_arapcs = [
-                (arapcs_15, 15),
-                (arapcs_7, 7), 
-                (arapcs_0, 0)
-            ]
+            # Función auxiliar para obtener el próximo ID
+            def get_next_id():
+                try:
+                    cursor.execute("SELECT Max(TbNCARAvisos.ID) AS Maximo FROM TbNCARAvisos")
+                    result = cursor.fetchone()
+                    if result and result[0] is not None:
+                        return result[0] + 1
+                    return 1
+                except:
+                    # Si la tabla no existe, crear el primer registro
+                    return 1
             
-            for arapc_list, dias in all_arapcs:
-                for id_accion in arapc_list:
-                    insert_query = """
-                        INSERT INTO TbNCARAvisos (IDAccion, IDCorreo, DiasAviso, FechaAviso)
-                        VALUES (?, ?, ?, ?)
-                    """
-                    
-                    cursor.execute(insert_query, [
-                        id_accion,
-                        id_correo,
-                        dias,
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ])
+            # Registrar avisos de 15 días
+            for id_accion in arapcs_15:
+                next_id = get_next_id()
+                insert_query = """
+                    INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo15, Fecha)
+                    VALUES (?, ?, ?, ?)
+                """
+                cursor.execute(insert_query, [next_id, id_accion, id_correo, datetime.now()])
+            
+            # Registrar avisos de 7 días
+            for id_accion in arapcs_7:
+                next_id = get_next_id()
+                insert_query = """
+                    INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo7, Fecha)
+                    VALUES (?, ?, ?, ?)
+                """
+                cursor.execute(insert_query, [next_id, id_accion, id_correo, datetime.now()])
+            
+            # Registrar avisos de 0 días
+            for id_accion in arapcs_0:
+                next_id = get_next_id()
+                insert_query = """
+                    INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo0, Fecha)
+                    VALUES (?, ?, ?, ?)
+                """
+                cursor.execute(insert_query, [next_id, id_accion, id_correo, datetime.now()])
             
             conn.commit()
             logger.info(f"Notificaciones ARAPC registradas para correo ID: {id_correo}")
@@ -425,7 +400,7 @@ def _register_arapc_notification(id_correo: int, arapcs_15: List[int], arapcs_7:
 
 def enviar_notificacion_calidad(datos_calidad: Dict[str, Any]) -> bool:
     """
-    Registra notificación de calidad en la base de datos siguiendo el patrón legacy
+    Registra notificación de calidad en la base de datos
     
     Args:
         datos_calidad: Diccionario con datos para generar el reporte
@@ -473,7 +448,7 @@ def enviar_notificacion_calidad(datos_calidad: Dict[str, Any]) -> bool:
 
 def enviar_notificacion_tecnica(datos_tecnicos: Dict[str, Any]) -> bool:
     """
-    Registra notificación técnica en la base de datos siguiendo el patrón legacy
+    Registra notificación técnica en la base de datos
     
     Args:
         datos_tecnicos: Diccionario con datos técnicos para el reporte

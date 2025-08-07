@@ -38,7 +38,7 @@ class AccessAdapter:
         """Establece conexión con Access"""
         try:
             conn_str = f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.db_path};"
-            if self.password:
+            if self.password and self.password.strip():
                 conn_str += f"PWD={self.password};"
             self.connection = pyodbc.connect(conn_str)
             # Usar función para ocultar contraseña en logs

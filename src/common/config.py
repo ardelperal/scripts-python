@@ -180,6 +180,8 @@ class Config:
             return self.root_dir / os.getenv('LOCAL_DB_EXPEDIENTES', 'dbs-locales/Expedientes_datos.accdb')
         elif db_type == 'no_conformidades':
             return self.root_dir / os.getenv('LOCAL_DB_NO_CONFORMIDADES', 'dbs-locales/NoConformidades_Datos.accdb')
+        elif db_type == 'lanzadera':
+            return self.root_dir / os.getenv('LOCAL_DB_LANZADERA', 'dbs-locales/Lanzadera_Datos.accdb')
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
     
@@ -199,6 +201,8 @@ class Config:
             return self.db_expedientes_path
         elif db_type == 'no_conformidades':
             return self.db_no_conformidades_path
+        elif db_type == 'lanzadera':
+            return self.db_lanzadera_path
         else:
             raise ValueError(f"Tipo de BD no soportado: {db_type}")
         

@@ -11,6 +11,7 @@ from .utils import (
     generate_html_header,
     generate_html_footer,
     safe_str,
+    format_date,
     get_admin_users,
     get_admin_emails_string,
     get_technical_users,
@@ -21,10 +22,10 @@ from .utils import (
     get_economy_emails_string,
     get_user_email,
     register_email_in_database,
-    send_notification_email,
     get_last_task_execution_date,
     is_task_completed_today,
-    should_execute_task
+    should_execute_task,
+    should_execute_quality_task
 )
 
 __all__ = [

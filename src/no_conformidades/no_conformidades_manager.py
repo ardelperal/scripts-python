@@ -20,7 +20,7 @@ from common.database import AccessDatabase
 from common.utils import (
     load_css_content, safe_str, generate_html_header, generate_html_footer,
     register_email_in_database, get_admin_emails_string, get_quality_emails_string,
-    get_technical_emails_string, send_notification_email
+    get_technical_emails_string
 )
 
 logger = logging.getLogger(__name__)
@@ -77,15 +77,58 @@ class NoConformidadesManager(TareaDiaria):
         # Usar la conexión ya inicializada en BaseTask
         return self.db_tareas
     
+    def ejecutar_consulta(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+        """
+        Ejecuta una consulta SQL en la base de datos de No Conformidades
+        
+        Args:
+            query: Consulta SQL a ejecutar
+            params: Parámetros opcionales para la consulta
+            
+        Returns:
+            Lista de diccionarios con los resultados de la consulta
+        """
+        try:
+            db_nc = self._get_nc_connection()
+            result = db_nc.execute_query(query, params)
+            self.logger.debug(f"Consulta ejecutada exitosamente: {len(result)} registros")
+            return result
+        except Exception as e:
+            self.logger.error(f"Error ejecutando consulta: {e}")
+            self.logger.debug(f"Query: {query}")
+            return []
+    
+    def ejecutar_insercion(self, query: str, params: Optional[tuple] = None) -> bool:
+        """
+        Ejecuta una consulta de inserción/actualización en la base de datos de No Conformidades
+        
+        Args:
+            query: Consulta SQL de inserción/actualización
+            params: Parámetros opcionales para la consulta
+            
+        Returns:
+            True si la operación fue exitosa, False en caso contrario
+        """
+        try:
+            db_nc = self._get_nc_connection()
+            rows_affected = db_nc.execute_non_query(query, params)
+            self.logger.debug(f"Inserción/actualización ejecutada: {rows_affected} filas afectadas")
+            return rows_affected > 0
+        except Exception as e:
+            self.logger.error(f"Error ejecutando inserción/actualización: {e}")
+            self.logger.debug(f"Query: {query}")
+            return False
+    
     def close_connections(self):
         """Cierra las conexiones a las bases de datos"""
         super().close_connections()
         if self.db_nc:
             try:
                 self.db_nc.disconnect()
-                self.db_nc = None
             except Exception as e:
                 self.logger.warning("Error cerrando conexión NC: {}".format(e))
+            finally:
+                self.db_nc = None
     
     def _format_date_for_access(self, fecha) -> str:
         """Formatea una fecha para uso en consultas SQL de Access"""
@@ -547,12 +590,12 @@ class NoConformidadesManager(TareaDiaria):
     def get_arapcs_vencidas(self) -> List[Dict[str, Any]]:
         """
         Obtiene las ARAPs ya vencidas (0 días o menos)
-        Basado en la consulta del archivo legacy NoConformidades.vbs
+        Basado en la consulta del archivo original NoConformidades.vbs
         """
         try:
             db_nc = self._get_nc_connection()
             
-            # Consulta basada en el legacy para ARAPs vencidas
+            # Consulta basada en el script original para ARAPs vencidas
             query = """
                 SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada, 
                        TbNCAccionCorrectivas.AccionCorrectiva AS Accion, TbNCAccionesRealizadas.AccionRealizada AS Tarea, 
@@ -695,12 +738,12 @@ class NoConformidadesManager(TareaDiaria):
     def get_nc_pendientes_eficacia(self) -> List[Dict[str, Any]]:
         """
         Obtiene las NCs pendientes de control de eficacia
-        Basado en la consulta del archivo legacy NoConformidades.vbs
+        Basado en la consulta del archivo original NoConformidades.vbs
         """
         try:
             db_nc = self._get_nc_connection()
             
-            # Consulta basada en el legacy para NCs pendientes de control de eficacia
+            # Consulta basada en el script original para NCs pendientes de control de eficacia
             query = """
                 SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
                        TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 

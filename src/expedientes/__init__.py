@@ -1,7 +1,7 @@
 """
 Módulo Expedientes
 Gestión de expedientes y generación de reportes
-Adaptación del script legacy Expedientes.vbs
+Adaptación del script original Expedientes.vbs
 """
 
 from .expedientes_manager import ExpedientesManager

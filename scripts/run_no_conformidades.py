@@ -112,9 +112,10 @@ def ejecutar_tarea_calidad(dry_run=False):
                     logger.info("Generando reporte de calidad...")
                     asunto = "Informe Tareas No Conformidades (No Conformidades)"
                     cuerpo = email_manager._generar_reporte_calidad_html(
-                        ncs_eficacia=ncs_pendientes_eficacia,
-                        ncs_caducar=ars_proximas_vencer,
+                        ars_proximas_vencer=ars_proximas_vencer,
+                        ncs_pendientes_eficacia=ncs_pendientes_eficacia,
                         ncs_sin_acciones=ncs_sin_acciones,
+                        ars_para_replanificar=ars_para_replanificar,
                         destinatarios_calidad=correos_calidad,
                         destinatarios_admin=""
                     )

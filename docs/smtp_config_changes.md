@@ -41,7 +41,7 @@ Autenticación: False
 TLS: False
 ```
 
-## Compatibilidad con VBS Legacy
+## Compatibilidad con VBS Original
 
 La configuración de oficina es compatible con el script VBS original:
 - Mismo servidor SMTP: `10.73.54.85`

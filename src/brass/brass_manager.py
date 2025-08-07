@@ -37,7 +37,7 @@ class BrassManager(TareaDiaria):
         super().__init__(
             name="BRASS",
             script_filename="run_brass.py",
-            task_names=["BRASSDiario"],  # Nombre de la tarea en la BD (como en legacy)
+            task_names=["BRASSDiario"],  # Nombre de la tarea en la BD (como en el script original)
             frequency_days=int(os.getenv('BRASS_FRECUENCIA_DIAS', '1'))
         )
         

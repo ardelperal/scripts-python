@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Gestor AGEDYS Nuevo - Migración del sistema legacy a la nueva arquitectura
-Adaptación del script legacy AGEDYS.VBS a Python con herencia de TareaDiaria
+Gestor AGEDYS Nuevo - Migración del sistema original a la nueva arquitectura
+Adaptación del script original AGEDYS.VBS a Python con herencia de TareaDiaria
 """
 
 import os
@@ -31,7 +31,7 @@ class AgedysManager(TareaDiaria):
         super().__init__(
             name="AGEDYS",
             script_filename="run_agedys.py",
-            task_names=["Tareas"],  # Nombre de la tarea en la BD (como en legacy)
+            task_names=["Tareas"],  # Nombre de la tarea en la BD (como en el script original)
             frequency_days=int(os.getenv('AGEDYS_FRECUENCIA_DIAS', '1'))
         )
         
@@ -188,7 +188,7 @@ class AgedysManager(TareaDiaria):
                 emails = [user.get('CorreoUsuario', '') for user in admin_users if user.get('CorreoUsuario')]
                 return ';'.join(emails)
             else:
-                # Fallback como en el legacy
+                # Fallback como en el script original
                 return "andres.romandelperal@telefonica.com;Fernando.lazarodiaz@telefonica.com"
                 
         except Exception as e:

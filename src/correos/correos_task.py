@@ -1,6 +1,6 @@
 """
 Tarea de Correos
-Adaptación del script legacy EnviarCorreoNoEnviado.vbs
+Adaptación del script original EnviarCorreoNoEnviado.vbs
 """
 import logging
 from common.base_task import TareaContinua

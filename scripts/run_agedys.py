@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script principal para ejecutar las tareas de AGEDYS
-Adaptación del script legacy AGEDYS.VBS a Python
+Adaptación del script original AGEDYS.VBS a Python
 
 Uso:
     python run_agedys.py                    # Ejecución normal (verifica horarios)

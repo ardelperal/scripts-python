@@ -362,7 +362,7 @@ def get_admin_emails_string(db_connection, config, logger) -> str:
 def send_email(to_address: str, subject: str, body: str, is_html: bool = True, 
                from_app: str = "Sistema", attachments: List[str] = None) -> bool:
     """
-    Envía un email usando SMTP (implementación real basada en legacy VBS)
+    Envía un email usando SMTP (implementación real basada en script original VBS)
     
     Args:
         to_address: Dirección de destino
@@ -382,7 +382,7 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
         from email.mime.application import MIMEApplication
         from pathlib import Path
         
-        # Configuración SMTP basada en legacy VBS
+        # Configuración SMTP basada en script original VBS
         smtp_server = config.smtp_server
         smtp_port = config.smtp_port
         
@@ -392,7 +392,7 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
         msg['To'] = to_address
         msg['Subject'] = subject
         
-        # Añadir BCC para administrador (como en VBS legacy)
+        # Añadir BCC para administrador (como en el script original VBS)
         admin_email = "Andres.RomandelPeral@telefonica.com"
         if admin_email not in to_address:
             msg['Bcc'] = admin_email
@@ -415,7 +415,7 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
         
         # Enviar email
         with smtplib.SMTP(smtp_server, smtp_port) as server:
-            # Sin autenticación como en VBS legacy
+            # Sin autenticación como en el script original VBS
             server.sendmail(msg['From'], [to_address, admin_email], msg.as_string())
         
         logging.info(f"Email enviado exitosamente a {to_address} con asunto: {subject}")
@@ -426,28 +426,7 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
         return False
 
 
-def send_notification_email(to_address: str, subject: str, body: str, is_html: bool = True, 
-                           from_app: str = "Sistema", attachments: List[str] = None) -> bool:
-    """
-    Envía un email de notificación (función mejorada de send_email)
-    
-    Args:
-        to_address: Dirección de destino
-        subject: Asunto del email
-        body: Cuerpo del email
-        is_html: Si el cuerpo es HTML
-        from_app: Aplicación que envía el correo
-        attachments: Lista de rutas de archivos adjuntos
-        
-    Returns:
-        True si se envió correctamente, False en caso contrario
-    """
-    try:
-        logging.info(f"Enviando notificación a {to_address} con asunto: {subject}")
-        return send_email(to_address, subject, body, is_html, from_app, attachments)
-    except Exception as e:
-        logging.error(f"Error enviando notificación: {e}")
-        return False
+# Función send_notification_email eliminada - solo se registran correos en BD
 
 
 def register_email_in_database(db_connection, application: str, subject: str, body: str, 
@@ -560,7 +539,7 @@ def register_task_completion(db_connection, task_name: str, execution_date: Opti
 def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios técnicos desde la base de datos
-    Basado en el legacy VBS: usuarios que NO están en TbUsuariosAplicacionesTareas
+    Basado en el script original VBS: usuarios que NO están en TbUsuariosAplicacionesTareas
     
     Args:
         app_id: ID de la aplicación
@@ -573,7 +552,7 @@ def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
+        # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
         query = """
@@ -595,7 +574,7 @@ def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
 def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios de calidad desde la base de datos
-    Basado en el legacy VBS: usa TbUsuariosAplicacionesPermisos con IDAplicacion = 3 (hardcodeado)
+    Basado en el script original VBS: usa TbUsuariosAplicacionesPermisos con IDAplicacion = 3 (hardcodeado)
     
     Args:
         app_id: ID de la aplicación (no usado, se mantiene por compatibilidad)
@@ -608,10 +587,10 @@ def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
+        # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
-        # Basado en el legacy VBS, usar IDAplicacion = 3 (hardcodeado como en el VBS)
+        # Basado en el script original VBS, usar IDAplicacion = 3 (hardcodeado como en el VBS)
         query = """
             SELECT UsuarioRed, Nombre, TbUsuariosAplicaciones.CorreoUsuario 
             FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesPermisos 
@@ -634,7 +613,7 @@ def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
 def get_economy_users(config, logger) -> List[Dict[str, str]]:
     """
     Obtiene la lista de usuarios de economía desde la base de datos
-    Basado en el legacy VBS: usa TbUsuariosAplicacionesTareas con EsEconomia
+    Basado en el script original VBS: usa TbUsuariosAplicacionesTareas con EsEconomia
     
     Args:
         config: Configuración de la aplicación
@@ -646,7 +625,7 @@ def get_economy_users(config, logger) -> List[Dict[str, str]]:
     try:
         from .database import AccessDatabase
         
-        # Usar la conexión de tareas para obtener usuarios (como en el legacy)
+        # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
         query = """
@@ -667,16 +646,16 @@ def get_economy_users(config, logger) -> List[Dict[str, str]]:
 
 def get_user_email(username: str, config, logger=None) -> str:
     """
-    Obtiene el email de un usuario específico desde la base de datos
-    Implementación que coincide exactamente con el VBS original (función getCorreo)
+    Obtiene el correo electrónico de un usuario específico
+    Basado en el script original VBS: busca en TbUsuariosAplicaciones por UsuarioRed
     
     Args:
-        username: Nombre de usuario (UsuarioRed)
+        usuario_red: Nombre de usuario de red
         config: Configuración de la aplicación
-        logger: Logger para registrar eventos (opcional)
+        logger: Logger para registrar eventos
         
     Returns:
-        Email del usuario o cadena vacía si no se encuentra
+        Correo electrónico del usuario o None si no se encuentra
     """
     try:
         from .database import AccessDatabase

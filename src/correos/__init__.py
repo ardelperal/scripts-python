@@ -1,7 +1,7 @@
 """
-Módulo Correos
-Gestión de envío de correos pendientes
-Adaptación del script legacy EnviarCorreoNoEnviado.vbs
+Módulo de Correos
+Gestión de correos pendientes de envío
+Adaptación del script original EnviarCorreoNoEnviado.vbs
 """
 
 from .correos_manager import CorreosManager

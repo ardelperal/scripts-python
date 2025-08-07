@@ -4,7 +4,7 @@ Sistema de **monitoreo continuo** para la gestión automatizada de tareas empres
 
 ## 🎯 Objetivo Principal
 
-El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza al legacy `script-continuo.vbs`. Funciona como un **servicio continuo** que:
+El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza al script original `script-continuo.vbs`. Funciona como un **servicio continuo** que:
 
 - 🔄 **Monitorea continuamente** todos los sistemas involucrados
 - ⏰ **Ejecuta tareas diarias** una vez por día laborable (después de las 7 AM)
@@ -113,7 +113,7 @@ scripts-python/
 │   └── smtp_override_demo.py    # Demo override SMTP
 ├── herramientas/                # Archivos de configuración
 │   └── CSS_moderno.css          # Estilos CSS modernos
-├── legacy/                      # Sistema VBS original
+├── original/                      # Sistema VBS original
 │   ├── AGEDYS.VBS               # Sistema AGEDYS original
 │   ├── BRASS.vbs                # Sistema BRASS original
 │   ├── EnviarCorreoNoEnviado.vbs # Sistema correos original
@@ -121,7 +121,7 @@ scripts-python/
 │   ├── Expedientes.vbs          # Sistema expedientes original
 │   ├── GestionRiesgos.vbs       # Sistema riesgos original
 │   ├── NoConformidades.vbs      # Sistema no conformidades original
-│   ├── Nuevo Documento de texto.html # Archivo HTML legacy
+│   ├── Nuevo Documento de texto.html # Archivo HTML original
 │   └── script-continuo.vbs      # Script continuo original
 ├── logs/                        # Archivos de log del sistema
 │   └── run_master_status.json   # Estado del script maestro
@@ -232,7 +232,7 @@ scripts-python/
 │   ├── smtp_config_demo.py     # Demo configuración SMTP
 │   ├── smtp_override_demo.py   # Demo override SMTP
 │   └── ejemplo_riesgos.py      # Ejemplo uso módulo riesgos
-├── legacy/                    # Sistema VBS original
+├── original/                    # Sistema VBS original
     ├── AGEDYS.VBS             # Sistema AGEDYS original
     ├── BRASS.vbs              # Sistema BRASS original
     ├── Expedientes.vbs        # Sistema expedientes original
@@ -590,7 +590,7 @@ El sistema soporta dos configuraciones SMTP:
 
 **Entorno Oficina (Producción):**
 - Servidor: `10.73.54.85:25`
-- Sin autenticación (compatible con VBS legacy)
+- Sin autenticación (compatible con VBS original)
 - Envío real de emails
 
 **Archivos relacionados:**
@@ -1283,7 +1283,7 @@ start htmlcov\index.html
 - **database_adapter.py**: Adaptador de conexiones de base de datos
 - **utils.py**: Utilidades compartidas (HTML, fechas, logging)
 
-### Mejoras vs VBS Legacy
+### Mejoras vs VBS Original
 
 1. **Type Safety**: Type hints en lugar de Variant
 2. **Resource Management**: Context managers vs manual cleanup

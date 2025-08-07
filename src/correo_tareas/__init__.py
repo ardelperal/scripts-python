@@ -1,6 +1,6 @@
 """
-Módulo de Tareas
-Adaptación del script legacy EnviarCorreoTareas.vbs
+Módulo de Correo Tareas
+Adaptación del script original EnviarCorreoTareas.vbs
 """
 
 from .correo_tareas_manager import CorreoTareasManager

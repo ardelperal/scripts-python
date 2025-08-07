@@ -2,7 +2,7 @@
 
 ## Descripción
 
-El módulo de No Conformidades es una conversión completa del script VBScript legacy `NoConformidades.vbs` a Python. Este módulo gestiona el sistema de No Conformidades, incluyendo el seguimiento de acciones correctivas (ARAPC), notificaciones por email y generación de reportes.
+El módulo de No Conformidades es una conversión completa del script VBScript original `NoConformidades.vbs` a Python. Este módulo gestiona el sistema de No Conformidades, incluyendo el seguimiento de acciones correctivas (ARAPC), notificaciones por email y generación de reportes.
 
 ## Características Principales
 

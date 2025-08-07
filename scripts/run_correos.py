@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script para enviar correos no enviados
-Adaptación del script legacy EnviarCorreoNoEnviado.vbs
+Adaptación del script original EnviarCorreoNoEnviado.vbs
 """
 import sys
 import logging

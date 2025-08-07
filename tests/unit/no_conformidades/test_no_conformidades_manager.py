@@ -1,136 +1,237 @@
 """
-Tests para el módulo de No Conformidades Manager
+Tests unitarios para NoConformidadesManager
 """
-
 import unittest
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
-import sys
+from datetime import datetime, date, timedelta
 import os
+import sys
 
-# Agregar el directorio raíz al path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+# Agregar el directorio src al path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), 'src')
+sys.path.insert(0, src_dir)
 
-from src.no_conformidades.no_conformidades_manager import NoConformidadesManager
-
-
-# Las clases NoConformidad, ARAPC y Usuario ya no existen en el manager actual
-# Se eliminan estos tests obsoletos
+from no_conformidades.no_conformidades_manager import NoConformidadesManager
 
 
 class TestNoConformidadesManager(unittest.TestCase):
-    """Tests para la clase NoConformidadesManager"""
+    """Tests para NoConformidadesManager"""
     
     def setUp(self):
         """Configuración inicial para cada test"""
-        self.manager = NoConformidadesManager()
+        # Mock de las dependencias externas
+        with patch('no_conformidades.no_conformidades_manager.config') as mock_config, \
+             patch('no_conformidades.no_conformidades_manager.AccessDatabase') as mock_db:
+            
+            # Configurar mocks
+            mock_config.get_nc_css_content.return_value = "/* test css */"
+            mock_config.get_db_no_conformidades_connection_string.return_value = "test_connection"
+            
+            self.manager = NoConformidadesManager()
+            self.mock_db = mock_db
     
-    @patch('src.no_conformidades.no_conformidades_manager.AccessDatabase')
-    @patch('src.no_conformidades.no_conformidades_manager.Config')
-    def test_conectar_bases_datos(self, mock_config, mock_access_db):
-        """Test conectar a las bases de datos"""
-        # Configurar mocks
-        mock_config_instance = Mock()
-        mock_config_instance.get_db_no_conformidades_connection_string.return_value = "connection_nc"
-        mock_config_instance.get_db_tareas_connection_string.return_value = "connection_tareas"
-        mock_config.return_value = mock_config_instance
+    def test_init(self):
+        """Test de inicialización del manager"""
+        self.assertEqual(self.manager.name, "NoConformidades")
+        self.assertEqual(self.manager.script_filename, "run_no_conformidades.py")
+        self.assertEqual(self.manager.task_names, ["NCTecnico", "NCCalidad"])
+        self.assertEqual(self.manager.frequency_days, 1)
+        self.assertIsNotNone(self.manager.css_content)
+    
+    def test_load_css_content_success(self):
+        """Test de carga exitosa del contenido CSS"""
+        with patch('no_conformidades.no_conformidades_manager.config') as mock_config:
+            mock_config.get_nc_css_content.return_value = "body { color: red; }"
+            manager = NoConformidadesManager()
+            self.assertEqual(manager.css_content, "body { color: red; }")
+    
+    def test_load_css_content_error(self):
+        """Test de manejo de error al cargar CSS"""
+        with patch('no_conformidades.no_conformidades_manager.config') as mock_config:
+            mock_config.get_nc_css_content.side_effect = Exception("CSS error")
+            manager = NoConformidadesManager()
+            self.assertEqual(manager.css_content, "/* CSS no disponible */")
+    
+    def test_get_nc_connection(self):
+        """Test de obtención de conexión a base de datos NC"""
+        with patch('no_conformidades.no_conformidades_manager.config') as mock_config, \
+             patch('no_conformidades.no_conformidades_manager.AccessDatabase') as mock_db:
+            
+            mock_config.get_db_no_conformidades_connection_string.return_value = "test_connection"
+            mock_db_instance = Mock()
+            mock_db.return_value = mock_db_instance
+            
+            manager = NoConformidadesManager()
+            connection = manager._get_nc_connection()
+            
+            self.assertEqual(connection, mock_db_instance)
+            mock_db.assert_called_with("test_connection")
+    
+    def test_ejecutar_consulta_success(self):
+        """Test de ejecución exitosa de consulta"""
+        mock_db_instance = Mock()
+        mock_db_instance.execute_query.return_value = [{'id': 1, 'name': 'test'}]
         
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.ejecutar_consulta("SELECT * FROM test")
+            
+            self.assertEqual(result, [{'id': 1, 'name': 'test'}])
+            mock_db_instance.execute_query.assert_called_once_with("SELECT * FROM test", None)
+    
+    def test_ejecutar_consulta_error(self):
+        """Test de manejo de error en consulta"""
+        mock_db_instance = Mock()
+        mock_db_instance.execute_query.side_effect = Exception("DB error")
+        
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.ejecutar_consulta("SELECT * FROM test")
+            
+            self.assertEqual(result, [])
+    
+    def test_ejecutar_insercion_success(self):
+        """Test de ejecución exitosa de inserción"""
+        mock_db_instance = Mock()
+        mock_db_instance.execute_non_query.return_value = 1
+        
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.ejecutar_insercion("INSERT INTO test VALUES (1)")
+            
+            self.assertTrue(result)
+            mock_db_instance.execute_non_query.assert_called_once_with("INSERT INTO test VALUES (1)", None)
+    
+    def test_ejecutar_insercion_error(self):
+        """Test de manejo de error en inserción"""
+        mock_db_instance = Mock()
+        mock_db_instance.execute_non_query.side_effect = Exception("DB error")
+        
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.ejecutar_insercion("INSERT INTO test VALUES (1)")
+            
+            self.assertFalse(result)
+    
+    def test_format_date_for_access_string_date(self):
+        """Test de formateo de fecha string para Access"""
+        result = self.manager._format_date_for_access("2024-01-15")
+        self.assertEqual(result, "#01/15/2024#")
+    
+    def test_format_date_for_access_datetime(self):
+        """Test de formateo de datetime para Access"""
+        test_date = datetime(2024, 1, 15)
+        result = self.manager._format_date_for_access(test_date)
+        self.assertEqual(result, "#01/15/2024#")
+    
+    def test_format_date_for_access_date(self):
+        """Test de formateo de date para Access"""
+        test_date = date(2024, 1, 15)
+        result = self.manager._format_date_for_access(test_date)
+        self.assertEqual(result, "#01/15/2024#")
+    
+    def test_format_date_for_access_invalid(self):
+        """Test de formateo de fecha inválida para Access"""
+        result = self.manager._format_date_for_access("invalid_date")
+        self.assertEqual(result, "#01/01/1900#")
+    
+    def test_get_ars_proximas_vencer_calidad_success(self):
+        """Test de obtención exitosa de ARs próximas a vencer"""
+        mock_data = [
+            {
+                'DiasParaCierre': 5,
+                'CodigoNoConformidad': 'NC001',
+                'Nemotecnico': 'TEST',
+                'DESCRIPCION': 'Test description',
+                'RESPONSABLECALIDAD': 'user1',
+                'FECHAAPERTURA': date(2024, 1, 1),
+                'FPREVCIERRE': date(2024, 1, 15)
+            }
+        ]
+        
+        mock_db_instance = Mock()
+        mock_db_instance.execute_query.return_value = mock_data
+        
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.get_ars_proximas_vencer_calidad()
+            
+            self.assertEqual(result, mock_data)
+            mock_db_instance.execute_query.assert_called_once()
+    
+    def test_get_ars_proximas_vencer_calidad_error(self):
+        """Test de manejo de error al obtener ARs próximas a vencer"""
+        mock_db_instance = Mock()
+        mock_db_instance.execute_query.side_effect = Exception("DB error")
+        
+        with patch.object(self.manager, '_get_nc_connection', return_value=mock_db_instance):
+            result = self.manager.get_ars_proximas_vencer_calidad()
+            
+            self.assertEqual(result, [])
+    
+    def test_get_modern_html_header(self):
+        """Test de generación de header HTML moderno"""
+        header = self.manager._get_modern_html_header()
+        
+        self.assertIn("<!DOCTYPE html>", header)
+        self.assertIn("Informe de No Conformidades", header)
+        self.assertIn(self.manager.css_content, header)
+    
+    def test_get_modern_html_footer(self):
+        """Test de generación de footer HTML moderno"""
+        footer = self.manager._get_modern_html_footer()
+        
+        self.assertIn("</body>", footer)
+        self.assertIn("</html>", footer)
+        self.assertIn("mensaje generado por el servicio automatizado", footer)
+    
+    def test_generate_modern_arapc_table_html_empty(self):
+        """Test de generación de tabla ARAPC vacía"""
+        result = self.manager._generate_modern_arapc_table_html([])
+        self.assertEqual(result, "")
+    
+    def test_generate_modern_arapc_table_html_with_data(self):
+        """Test de generación de tabla ARAPC con datos"""
+        test_data = [
+            {
+                'DiasParaCierre': 5,
+                'CodigoNoConformidad': 'NC001',
+                'Nemotecnico': 'TEST',
+                'DESCRIPCION': 'Test description',
+                'RESPONSABLECALIDAD': 'user1',
+                'FECHAAPERTURA': date(2024, 1, 1),
+                'FPREVCIERRE': date(2024, 1, 15)
+            }
+        ]
+        
+        with patch.object(self.manager, '_get_dias_class', return_value='dias-critico'), \
+             patch.object(self.manager, '_format_date_display', return_value='01/01/2024'):
+            
+            result = self.manager._generate_modern_arapc_table_html(test_data)
+            
+            self.assertIn("Acciones Correctivas/Preventivas Próximas a Caducar", result)
+            self.assertIn("NC001", result)
+            self.assertIn("TEST", result)
+            self.assertIn("Test description", result)
+    
+    def test_close_connections(self):
+        """Test de cierre de conexiones"""
         mock_db_nc = Mock()
-        mock_db_tareas = Mock()
-        mock_access_db.side_effect = [mock_db_nc, mock_db_tareas]
+        self.manager.db_nc = mock_db_nc
         
-        # Ejecutar
-        manager = NoConformidadesManager()
-        nc_conn = manager._get_nc_connection()
-        tareas_conn = manager._get_tareas_connection()
-        
-        # Verificar que las conexiones se obtienen correctamente
-        self.assertIsNotNone(nc_conn)
-        self.assertIsNotNone(tareas_conn)
+        with patch('no_conformidades.no_conformidades_manager.TareaDiaria.close_connections') as mock_super:
+            self.manager.close_connections()
+            
+            mock_super.assert_called_once()
+            mock_db_nc.disconnect.assert_called_once()
+            self.assertIsNone(self.manager.db_nc)
     
-    @patch('src.common.utils.get_admin_emails_string')
-    def test_obtener_cadena_correos_administradores(self, mock_get_admin_emails):
-        """Test obtener cadena de correos de administradores usando función común"""
-        # Configurar mock
-        mock_get_admin_emails.return_value = "admin1@empresa.com;admin2@empresa.com"
+    def test_close_connections_error(self):
+        """Test de manejo de error al cerrar conexiones"""
+        mock_db_nc = Mock()
+        mock_db_nc.disconnect.side_effect = Exception("Close error")
+        self.manager.db_nc = mock_db_nc
         
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import get_admin_emails_string
-        cadena = get_admin_emails_string()
-        
-        # Verificar
-        self.assertEqual(cadena, "admin1@empresa.com;admin2@empresa.com")
-        mock_get_admin_emails.assert_called_once()
-    
-    @patch('src.common.utils.get_quality_emails_string')
-    def test_obtener_cadena_correos_calidad(self, mock_get_quality_emails):
-        """Test obtener cadena de correos de calidad usando función común"""
-        # Configurar mock
-        mock_get_quality_emails.return_value = "calidad1@empresa.com;calidad2@empresa.com"
-        
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import get_quality_emails_string
-        cadena = get_quality_emails_string()
-        
-        # Verificar
-        self.assertEqual(cadena, "calidad1@empresa.com;calidad2@empresa.com")
-        mock_get_quality_emails.assert_called_once()
-    
-    @patch('src.common.utils.get_admin_emails_string')
-    def test_obtener_cadena_correos_vacia(self, mock_get_admin_emails):
-        """Test obtener cadena de correos cuando no hay usuarios usando función común"""
-        # Configurar mock para retornar cadena vacía
-        mock_get_admin_emails.return_value = ""
-        
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import get_admin_emails_string
-        cadena = get_admin_emails_string()
-        
-        # Verificar
-        self.assertEqual(cadena, "")
-        mock_get_admin_emails.assert_called_once()
-    
-    @patch('src.common.utils.should_execute_task')
-    def test_determinar_si_requiere_tarea_calidad_primera_vez(self, mock_should_execute):
-        """Test determinar si requiere tarea de calidad - primera ejecución usando función común"""
-        # Configurar mock
-        mock_should_execute.return_value = True
-        
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import should_execute_task
-        resultado = should_execute_task("NoConformidadesCalidad", 7)
-        
-        # Verificar
-        self.assertTrue(resultado)
-        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
-    
-    @patch('src.common.utils.should_execute_task')
-    def test_determinar_si_requiere_tarea_calidad_reciente(self, mock_should_execute):
-        """Test determinar si requiere tarea de calidad - ejecución reciente usando función común"""
-        # Configurar mock
-        mock_should_execute.return_value = False
-        
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import should_execute_task
-        resultado = should_execute_task("NoConformidadesCalidad", 7)
-        
-        # Verificar
-        self.assertFalse(resultado)  # No requiere porque han pasado menos de 7 días
-        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
-    
-    @patch('src.common.utils.should_execute_task')
-    def test_determinar_si_requiere_tarea_calidad_antigua(self, mock_should_execute):
-        """Test determinar si requiere tarea de calidad - ejecución antigua usando función común"""
-        # Configurar mock
-        mock_should_execute.return_value = True
-        
-        # Ejecutar - ahora usa la función común
-        from src.common.utils import should_execute_task
-        resultado = should_execute_task("NoConformidadesCalidad", 7)
-        
-        # Verificar
-        self.assertTrue(resultado)  # Requiere porque han pasado más de 7 días
-        mock_should_execute.assert_called_once_with("NoConformidadesCalidad", 7)
+        with patch('no_conformidades.no_conformidades_manager.TareaDiaria.close_connections'):
+            # No debe lanzar excepción
+            self.manager.close_connections()
+            self.assertIsNone(self.manager.db_nc)
 
 
 if __name__ == '__main__':

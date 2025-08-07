@@ -22,7 +22,7 @@ class AgedysTask(TareaDiaria):
         super().__init__(
             name="AGEDYS",
             script_filename="run_agedys.py",
-            task_names=["Tareas"],  # Nombre de la tarea en la BD (como en legacy)
+            task_names=["Tareas"],  # Nombre de la tarea en la BD (como en el script original)
             frequency_days=int(os.getenv('AGEDYS_FRECUENCIA_DIAS', '1'))
         )
         self.manager = None

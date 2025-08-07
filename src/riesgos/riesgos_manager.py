@@ -14,8 +14,6 @@ from ..common.config import Config
 from ..common.database import AccessDatabase
 from ..common.utils import (
     format_date,
-    send_email,
-    send_notification_email,
     get_admin_emails_string,
     get_technical_users,
     get_quality_users,
@@ -102,7 +100,7 @@ class RiesgosManager:
         """
         try:
             query = """
-                SELECT TOP 1 FechaEjecucion 
+                SELECT FechaEjecucion 
                 FROM TbTareasEjecutadas 
                 WHERE TipoTarea = ? 
                 ORDER BY FechaEjecucion DESC
@@ -489,7 +487,7 @@ class RiesgosManager:
             if executed_tasks:
                 self.logger.info(f"Tareas ejecutadas: {', '.join(executed_tasks)}")
                 
-                # Enviar notificación de resumen
+                # Registrar notificación de resumen en BD
                 admin_emails = get_admin_emails_string(self.db)
                 if admin_emails:
                     subject = "Resumen de ejecución - Gestión de Riesgos"
@@ -501,7 +499,10 @@ class RiesgosManager:
                     Fecha de ejecución: {format_date(datetime.now())}
                     """
                     
-                    send_notification_email(admin_emails, subject, body)
+                    # Obtener conexión a BD de tareas para registrar correo
+                    from ..common.database import AccessDatabase
+                    db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
+                    register_email_in_database(db_tareas, "Riesgos", subject, body, admin_emails)
             else:
                 self.logger.info("No hay tareas pendientes de ejecución")
             
@@ -526,20 +527,20 @@ class RiesgosManager:
             # Obtener usuarios distintos que requieren notificaciones
             users = self.get_distinct_users()
             
+            # Obtener conexión a BD de tareas para registrar correos
+            from ..common.database import AccessDatabase
+            db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
+            
             for user_id, (name, email) in users.items():
                 if email:
                     html_content = self._generate_technical_report_html(user_id, name)
                     
                     subject = f"Informe Semanal de Riesgos - {name}"
                     
-                    send_notification_email(
-                        email,
-                        subject,
-                        html_content,
-                        is_html=True
-                    )
+                    # Registrar correo en BD en lugar de enviarlo
+                    register_email_in_database(db_tareas, "Riesgos", subject, html_content, email)
                     
-                    self.logger.info(f"Enviado informe técnico a {name} ({email})")
+                    self.logger.info(f"Registrado informe técnico para {name} ({email})")
             
             return True
             
@@ -560,19 +561,17 @@ class RiesgosManager:
             # Generar reporte de calidad
             html_content = self._generate_quality_report_html()
             
-            # Enviar a administradores
+            # Registrar correo en BD en lugar de enviarlo
             admin_emails = get_admin_emails_string(self.db)
             if admin_emails:
                 subject = "Informe Semanal de Calidad - Gestión de Riesgos"
                 
-                send_notification_email(
-                    admin_emails,
-                    subject,
-                    html_content,
-                    is_html=True
-                )
+                # Obtener conexión a BD de tareas para registrar correo
+                from ..common.database import AccessDatabase
+                db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
+                register_email_in_database(db_tareas, "Riesgos", subject, html_content, admin_emails)
                 
-                self.logger.info("Enviado informe de calidad a administradores")
+                self.logger.info("Registrado informe de calidad para administradores")
             
             return True
             
@@ -593,19 +592,17 @@ class RiesgosManager:
             # Generar reporte de calidad mensual
             html_content = self._generate_monthly_quality_report_html()
             
-            # Enviar a administradores
+            # Registrar correo en BD en lugar de enviarlo
             admin_emails = get_admin_emails_string(self.db)
             if admin_emails:
                 subject = "Informe Mensual de Calidad - Gestión de Riesgos"
                 
-                send_notification_email(
-                    admin_emails,
-                    subject,
-                    html_content,
-                    is_html=True
-                )
+                # Obtener conexión a BD de tareas para registrar correo
+                from ..common.database import AccessDatabase
+                db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
+                register_email_in_database(db_tareas, "Riesgos", subject, html_content, admin_emails)
                 
-                self.logger.info("Enviado informe de calidad mensual a administradores")
+                self.logger.info("Registrado informe de calidad mensual para administradores")
             
             return True
             

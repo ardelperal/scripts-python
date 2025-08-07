@@ -1,241 +1,220 @@
 """
-Tests de integración para el módulo No Conformidades
-Siguiendo el patrón establecido en AGEDYS para mantener consistencia
+Tests de integración para el módulo de No Conformidades
+Estos tests interactúan con bases de datos locales reales
 """
-import pytest
+import unittest
 import os
-from unittest.mock import patch, Mock
+import sys
 from datetime import datetime, date, timedelta
-from src.no_conformidades.no_conformidades_manager import NoConformidadesManager, NoConformidad
-from src.common.database import AccessDatabase
+from pathlib import Path
+
+# Agregar el directorio src al path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), 'src')
+sys.path.insert(0, src_dir)
+
+from no_conformidades.no_conformidades_manager import NoConformidadesManager
+from no_conformidades.no_conformidades_task import NoConformidadesTask
+from common.config import Config
+from common.database import AccessDatabase
 
 
-class TestNoConformidadesIntegration:
+class TestNoConformidadesIntegration(unittest.TestCase):
     """Tests de integración para No Conformidades"""
     
-    @pytest.fixture
-    def test_db_paths(self):
-        """Rutas de bases de datos de prueba"""
-        return {
-            'no_conformidades': 'tests/data/test_no_conformidades.accdb',
-            'tareas': 'tests/data/test_tareas.accdb'
-        }
-    
-    @pytest.fixture
-    def mock_access_database(self):
-        """Mock de get_database_instance para tests de integración"""
-        with patch('src.no_conformidades.no_conformidades_manager.get_database_instance') as mock_get_db:
-            mock_db = Mock()
-            mock_db.execute_query.return_value = []
-            mock_db.disconnect.return_value = None
-            mock_get_db.return_value = mock_db
-            yield mock_get_db
-    
-    @pytest.fixture
-    def mock_config_with_test_dbs(self):
-        """Mock de configuración con bases de datos de prueba"""
-        with patch('src.common.config.Config') as mock_config_class:
-            mock_config = Mock()
-            mock_config.db_no_conformidades_path = "test_no_conformidades.mdb"
-            mock_config.db_tareas_path = "test_tareas.mdb"
-            mock_config.get_db_no_conformidades_connection_string.return_value = "test_no_conformidades.mdb"
-            mock_config.get_db_tareas_connection_string.return_value = "test_tareas.mdb"
-            mock_config_class.return_value = mock_config
-            yield mock_config
-    
-    @pytest.fixture
-    def mock_database_instance(self):
-        """Mock de get_database_instance para tests de integración"""
-        with patch('src.no_conformidades.no_conformidades_manager.get_database_instance') as mock_get_db:
-            mock_db = Mock()
-            mock_db.execute_query.return_value = []
-            mock_db.disconnect.return_value = None
-            mock_get_db.return_value = mock_db
-            yield mock_db
-    
-    @pytest.fixture
-    def mock_email_notifications(self):
-        """Mock de notificaciones por email usando report_registrar"""
-        with patch('src.no_conformidades.report_registrar.enviar_notificacion_calidad') as mock_enviar_calidad, \
-             patch('src.no_conformidades.report_registrar.enviar_notificacion_tecnica') as mock_enviar_tecnica:
-            
-            mock_enviar_calidad.return_value = True
-            mock_enviar_tecnica.return_value = True
-            
-            yield {
-                'enviar_calidad': mock_enviar_calidad,
-                'enviar_tecnica': mock_enviar_tecnica
-            }
-    
-    @pytest.fixture
-    def no_conformidades_manager(self, mock_config_with_test_dbs, mock_database_instance, mock_email_notifications):
-        """Instancia de NoConformidadesManager para tests de integración"""
-        return NoConformidadesManager()
-    
-    def test_database_connections_initialization(self, no_conformidades_manager, mock_access_database):
-        """Test que las conexiones a las bases de datos se inicializan correctamente"""
-        # Verificar que el manager se inicializa correctamente
-        assert no_conformidades_manager is not None
-        assert hasattr(no_conformidades_manager, 'config')
-        assert hasattr(no_conformidades_manager, 'logger')
+    @classmethod
+    def setUpClass(cls):
+        """Configuración inicial para todos los tests"""
+        # Forzar uso de bases de datos locales
+        os.environ['ENVIRONMENT'] = 'local'
+        cls.config = Config()
         
-        # Verificar configuración de alertas
-        assert no_conformidades_manager.dias_alerta_arapc == 15
-        assert no_conformidades_manager.dias_alerta_nc == 16
+        # Verificar que las bases de datos locales existen
+        cls.db_nc_path = cls.config.get_db_no_conformidades_path()
+        cls.db_tareas_path = cls.config.get_db_tareas_path()
+        
+        if not os.path.exists(cls.db_nc_path):
+            cls.skipTest(f"Base de datos NC local no encontrada: {cls.db_nc_path}")
+        
+        if not os.path.exists(cls.db_tareas_path):
+            cls.skipTest(f"Base de datos Tareas local no encontrada: {cls.db_tareas_path}")
     
-    def test_full_workflow_with_simulated_data(self, no_conformidades_manager, mock_access_database, mock_email_notifications):
-        """Test de flujo completo con datos simulados"""
-        # Configurar datos simulados para obtener_nc_resueltas_pendientes_eficacia
-        mock_db = mock_access_database.return_value
-        mock_db.execute_query.return_value = [
-            (
-                'NC-2024-001',  # CodigoNoConformidad
-                'NEM001',       # Nemotecnico
-                'Test NC Description',  # DESCRIPCION
-                'test.user@example.com',  # RESPONSABLECALIDAD
-                datetime.now() - timedelta(days=60),  # FECHAAPERTURA
-                datetime.now() - timedelta(days=20)   # FPREVCIERRE
-            )
-        ]
-        
-        # Ejecutar el flujo completo
-        with no_conformidades_manager:
-            resultados = no_conformidades_manager.obtener_nc_resueltas_pendientes_eficacia()
-            
-        # Verificar resultados
-        assert len(resultados) == 1
-        assert resultados[0].codigo == 'NC-2024-001'
-        assert resultados[0].nemotecnico == 'NEM001'
-        assert resultados[0].descripcion == 'Test NC Description'
-        
-        # Verificar que se conectó a las bases de datos
-        assert mock_access_database.call_count >= 1
+    def setUp(self):
+        """Configuración para cada test"""
+        self.manager = NoConformidadesManager()
     
-    def test_data_retrieval_methods(self, no_conformidades_manager, mock_access_database):
-        """Test de métodos de obtención de datos"""
-        mock_db = mock_access_database.return_value
-        
-        # Test obtener estadísticas
-        mock_db.execute_query.return_value = [{'total': 5, 'pendientes': 2}]
-        
-        with no_conformidades_manager:
-            stats = no_conformidades_manager.obtener_estadisticas_nc()
-            
-        assert stats is not None
-        mock_db.execute_query.assert_called()
+    def tearDown(self):
+        """Limpieza después de cada test"""
+        if hasattr(self, 'manager'):
+            self.manager.close_connections()
     
-    def test_email_registration(self, no_conformidades_manager, mock_access_database):
-        """Test de registro de envío de correos"""
-        mock_db = mock_access_database.return_value
+    def test_database_connections(self):
+        """Test de conexiones a bases de datos"""
+        # Test conexión NC
+        db_nc = self.manager._get_nc_connection()
+        self.assertIsNotNone(db_nc)
         
-        # Configurar mock para simular ambas bases de datos (nc y tareas)
-        # Primera llamada: obtener_siguiente_id_correo (db_tareas)
-        # Segunda llamada: registrar_correo_enviado (db_tareas)
-        mock_db.execute_query.side_effect = [
-            [(5,)],  # MAX(IDCorreo) = 5, entonces siguiente ID = 6
-            []       # INSERT result (exitoso)
-        ]
-        
-        with no_conformidades_manager:
-            # Mock para get_admin_emails_string que se usa en registrar_correo_enviado
-            with patch('src.no_conformidades.no_conformidades_manager.get_admin_emails_string', return_value='admin@example.com'):
-                resultado = no_conformidades_manager.registrar_correo_enviado(
-                    'Test Subject',
-                    'Test Body',
-                    'test@example.com'
-                )
-            
-        assert resultado == 6  # ID del correo registrado (5 + 1)
-        assert mock_db.execute_query.call_count == 2  # Una para MAX, otra para INSERT
+        # Test conexión Tareas
+        db_tareas = self.manager._get_tareas_connection()
+        self.assertIsNotNone(db_tareas)
     
-    def test_task_requirements(self, no_conformidades_manager):
-        """Test de requerimientos de tareas"""
-        from unittest.mock import MagicMock
+    def test_ejecutar_consulta_real(self):
+        """Test de ejecución de consulta real en base de datos NC"""
+        # Consulta simple para verificar conectividad
+        query = "SELECT TOP 1 IDNoConformidad FROM TbNoConformidades"
+        result = self.manager.ejecutar_consulta(query)
         
-        # Mock de datetime para simular lunes
-        with patch('src.no_conformidades.no_conformidades_manager.datetime') as mock_datetime:
-            # Crear un mock datetime que simule lunes
-            mock_now = MagicMock()
-            mock_now.weekday.return_value = 0  # Lunes
-            mock_now.date.return_value = date(2024, 1, 15)
-            mock_datetime.now.return_value = mock_now
-            
-            # Test requiere tarea calidad (debe ser True en lunes sin ejecución previa)
-            with patch.object(no_conformidades_manager, 'obtener_ultima_ejecucion_calidad', return_value=None):
-                assert no_conformidades_manager.requiere_tarea_calidad() is True
-        
-        # Test requiere tarea técnica (debe ser True sin ejecución previa)
-        with patch.object(no_conformidades_manager, 'obtener_ultima_ejecucion_tecnica', return_value=None):
-            assert no_conformidades_manager.requiere_tarea_tecnica() is True
+        # Debe retornar una lista (puede estar vacía)
+        self.assertIsInstance(result, list)
     
-    def test_error_handling(self, no_conformidades_manager, mock_access_database):
-        """Test de manejo de errores"""
-        mock_db = mock_access_database.return_value
-        mock_db.execute_query.side_effect = Exception("Database error")
+    def test_get_ars_proximas_vencer_calidad_real(self):
+        """Test de obtención real de ARs próximas a vencer"""
+        result = self.manager.get_ars_proximas_vencer_calidad()
         
-        with no_conformidades_manager:
-            # Debería manejar el error graciosamente
-            stats = no_conformidades_manager.obtener_estadisticas_nc()
-            
-        # Verificar que retorna valores por defecto en caso de error
-        assert stats is not None
+        # Debe retornar una lista
+        self.assertIsInstance(result, list)
+        
+        # Si hay resultados, verificar estructura
+        if result:
+            first_item = result[0]
+            expected_keys = [
+                'DiasParaCierre', 'CodigoNoConformidad', 'Nemotecnico',
+                'DESCRIPCION', 'RESPONSABLECALIDAD', 'FECHAAPERTURA', 'FPREVCIERRE'
+            ]
+            for key in expected_keys:
+                self.assertIn(key, first_item)
     
-    def test_date_formatting(self, no_conformidades_manager):
-        """Test de formateo de fechas para Access"""
-        from datetime import datetime, date
+    def test_format_date_for_access_integration(self):
+        """Test de formateo de fechas para Access con datos reales"""
+        test_date = date(2024, 1, 15)
+        formatted = self.manager._format_date_for_access(test_date)
+        
+        self.assertEqual(formatted, "#01/15/2024#")
         
         # Test con datetime
-        dt = datetime(2024, 1, 15, 10, 30)
-        formatted = no_conformidades_manager._formatear_fecha_access(dt)
-        assert formatted == "#01/15/2024#"
+        test_datetime = datetime(2024, 1, 15, 10, 30)
+        formatted = self.manager._format_date_for_access(test_datetime)
         
-        # Test con date
-        d = date(2024, 1, 15)
-        formatted = no_conformidades_manager._formatear_fecha_access(d)
-        assert formatted == "#01/15/2024#"
-        
-        # Test con string
-        formatted = no_conformidades_manager._formatear_fecha_access("2024-01-15")
-        assert formatted == "#01/15/2024#"
+        self.assertEqual(formatted, "#01/15/2024#")
     
-    def test_context_manager_usage(self, no_conformidades_manager, mock_access_database):
-        """Test del uso como context manager"""
-        mock_db = mock_access_database.return_value
+    def test_html_generation_integration(self):
+        """Test de generación de HTML con datos reales"""
+        # Obtener datos reales
+        ars_data = self.manager.get_ars_proximas_vencer_calidad()
         
-        # Test que se conecta y desconecta correctamente
-        with no_conformidades_manager as manager:
-            assert manager is not None
-            
-        # Verificar que se llamaron los métodos de conexión
-        assert mock_access_database.called
+        # Generar HTML
+        html_header = self.manager._get_modern_html_header()
+        html_footer = self.manager._get_modern_html_footer()
+        
+        # Verificar estructura HTML
+        self.assertIn("<!DOCTYPE html>", html_header)
+        self.assertIn("</html>", html_footer)
+        
+        # Si hay datos, generar tabla
+        if ars_data:
+            table_html = self.manager._generate_modern_arapc_table_html(ars_data)
+            self.assertIn("<table", table_html)
+            self.assertIn("</table>", table_html)
     
-    def test_email_notifications_integration(self, no_conformidades_manager, mock_email_notifications):
-        """Test de integración con notificaciones por email"""
-        # Simular datos para notificación
-        nc_data = {
-            'ID_NC': 1,
-            'Numero_NC': 'NC-2024-001',
-            'Descripcion': 'Test NC',
-            'emails_calidad': ['calidad@test.com']
-        }
+    def test_css_loading_integration(self):
+        """Test de carga de CSS real"""
+        css_content = self.manager.css_content
         
-        # Verificar que las funciones de email están disponibles
-        assert mock_email_notifications['enviar_calidad'] is not None
-        assert mock_email_notifications['enviar_tecnica'] is not None
-        
-        # Simular envío
-        resultado = mock_email_notifications['enviar_calidad'](nc_data, ['calidad@test.com'])
-        assert resultado is True
+        # Debe tener contenido CSS
+        self.assertIsInstance(css_content, str)
+        self.assertGreater(len(css_content), 0)
     
-    def test_multiple_queries_execution(self, no_conformidades_manager, mock_access_database):
-        """Test de ejecución de múltiples consultas"""
-        mock_db = mock_access_database.return_value
-        mock_db.execute_query.return_value = []
+    def test_database_schema_validation(self):
+        """Test de validación del esquema de base de datos"""
+        # Verificar que las tablas principales existen
+        tables_to_check = [
+            "TbNoConformidades",
+            "TbNCAccionCorrectivas", 
+            "TbNCAccionesRealizadas",
+            "TbNCARAvisos"
+        ]
         
-        with no_conformidades_manager:
-            # Ejecutar múltiples operaciones
-            no_conformidades_manager.obtener_estadisticas_nc()
-            no_conformidades_manager.registrar_correo_enviado('test@test.com', 'Test', 'calidad')
-            
-        # Verificar que se ejecutaron múltiples consultas
-        assert mock_db.execute_query.call_count >= 2
+        for table in tables_to_check:
+            query = f"SELECT TOP 1 * FROM {table}"
+            try:
+                result = self.manager.ejecutar_consulta(query)
+                # Si no hay error, la tabla existe
+                self.assertIsInstance(result, list)
+            except Exception as e:
+                self.fail(f"Tabla {table} no existe o no es accesible: {e}")
+    
+    def test_close_connections_integration(self):
+        """Test de cierre de conexiones reales"""
+        # Establecer conexiones
+        db_nc = self.manager._get_nc_connection()
+        db_tareas = self.manager._get_tareas_connection()
+        
+        self.assertIsNotNone(db_nc)
+        self.assertIsNotNone(db_tareas)
+        
+        # Cerrar conexiones
+        self.manager.close_connections()
+        
+        # Verificar que las conexiones se han limpiado
+        self.assertIsNone(self.manager.db_nc)
+
+
+class TestNoConformidadesTaskIntegration(unittest.TestCase):
+    """Tests de integración para NoConformidadesTask"""
+    
+    @classmethod
+    def setUpClass(cls):
+        """Configuración inicial para todos los tests"""
+        # Forzar uso de bases de datos locales
+        os.environ['ENVIRONMENT'] = 'local'
+    
+    def setUp(self):
+        """Configuración para cada test"""
+        self.task = NoConformidadesTask()
+    
+    def tearDown(self):
+        """Limpieza después de cada test"""
+        if hasattr(self, 'task'):
+            self.task.cleanup()
+    
+    def test_task_initialization_integration(self):
+        """Test de inicialización de tarea con dependencias reales"""
+        self.assertIsNotNone(self.task.manager)
+        self.assertEqual(self.task.nombre_tarea, "NoConformidades")
+    
+    def test_get_task_emails_integration(self):
+        """Test de obtención de emails con configuración real"""
+        # Test emails de calidad
+        emails_calidad = self.task.get_task_emails("NCCalidad")
+        self.assertIsInstance(emails_calidad, str)
+        
+        # Test emails de técnicos
+        emails_tecnicos = self.task.get_task_emails("NCTecnico")
+        self.assertIsInstance(emails_tecnicos, str)
+        
+        # Test tarea desconocida
+        emails_unknown = self.task.get_task_emails("UnknownTask")
+        self.assertEqual(emails_unknown, "")
+    
+    def test_cleanup_integration(self):
+        """Test de limpieza con recursos reales"""
+        # Inicializar manager
+        manager = self.task.manager
+        
+        # Establecer conexiones
+        db_nc = manager._get_nc_connection()
+        self.assertIsNotNone(db_nc)
+        
+        # Ejecutar cleanup
+        self.task.cleanup()
+        
+        # Verificar limpieza
+        self.assertIsNone(manager.db_nc)
+
+
+if __name__ == '__main__':
+    # Configurar logging para tests
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    unittest.main()

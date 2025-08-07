@@ -56,7 +56,7 @@ Public Function UltimaEjecucion(p_TipoTarea)
     Dim rcdDatos
     m_SQL = "SELECT Last(TbTareas.Fecha) AS Ultima " & _
             "FROM TbTareas " & _
-            "WHERE Tarea='" & p_TipoTarea & "' AND Realizado='SÌ';"
+            "WHERE Tarea='" & p_TipoTarea & "' AND Realizado='S√≠';"
     
     
     Set rcdDatos = CreateObject("ADODB.RecordSet")
@@ -187,7 +187,7 @@ Public Function getColusuariosTareas(p_Tipo)
     
     Set col = CreateObject("Scripting.Dictionary")
     Set getColusuariosTareas = CreateObject("Scripting.Dictionary")
-    If p_Tipo = "TÈcnico" Then
+    If p_Tipo = "T√©cnico" Then
         m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
                 "FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
                 "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.CorreoUsuario) Is Null));"
@@ -200,15 +200,15 @@ Public Function getColusuariosTareas(p_Tipo)
                 "AND FechaBaja Is Null " & _
                 "AND ParaTareasProgramadas=True " & _
                 "AND IDAplicacion=" & m_IDAplicacion & " " & _
-                "AND EsUsuarioCalidad='SÌ';"
-    ElseIf p_Tipo = "EconomÌa" Then
+                "AND EsUsuarioCalidad='S√≠';"
+    ElseIf p_Tipo = "Econom√≠a" Then
         m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
                 "FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
-                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsEconomia)='SÌ'));"
+                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsEconomia)='S√≠'));"
     ElseIf p_Tipo = "Administrador" Then
         m_SQL = "SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario " & _
                 "FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario " & _
-                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsAdministrador)='SÌ'));"
+                "WHERE (((TbUsuariosAplicaciones.ParaTareasProgramadas)=True) AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) AND ((TbUsuariosAplicacionesTareas.EsAdministrador)='S√≠'));"
     Else
         Exit Function
     End If
@@ -345,11 +345,11 @@ Public Function RegistrarTarea(p_TipoTarea)
             .AddNew
                 .Fields("Tarea") = p_TipoTarea
                 .Fields("Fecha") = Date
-                .Fields("Realizado") = "SÌ"
+                .Fields("Realizado") = "S√≠"
             .Update
         Else
                 .Fields("Fecha") = Date
-                .Fields("Realizado") = "SÌ"
+                .Fields("Realizado") = "S√≠"
             .Update
         End If
        
@@ -567,7 +567,7 @@ Public Function RealizarTareaTecnicos()
             m_mensaje = m_mensaje & "<br /><br />" & vbNewLine
             m_mensaje = m_mensaje & m_HTMLRIESGOSCONACCIONESCONTINGENCIAPORREPLANIFICAR & vbNewLine
         End If
-        RegistrarCorreo "Informe Tareas Para TÈcnicos (GestiÛn de Riesgos)", m_mensaje, m_Correo
+        RegistrarCorreo "Informe Tareas Para T√©cnicos (Gesti√≥n de Riesgos)", m_mensaje, m_Correo
         
        
                                 
@@ -608,7 +608,7 @@ Public Function RealizarTareaCalidadMensual()
     m_mensaje = m_mensaje & "<br /><br />" & vbNewLine
     m_mensaje = m_mensaje & m_HTMLEDICIONESCERRADASELULTIMOMES & vbNewLine
    
-    RegistrarCorreo "Informe Mensual Calidad (GestiÛn de Riesgos)", m_mensaje, m_CadenaCorreoCalidad
+    RegistrarCorreo "Informe Mensual Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CadenaCorreoCalidad
         
     RegistrarTarea "RiesgosMensualesCalidad"
 End Function
@@ -726,11 +726,11 @@ Public Function RealizarTareaDiariaCalidad()
     
     
     
-    m_NombreCalidad1 = "SERGIO GARCÕA MONTALVO"
-    m_NombreCalidad2 = "BEATRIZ NOVAL GUTI…RREZ"
+    m_NombreCalidad1 = "SERGIO GARC√çA MONTALVO"
+    m_NombreCalidad2 = "BEATRIZ NOVAL GUTI√âRREZ"
     m_NombreCalidad3 = "ANA RUBIO CANALES"
-    m_NombreCalidad4 = "NATALIA CAS¡N GARCÕA"
-    m_NombreCalidad5 = "MARIO MARTÕN ABAD"
+    m_NombreCalidad4 = "NATALIA CAS√ÅN GARC√çA"
+    m_NombreCalidad5 = "MARIO MART√çN ABAD"
     
     m_HTMTCalidad1 = getHTMLTablasMiembroCalidad(m_NombreCalidad1)
     m_HTMTCalidad2 = getHTMLTablasMiembroCalidad(m_NombreCalidad2)
@@ -781,7 +781,7 @@ Public Function RealizarTareaDiariaCalidad()
     m_mensaje = m_mensaje & "</body>" & vbNewLine
     m_mensaje = m_mensaje & "</html>" & vbNewLine
     
-    RegistrarCorreo "Informe Tareas Calidad (GestiÛn de Riesgos)", m_mensaje, m_CorreoCalidad1
+    RegistrarCorreo "Informe Tareas Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CorreoCalidad1
     
     'PARA m_NombreCalidad2
     
@@ -821,7 +821,7 @@ Public Function RealizarTareaDiariaCalidad()
     m_mensaje = m_mensaje & "</body>" & vbNewLine
     m_mensaje = m_mensaje & "</html>" & vbNewLine
     
-    RegistrarCorreo "Informe Tareas Calidad (GestiÛn de Riesgos)", m_mensaje, m_CorreoCalidad2
+    RegistrarCorreo "Informe Tareas Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CorreoCalidad2
     
     
     'PARA m_NombreCalidad3
@@ -872,7 +872,7 @@ Public Function RealizarTareaDiariaCalidad()
     m_mensaje = m_mensaje & "</body>" & vbNewLine
     m_mensaje = m_mensaje & "</html>" & vbNewLine
     
-    RegistrarCorreo "Informe Tareas Calidad (GestiÛn de Riesgos)", m_mensaje, m_CorreoCalidad3
+    RegistrarCorreo "Informe Tareas Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CorreoCalidad3
     
     'PARA m_NombreCalidad4
     
@@ -922,7 +922,7 @@ Public Function RealizarTareaDiariaCalidad()
     m_mensaje = m_mensaje & "</body>" & vbNewLine
     m_mensaje = m_mensaje & "</html>" & vbNewLine
     
-    RegistrarCorreo "Informe Tareas Calidad (GestiÛn de Riesgos)", m_mensaje, m_CorreoCalidad4
+    RegistrarCorreo "Informe Tareas Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CorreoCalidad4
     
     'PARA m_NombreCalidad5
     
@@ -962,7 +962,7 @@ Public Function RealizarTareaDiariaCalidad()
     m_mensaje = m_mensaje & "</body>" & vbNewLine
     m_mensaje = m_mensaje & "</html>" & vbNewLine
     
-    RegistrarCorreo "Informe Tareas Calidad (GestiÛn de Riesgos)", m_mensaje, m_CorreoCalidad5
+    RegistrarCorreo "Informe Tareas Calidad (Gesti√≥n de Riesgos)", m_mensaje, m_CorreoCalidad5
 
     
     RegistrarTarea "RiesgosSemanalesCalidad"
@@ -994,7 +994,7 @@ Public Function getCALIDADHTMLEDICIONESAPUNTODECADUCAR(p_UsuarioCalidad, m_intN)
     m_SQL = "SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,TbProyectos.FechaPrevistaCierre, " & _
             "TbProyectosEdiciones.IDEdicion,TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion, " & _
             "TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad," & _
-            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS DÌas " & _
+            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS D√≠as " & _
             "FROM TbProyectos INNER JOIN TbProyectosEdiciones " & _
             "ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto " & _
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
@@ -1026,7 +1026,7 @@ Public Function getCALIDADHTMLEDICIONESAPUNTODECADUCAR(p_UsuarioCalidad, m_intN)
                     rcdDatos.Fields("FechaEdicion").Value & "||" & _
                     rcdDatos.Fields("FechaPrevistaCierre").Value & "||" & _
                     rcdDatos.Fields("FechaMaxProximaPublicacion").Value & "||" & _
-                    rcdDatos.Fields("DÌas").Value & "||" & _
+                    rcdDatos.Fields("D√≠as").Value & "||" & _
                     rcdDatos.Fields("NombreUsuarioCalidad").Value
         End If
         
@@ -1044,17 +1044,17 @@ Public Function getCALIDADHTMLEDICIONESAPUNTODECADUCAR(p_UsuarioCalidad, m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI”N A PUNTO DE SER SUPERADA</td>"
+            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI√ìN A PUNTO DE SER SUPERADA</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Nombre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > JurÌdica</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha ⁄lt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Jur√≠dica</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha √ölt Ed.</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Prevista Cierre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (DÌas)</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (D√≠as)</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
         For Each m_IDEdicion In m_Col
@@ -1110,7 +1110,7 @@ Public Function getCALIDADHTMLEDICIONESCADUCADAS(p_UsuarioCalidad, m_intN)
     m_SQL = "SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,TbProyectos.FechaPrevistaCierre, " & _
             "TbProyectosEdiciones.IDEdicion,TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion, " & _
             "TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad," & _
-            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS DÌas " & _
+            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS D√≠as " & _
             "FROM TbProyectos INNER JOIN TbProyectosEdiciones " & _
             "ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto " & _
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
@@ -1141,7 +1141,7 @@ Public Function getCALIDADHTMLEDICIONESCADUCADAS(p_UsuarioCalidad, m_intN)
                     rcdDatos.Fields("FechaEdicion").Value & "||" & _
                     rcdDatos.Fields("FechaPrevistaCierre").Value & "||" & _
                     rcdDatos.Fields("FechaMaxProximaPublicacion").Value & "||" & _
-                    rcdDatos.Fields("DÌas").Value & "||" & _
+                    rcdDatos.Fields("D√≠as").Value & "||" & _
                     rcdDatos.Fields("NombreUsuarioCalidad").Value
         End If
         
@@ -1159,17 +1159,17 @@ Public Function getCALIDADHTMLEDICIONESCADUCADAS(p_UsuarioCalidad, m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI”N SUPERADA</td>"
+            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI√ìN SUPERADA</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Nombre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > JurÌdica</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha ⁄lt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Jur√≠dica</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha √ölt Ed.</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Prevista Cierre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DÌas Caducado </td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > D√≠as Caducado </td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
         For Each m_IDEdicion In m_Col
@@ -1226,7 +1226,7 @@ Public Function getHTMLEDICIONESACTIVAS(m_intN)
     m_SQL = "SELECT TbProyectos.Proyecto, TbProyectos.NombreProyecto, TbProyectos.Juridica,TbProyectos.FechaPrevistaCierre, " & _
             "TbProyectosEdiciones.IDEdicion,TbProyectosEdiciones.Edicion, TbProyectosEdiciones.FechaEdicion, " & _
             "TbProyectosEdiciones.FechaMaxProximaPublicacion, TbProyectos.NombreUsuarioCalidad," & _
-            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS DÌas " & _
+            "DateDiff('d',now(),[TbProyectosEdiciones].[FechaMaxProximaPublicacion]) AS D√≠as " & _
             "FROM TbProyectos INNER JOIN TbProyectosEdiciones " & _
             "ON TbProyectos.IDProyecto = TbProyectosEdiciones.IDProyecto " & _
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
@@ -1255,7 +1255,7 @@ Public Function getHTMLEDICIONESACTIVAS(m_intN)
                     rcdDatos.Fields("FechaEdicion").Value & "||" & _
                     rcdDatos.Fields("FechaPrevistaCierre").Value & "||" & _
                     rcdDatos.Fields("FechaMaxProximaPublicacion").Value & "||" & _
-                    rcdDatos.Fields("DÌas").Value & "||" & _
+                    rcdDatos.Fields("D√≠as").Value & "||" & _
                     rcdDatos.Fields("NombreUsuarioCalidad").Value
         End If
         
@@ -1273,17 +1273,17 @@ Public Function getHTMLEDICIONESACTIVAS(m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI”N SUPERADA O A PUNTO DE HACERLO</td>"
+            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> EDICIONES CON FECHA DE PUBLICACI√ìN SUPERADA O A PUNTO DE HACERLO</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Nombre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > JurÌdica</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha ⁄lt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Jur√≠dica</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha √ölt Ed.</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Prevista Cierre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (DÌas)</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (D√≠as)</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
         For Each m_IDEdicion In m_Col
@@ -1378,12 +1378,12 @@ Public Function getHTMLEDICIONESCERRADASELULTIMOMES(m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='5' class=""ColespanArriba""> EDICIONES CERRADAS EN LOS ⁄LTIMOS 30 DÕAS</td>"
+            m_mensaje = m_mensaje & "<td colspan='5' class=""ColespanArriba""> EDICIONES CERRADAS EN LOS √öLTIMOS 30 D√çAS</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Nombre</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > JurÌdica</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Jur√≠dica</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Cierre</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
@@ -1491,10 +1491,10 @@ Public Function getCALIDADHTMLEDICIONESPREPARADASPARAPUBLICAR(p_UsuarioCalidad, 
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para PublicaciÛn</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (dÌas)</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para Publicaci√≥n</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (d√≠as)</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
             For Each m_IDEdicion In m_Col
@@ -1589,13 +1589,13 @@ Public Function getCALIDADHTMLRIESGOSPARARETIPIFICAR(p_UsuarioCalidad, m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS QUE HAY QUE ASIGNAR UN C”DIGO DE BIBLIOTECA</td>"
+            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS QUE HAY QUE ASIGNAR UN C√ìDIGO DE BIBLIOTECA</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa raÌz</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa ra√≠z</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha para retific.</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
                 
@@ -1698,14 +1698,14 @@ Public Function getCALIDADHTMLRIESGOSACEPTADOSPORVISAR(p_UsuarioCalidad, m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS ACEPTADOS POR EL T…CNICO A FALTA DE VISADO POR CALIDAD</td>"
+            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS ACEPTADOS POR EL T√âCNICO A FALTA DE VISADO POR CALIDAD</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha AceptaciÛn</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Aceptaci√≥n</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
             For Each m_IDRiesgo In m_Col
@@ -1802,13 +1802,13 @@ Public Function getCALIDADHTMLRIESGOSRETIRADOSPORVISAR(p_UsuarioCalidad, m_intN)
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS RETIRADOS POR EL T…CNICO A FALTA DE VISADO POR CALIDAD</td>"
+            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS RETIRADOS POR EL T√âCNICO A FALTA DE VISADO POR CALIDAD</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Retirado</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
                
@@ -1910,13 +1910,13 @@ Public Function getCALIDADHTMLRIESGOSMATERIALIZADOSPORDECIDIR(p_UsuarioCalidad, 
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS MATERIALIZADOS SIN DECIDIR SI SE CONVERTIR¡ O NO EN NC POR CALIDAD</td>"
+            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS MATERIALIZADOS SIN DECIDIR SI SE CONVERTIR√Å O NO EN NC POR CALIDAD</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>" & vbNewLine
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>" & vbNewLine
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Materializado</td>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>" & vbNewLine
                 
@@ -2003,8 +2003,8 @@ Public Function getTECNICOHTMLEDICIONESNECESITANPROPUESTAPUBLICACION(p_UsuarioTe
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
             "AND ((DateDiff('d',Now(),[TbProyectos].[FechaMaxProximaPublicacion]))<=15) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbProyectosEdiciones.FechaPreparadaParaPublicar) Is Null));"
     Set rcdDatos = CreateObject("ADODB.Recordset")
     rcdDatos.Open m_SQL, CnRiesgos, adOpenDynamic, adLockPessimistic, adCmdText
@@ -2044,11 +2044,11 @@ Public Function getTECNICOHTMLEDICIONESNECESITANPROPUESTAPUBLICACION(p_UsuarioTe
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para PublicaciÛn</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para Publicaci√≥n</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (dÌas)</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Faltan (d√≠as)</td>"
                 
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
             For Each m_IDEdicion In m_Col
@@ -2110,8 +2110,8 @@ Public Function getTECNICOHTMLEDICIONESCONPROPUESTADEPUBLICACIONRECHAZADAS(p_Usu
             "AND ((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbProyectosEdiciones.FechaPreparadaParaPublicar) Is Null) " & _
             "AND (Not (TbProyectosEdiciones.PropuestaRechazadaPorCalidadFecha) Is Null));"
@@ -2148,13 +2148,13 @@ Public Function getTECNICOHTMLEDICIONESCONPROPUESTADEPUBLICACIONRECHAZADAS(p_Usu
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='7' class=""ColespanArriba"">EDICIONES CON PROPUESTA DE PUBLICACI”N RECHAZADA</td>"
+            m_mensaje = m_mensaje & "<td colspan='7' class=""ColespanArriba"">EDICIONES CON PROPUESTA DE PUBLICACI√ìN RECHAZADA</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > ⁄lt Ed</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M·x.PrÛx Ed.</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para PublicaciÛn</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > √ölt Ed</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha M√°x.Pr√≥x Ed.</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Propuesta para Publicaci√≥n</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > F.Rechazo</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Motivo Rechazo de Propuesta</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
@@ -2218,8 +2218,8 @@ Public Function getTECNICODHTMLRIESGOSACEPTADOSSINMOTIVAR(p_UsuarioTecnico, m_in
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)='Aceptar') " & _
             "AND ((TbRiesgos.FechaJustificacionAceptacionRiesgo) Is Null) " & _
@@ -2257,13 +2257,13 @@ Public Function getTECNICODHTMLRIESGOSACEPTADOSSINMOTIVAR(p_UsuarioTecnico, m_in
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='5' class=""ColespanArriba""> RIESGOS ACEPTADOS SIN MOTIVACI”N</td>"
+            m_mensaje = m_mensaje & "<td colspan='5' class=""ColespanArriba""> RIESGOS ACEPTADOS SIN MOTIVACI√ìN</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
                 
             m_mensaje = m_mensaje & "</tr>" & vbNewLine
@@ -2322,8 +2322,8 @@ Public Function getTECNICOHTMLRIESGOSACEPTADOSRECHAZADOS(p_UsuarioTecnico, m_int
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)='Aceptar') " & _
             "AND ((TbUsuariosAplicaciones.UsuarioRed)='" & p_UsuarioTecnico & "') " & _
@@ -2366,9 +2366,9 @@ Public Function getTECNICOHTMLRIESGOSACEPTADOSRECHAZADOS(p_UsuarioTecnico, m_int
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Rechazo</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
                 
@@ -2430,8 +2430,8 @@ Public Function getTECNICOHTMLRIESGOSRETIRADOSSINMOTIVAR(p_UsuarioTecnico, m_int
         "AND ((TbProyectos.ParaInformeAvisos)<>'No') " & _
         "AND ((TbProyectos.FechaCierre) Is Null) " & _
         "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-        "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-        "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+        "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+        "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
         "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
         "AND (Not (TbRiesgos.FechaRetirado) Is Null) " & _
         "AND ((TbRiesgos.JustificacionRetiroRiesgo) Is Null));"
@@ -2469,13 +2469,13 @@ Public Function getTECNICOHTMLRIESGOSRETIRADOSSINMOTIVAR(p_UsuarioTecnico, m_int
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS RETIRADOS SIN MOTIVACI”N</td>"
+            m_mensaje = m_mensaje & "<td colspan='6' class=""ColespanArriba""> RIESGOS RETIRADOS SIN MOTIVACI√ìN</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > F.Retirado</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
                 
@@ -2539,8 +2539,8 @@ Public Function getTECNICOHTMLRIESGOSRETIRADOSRECHAZADOS(p_UsuarioTecnico, m_int
             "AND ((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRetirado) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRechazoRetiroPorCalidad) Is Null));"
@@ -2583,9 +2583,9 @@ Public Function getTECNICOHTMLRIESGOSRETIRADOSRECHAZADOS(p_UsuarioTecnico, m_int
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Retirado</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Rechazo</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
@@ -2660,8 +2660,8 @@ Public Function getTECNICOHTMLRIESGOSCONACCIONESMITIGACIONPORREPLANIFICAR(p_Usua
             "AND ((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)<>'Aceptar') " & _
@@ -2704,15 +2704,15 @@ Public Function getTECNICOHTMLRIESGOSCONACCIONESMITIGACIONPORREPLANIFICAR(p_Usua
     End If
     m_mensaje = m_mensaje & "<table>" & vbNewLine
         m_mensaje = m_mensaje & "<tr>" & vbNewLine
-            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> RIESGOS CON ACCIONES DE PLANES DE MITIGACI”N POR REPLANIFICAR</td>"
+            m_mensaje = m_mensaje & "<td colspan='9' class=""ColespanArriba""> RIESGOS CON ACCIONES DE PLANES DE MITIGACI√ìN POR REPLANIFICAR</td>"
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Disparador</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > AcciÛn</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Acci√≥n</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Inicio</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Fin Prevista</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
@@ -2788,8 +2788,8 @@ Public Function getTECNICOHTMLRIESGOSCONACCIONESCONTINGENCIAPORREPLANIFICAR(p_Us
             "AND ((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)<>'Aceptar'));"
@@ -2835,11 +2835,11 @@ Public Function getTECNICOHTMLRIESGOSCONACCIONESCONTINGENCIAPORREPLANIFICAR(p_Us
         m_mensaje = m_mensaje & "</tr>" & vbNewLine
             m_mensaje = m_mensaje & "<tr>" & vbNewLine
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Proyecto</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > CÛdigo</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > DescripciÛn</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa RaÌz</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > C√≥digo</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Descripci√≥n</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Causa Ra√≠z</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Disparador</td>"
-                m_mensaje = m_mensaje & "<td class=""Cabecera"" > AcciÛn</td>"
+                m_mensaje = m_mensaje & "<td class=""Cabecera"" > Acci√≥n</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Inicio</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Fecha Fin Prevista</td>"
                 m_mensaje = m_mensaje & "<td class=""Cabecera"" > Resp. Calidad</td>"
@@ -2900,8 +2900,8 @@ Public Function getColUsuariosDistintos()
             "And ((TbProyectos.FechaCierre) Is Null) " & _
             "And ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
             "And ((DateDiff('d',Now(),TbProyectos.FechaMaxProximaPublicacion))<=15) " & _
-            "And ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "And ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "And ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "And ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbProyectosEdiciones.FechaPreparadaParaPublicar) Is Null) " & _
             "And ((TbUsuariosAplicaciones.FechaBaja) Is Null));"
 
@@ -2936,8 +2936,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbProyectosEdiciones.FechaPreparadaParaPublicar) Is Null) " & _
             "AND (Not (TbProyectosEdiciones.PropuestaRechazadaPorCalidadFecha) Is Null));"
@@ -2975,8 +2975,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.JustificacionRetiroRiesgo) Is Null));"
@@ -3013,8 +3013,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)='Aceptar') " & _
             "AND (Not (TbRiesgos.FechaRechazoAceptacionPorCalidad) Is Null));"
@@ -3051,8 +3051,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.JustificacionRetiroRiesgo) Is Null));"
@@ -3088,8 +3088,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRetirado) Is Null) " & _
             "AND (Not (TbRiesgos.FechaRechazoRetiroPorCalidad) Is Null));"
@@ -3127,8 +3127,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)<>'Aceptar') " & _
@@ -3169,8 +3169,8 @@ Public Function getColUsuariosDistintos()
             "WHERE (((TbProyectos.ParaInformeAvisos)<>'No') " & _
             "AND ((TbProyectos.FechaCierre) Is Null) " & _
             "AND ((TbProyectosEdiciones.FechaPublicacion) Is Null) " & _
-            "AND ((TbExpedientesResponsables.EsJefeProyecto)='SÌ') " & _
-            "AND ((TbExpedientesResponsables.CorreoSiempre)='SÌ') " & _
+            "AND ((TbExpedientesResponsables.EsJefeProyecto)='S√≠') " & _
+            "AND ((TbExpedientesResponsables.CorreoSiempre)='S√≠') " & _
             "AND ((TbUsuariosAplicaciones.FechaBaja) Is Null) " & _
             "AND ((TbRiesgos.FechaRetirado) Is Null) " & _
             "AND ((TbRiesgos.Mitigacion)<>'Aceptar') " & _

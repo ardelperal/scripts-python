@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script de ejecución para el módulo de Tareas
-Adaptación del script legacy EnviarCorreoTareas.vbs
+Adaptación del script original EnviarCorreoTareas.vbs
 """
 
 import sys

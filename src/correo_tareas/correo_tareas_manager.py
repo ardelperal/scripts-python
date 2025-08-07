@@ -1,6 +1,6 @@
 """
-Gestor de Tareas
-Adaptación del script legacy EnviarCorreoTareas.vbs
+Gestor de Correo Tareas
+Adaptación del script original EnviarCorreoTareas.vbs
 """
 import smtplib
 import logging
@@ -46,7 +46,7 @@ class CorreoTareasManager:
         """
         try:
             msg = MIMEMultipart()
-            # Construir el remitente usando el campo Aplicacion como en el legacy VBS
+            # Construir el remitente usando el campo Aplicacion como en el script original VBS
             aplicacion = correo.get('Aplicacion', 'Tareas')
             from_email = f"{aplicacion}.DySN@telefonica.com"
             msg['From'] = from_email

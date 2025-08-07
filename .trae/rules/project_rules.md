@@ -1,4 +1,4 @@
-Siempre que tengas dudas de como usar los sql en pruebas o en refactorizaciones mira el archivo legacy de donde proviene
+Siempre que tengas dudas de como usar los sql en pruebas o en refactorizaciones mira el archivo original de donde proviene
 Siempre revisa el SQL para que sea compatible con access, SELECT TOP 5, o cosas como CASE en where no están permitidas
 Antes de implementar una nueva función mira a ver si ya está en la parte común del proyecto
 Los tests de integración siempre que sea posible quiero que tengan interacción real con las bases de datos, pero siempre las locales independientemente del entorno que esté en .env
@@ -192,4 +192,168 @@ Finalizar ciclo de técnicos:
 
 Guardar log o estado que indique que se ha procesado el envío.
 
-</Modulo de No Conformidades>
+</Modulo de Expedientes>
+ Análisis del Script: TareaExpedientes.vbs
+Resumen General
+Este script tiene como objetivo principal realizar una tarea diaria de supervisión (ExpDiario) sobre una base de datos de expedientes. Su función es identificar y recopilar información sobre expedientes que cumplen ciertas condiciones críticas (próximos a vencer, con datos incompletos, en fases estancadas, etc.).
+
+Una vez recopilados los datos, el script genera un informe consolidado en formato HTML igual que lo hiciste con el móduo de No Conformidades y lo registra en una base de datos para su posterior envío por correo electrónico a un grupo de usuarios definidos como "tramitadores".
+
+Flujo de Ejecución
+La ejecución del script es controlada por la función Lanzar, que actúa como el punto de entrada principal.
+
+1. Punto de Entrada: Lanzar()
+Esta función orquesta todo el proceso y sigue los siguientes pasos lógicos:
+
+Define Rutas y Contraseñas: Establece las rutas de red a las bases de datos de Access (.accdb) y la contraseña de acceso (m_Pass).
+
+Conexión a BBDD de Tareas: Se conecta a la base de datos Tareas_datos1.accdb para gestionar el estado de la ejecución.
+
+Verificación de Tarea: Llama a la función TareaRealizada() para comprobar si la tarea ExpDiario ya se ha ejecutado en el día actual.
+
+Si la tarea ya fue realizada, el script finaliza su ejecución para evitar duplicidad.
+
+Si no se ha realizado, el script continúa.
+
+Ejecución de la Tarea Principal:
+
+Se conecta a la base de datos principal de expedientes: Expedientes_datos.accdb.
+
+Carga los estilos CSS desde un archivo externo (CSS.txt) para dar formato al informe HTML.
+
+Obtiene las listas de correos electrónicos de los administradores (getCadenaCorreoAdministradores) y de los tramitadores (getCadenaCorreoTareas).
+
+Llama a la función RealizarTarea() para que genere el informe.
+
+Una vez que RealizarTarea finaliza, cierra la conexión a la base de datos de expedientes.
+
+Registro de Tarea Completada: Llama a RegistrarTarea() para actualizar la base de datos de tareas, marcando ExpDiario como completada para la fecha actual.
+
+Cierre de Conexiones: Finaliza la conexión con la base de datos de tareas.
+
+Núcleo del Proceso: RealizarTarea()
+Esta es la función central donde se recopilan todos los datos y se construye el informe HTML.
+
+Recopilación de Datos: La función llama a varias sub-rutinas (getCol...) para ejecutar consultas SQL específicas contra la base de datos de expedientes. Cada una de estas funciones devuelve un diccionario (Scripting.Dictionary) con los expedientes que cumplen una condición. Las comprobaciones realizadas son:
+
+getColAPuntoDeFinalizar: Busca expedientes cuyo contrato finaliza en los próximos 15 días.
+
+getColHitosAPuntoDeFinalizar: Busca hitos de expedientes cuya fecha está programada para los próximos 15 días.
+
+getColEstadoDesconocido: Identifica expedientes cuyo campo Estado es 'Desconocido'.
+
+getColAdjudicadosSinContrato: Localiza expedientes marcados como adjudicados pero que no tienen datos de contrato (fecha de inicio, fin o meses de garantía).
+
+getColAdjudicadosTSOLSinCodS4H: Busca expedientes adjudicados a la entidad jurídica 'TSOL' que no tienen asignado un código CodS4H.
+
+getColsEnFaseOfertaPorMuchoTiempo: Detecta expedientes que llevan más de 45 días en fase de oferta sin haber sido adjudicados, perdidos o desestimados.
+
+Construcción del Informe HTML:
+
+Crea una cabecera HTML básica usando DameCabeceraHTML.
+
+Para cada diccionario de datos obtenido en el paso anterior, llama a una función HTMLTabla... correspondiente (ej: HTMLTablaAPuntoDeFinalizar).
+
+Cada función HTMLTabla... genera una tabla HTML con los datos del diccionario, incluyendo cabeceras y filas formateadas.
+
+Todas las tablas HTML se concatenan en una única variable de texto (m_mensaje), separadas por saltos de línea.
+
+Registro del Correo:
+
+Finalmente, la función llama a RegistrarCorreo, pasándole el asunto del informe, el cuerpo HTML (m_mensaje) y la lista de destinatarios (tramitadores). Esta función inserta un nuevo registro en la tabla TbCorreosEnviados de la base de datos de tareas.
+
+Funciones Auxiliares Clave
+Conn(p_URL, p_Pass): Función genérica que establece y abre una conexión ADODB a una base de datos Access utilizando el proveedor Microsoft.ACE.OLEDB.12.0.
+
+TareaRealizada() / UltimaEjecucion() / RegistrarTarea(): Conjunto de funciones que gestionan el ciclo de vida de la tarea. Comprueban la última fecha de ejecución en TbTareas y la actualizan para asegurar que el proceso se ejecute solo una vez al día.
+
+getCadenaCorreo...(): Funciones que ejecutan consultas SQL sobre la tabla TbUsuariosAplicaciones para obtener cadenas de correos electrónicos separadas por punto y coma (;), ya sea de administradores o de usuarios específicos de la aplicación.
+
+getCol...(): Funciones de consulta. Cada una tiene una consulta SQL específica para filtrar expedientes según las reglas de negocio descritas anteriormente.
+
+HTMLTabla...(): Funciones de formato. Toman un diccionario de datos y lo transforman en una cadena de texto que representa una tabla HTML, aplicando clases CSS para el estilo.
+
+RegistrarCorreo(...): Inserta los detalles del correo generado (destinatarios, asunto, cuerpo) en la tabla TbCorreosEnviados. Obtiene un nuevo ID para el correo usando la función getIDCorreo.
+<Modulo Expedientes>
+
+<Gestión de Riesgos>
+Lógica de Negocio del Proceso Automatizado de Gestión de Riesgos
+Objetivo Principal del Proceso
+El propósito de este proceso automatizado es actuar como un supervisor digital del sistema de Gestión de Riesgos. Su función es asegurar que las tareas, revisiones y plazos clave no se pasen por alto, garantizando que tanto los responsables de los proyectos (Técnicos) como el equipo de supervisión (Calidad) cumplan con sus responsabilidades de manera oportuna.
+
+El sistema se encarga de enviar recordatorios y resúmenes de estado por correo electrónico para mantener el flujo de trabajo activo y evitar cuellos de botella.
+
+Audiencias y Frecuencia de los Informes
+El proceso identifica dos roles de negocio principales y les envía informes con distinta periodicidad y contenido:
+
+Técnicos (Responsables de Proyecto): Reciben un informe semanal. Este informe es personalizado y solo contiene las tareas que están bajo la responsabilidad directa de cada técnico.
+
+Equipo de Calidad: Reciben dos tipos de informes:
+
+Un informe semanal detallado con las tareas pendientes de revisión y aprobación, desglosado por cada miembro del equipo.
+
+Un informe mensual de alto nivel que ofrece una visión general del estado de todos los proyectos para todo el equipo de Calidad.
+
+Lógica de Negocio por Audiencia
+1. Para los Técnicos (Informe Semanal Personalizado)
+El objetivo de este informe es impulsar al técnico a completar las acciones que tiene pendientes para que los proyectos avancen. Se le notifica sobre:
+
+Proyectos que necesitan acción inmediata:
+
+Ediciones de proyectos que están listas y deben ser propuestas a Calidad para su publicación oficial.
+
+Propuestas de publicación que el equipo de Calidad ha rechazado, indicando que el técnico debe revisarlas y corregirlas.
+
+Decisiones sobre riesgos que requieren justificación:
+
+Riesgos que el técnico ha decidido "aceptar", pero para los cuales no ha documentado una justificación clara.
+
+Riesgos que ha decidido "retirar", pero sin explicar el motivo del retiro.
+
+Acciones rechazadas que necesitan ser reevaluadas:
+
+Notificaciones de que una justificación para aceptar o retirar un riesgo ha sido rechazada por Calidad, lo que obliga al técnico a proponer una nueva solución.
+
+Planes de acción vencidos:
+
+Alertas sobre planes de mitigación o contingencia cuyas fechas de finalización ya han pasado y que, por tanto, deben ser replanificados.
+
+2. Para el Equipo de Calidad (Informe Semanal Detallado)
+Este informe está diseñado para que el equipo de Calidad pueda supervisar y validar el trabajo de los técnicos, asegurando el cumplimiento de los estándares. Cada miembro de Calidad recibe un resumen de:
+
+Tareas de revisión pendientes:
+
+Proyectos que los técnicos han propuesto para publicar y que están esperando el visto bueno de Calidad.
+
+Riesgos que los técnicos han aceptado o retirado y que están pendientes de ser visados (aprobados) por Calidad.
+
+Riesgos que se han materializado (han ocurrido) y sobre los cuales Calidad debe decidir si se abren como una "No Conformidad" formal.
+
+Riesgos identificados por los técnicos que necesitan ser clasificados ("retipificados") usando la biblioteca oficial de riesgos de la empresa.
+
+Alertas críticas sobre plazos:
+
+Proyectos cuya fecha límite para ser publicados está a punto de vencer (en los próximos 15 días).
+
+Proyectos cuya fecha límite de publicación ya ha sido superada, requiriendo atención urgente.
+
+3. Para el Equipo de Calidad (Informe Mensual General)
+Este informe tiene un propósito más estratégico y de reporte. No se enfoca en tareas individuales, sino en dar una visión global del estado de la gestión de riesgos. Contiene:
+
+Un resumen de todos los proyectos que están actualmente en proceso de revisión por parte de Calidad.
+
+Una fotografía general de todos los proyectos activos, indicando cuáles están en riesgo por plazos ajustados o ya vencidos.
+
+Un listado de los proyectos que han sido cerrados satisfactoriamente en los últimos 30 días, sirviendo como un reporte de actividad completada.
+
+Conclusión de la Lógica
+En esencia, este proceso automatizado implementa las reglas de negocio de la compañía para la gestión de riesgos. Actúa como un mecanismo de control que:
+
+Asigna y recuerda responsabilidades a cada rol.
+
+Vigila los plazos para evitar retrasos.
+
+Asegura la trazabilidad al exigir justificaciones y aprobaciones formales.
+
+Proporciona visibilidad del estado de los proyectos a los diferentes niveles de la organización.
+</Gestión de Riesgos>

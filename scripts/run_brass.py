@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script principal para ejecutar la tarea BRASS
-Adaptación del sistema legacy VBS a Python
+Adaptación del sistema original VBS a Python
 """
 import sys
 import argparse
