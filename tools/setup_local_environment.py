@@ -19,11 +19,17 @@ from dotenv import load_dotenv
 import argparse
 
 # Configurar logging
+project_root = Path(__file__).parent.parent
+log_file = project_root / 'logs' / 'setup_local_environment.log'
+
+# Asegurar que el directorio de logs existe
+log_file.parent.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('setup_local_environment.log'),
+        logging.FileHandler(log_file, encoding='utf-8'),
         logging.StreamHandler()
     ]
 )

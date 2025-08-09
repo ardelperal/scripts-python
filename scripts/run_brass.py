@@ -21,6 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description='Ejecutar tarea BRASS')
     parser.add_argument('--force', '-f', action='store_true', 
                        help='Forzar ejecución aunque ya se haya ejecutado hoy')
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Modo simulación - no ejecuta la tarea real')
     args = parser.parse_args()
     
     # Configurar logging
@@ -30,8 +32,20 @@ def main():
         # Crear instancia del gestor BRASS
         brass_manager = BrassManager()
         
-        # Ejecutar la tarea con modo forzado si se especifica
-        success = brass_manager.run()
+        if args.dry_run:
+            print("Modo simulación - verificando si la tarea debe ejecutarse...")
+            should_run = brass_manager.should_execute_task()
+            print(f"¿Debe ejecutarse la tarea BRASS? {'Sí' if should_run else 'No'}")
+            return 0
+        
+        if args.force:
+            print("Modo forzado - ejecutando tarea BRASS...")
+            success = brass_manager.ejecutar_logica_especifica()
+            if success:
+                brass_manager.marcar_como_completada()
+        else:
+            # Ejecución normal con verificación de horarios
+            success = brass_manager.run()
         
         if success:
             print("Tarea BRASS ejecutada exitosamente")

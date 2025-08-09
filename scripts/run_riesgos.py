@@ -35,11 +35,18 @@ def setup_logging(verbose: bool = False):
     """
     level = logging.DEBUG if verbose else logging.INFO
     
+    # Usar ruta absoluta basada en el directorio del proyecto
+    project_root = Path(__file__).parent.parent
+    log_file = project_root / "logs" / "riesgos.log"
+    
+    # Asegurar que el directorio de logs existe
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler('logs/riesgos.log', encoding='utf-8'),
+            logging.FileHandler(log_file, encoding='utf-8'),
             logging.StreamHandler(sys.stdout)
         ]
     )
@@ -83,53 +90,40 @@ def main():
         logger.info(f"Configuración cargada para entorno: {config.environment}")
         
         # Crear manager de riesgos
-        manager = RiesgosManager(config)
+        manager = RiesgosManager(config, logger)
         
-        # Ejecutar tareas específicas si se solicita
-        if args.force_technical or args.force_quality or args.force_monthly:
-            if not manager.connect():
-                logger.error("No se pudo conectar a la base de datos")
-                return 1
+        # Conectar a las bases de datos
+        manager.connect_to_database()
+        
+        try:
+            # Ejecutar tareas según los parámetros
+            results = manager.run_daily_tasks(
+                force_technical=args.force_technical,
+                force_quality=args.force_quality,
+                force_monthly=args.force_monthly
+            )
             
-            try:
-                if args.force_technical:
-                    logger.info("Forzando ejecución de tarea técnica")
-                    if manager.execute_technical_task():
-                        manager.record_task_execution('TECNICA')
-                        logger.info("Tarea técnica ejecutada exitosamente")
-                    else:
-                        logger.error("Error ejecutando tarea técnica")
-                        return 1
-                
-                if args.force_quality:
-                    logger.info("Forzando ejecución de tarea de calidad")
-                    if manager.execute_quality_task():
-                        manager.record_task_execution('CALIDAD')
-                        logger.info("Tarea de calidad ejecutada exitosamente")
-                    else:
-                        logger.error("Error ejecutando tarea de calidad")
-                        return 1
-                
-                if args.force_monthly:
-                    logger.info("Forzando ejecución de tarea mensual")
-                    if manager.execute_monthly_quality_task():
-                        manager.record_task_execution('CALIDADMENSUAL')
-                        logger.info("Tarea mensual ejecutada exitosamente")
-                    else:
-                        logger.error("Error ejecutando tarea mensual")
-                        return 1
-            finally:
-                manager.disconnect()
-        else:
-            # Ejecutar tareas diarias normales
-            logger.info("Iniciando ejecución de tareas diarias de gestión de riesgos")
+            # Verificar resultados
+            success = True
+            if args.force_technical and not results.get('technical', False):
+                logger.error("Error ejecutando tarea técnica")
+                success = False
+            if args.force_quality and not results.get('quality', False):
+                logger.error("Error ejecutando tarea de calidad")
+                success = False
+            if args.force_monthly and not results.get('monthly', False):
+                logger.error("Error ejecutando tarea mensual")
+                success = False
             
-            if manager.execute_daily_task():
-                logger.info("Tareas diarias ejecutadas exitosamente")
+            if success:
+                logger.info("Todas las tareas solicitadas se ejecutaron exitosamente")
                 return 0
             else:
-                logger.error("Error ejecutando tareas diarias")
+                logger.error("Algunas tareas fallaron")
                 return 1
+                
+        finally:
+            manager.disconnect_from_database()
         
         return 0
         

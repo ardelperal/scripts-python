@@ -254,150 +254,151 @@ scripts-python/
 - **No Conformidades**: Gestión de no conformidades y seguimiento
 - **Riesgos**: Gestión completa de riesgos empresariales
 
-## 📋 Lógica de Negocio - Módulo de No Conformidades
+## � Módulo No Conformidades – Funcionamiento, Arquitectura y Flujo
 
-El módulo de No Conformidades gestiona el seguimiento automatizado de no conformidades y sus acciones correctivas/preventivas (ARAPs), generando notificaciones por correo electrónico para diferentes tipos de usuarios según el estado y vencimiento de las tareas.
+> Esta sección ha sido revisada tras la refactorización: unificación de generación HTML, método genérico para recuperación de ARs por técnico, tipado fuerte y manejo específico de errores.
 
-### 🎯 Objetivo Principal
+### 1. Propósito
+Automatizar el seguimiento y la comunicación sobre:
+* No Conformidades (NCs) abiertas y su ciclo de vida.
+* Acciones Correctivas / Preventivas (AR / ARAP) asociadas y su proximidad a vencimiento.
+* Controles de eficacia pendientes tras el cierre.
+* Replanificación de tareas y avisos escalonados a técnicos y calidad.
 
-Automatizar el proceso de notificación y seguimiento de:
-- **No Conformidades (NCs)** abiertas y sus estados
-- **Acciones Correctivas/Preventivas (ARAPs)** asociadas
-- **Control de Eficacia** de las acciones implementadas
-- **Vencimientos y alertas** por proximidad de fechas límite
+### 2. Componentes Principales
+| Componente | Archivo | Responsabilidad clave |
+|------------|---------|-----------------------|
+| Runner CLI | `scripts/run_no_conformidades.py` | Orquestación, flags de fuerza / dry-run, logging y registro de tareas. |
+| Manager | `src/no_conformidades/no_conformidades_manager.py` | Lógica de negocio, consultas SQL, flujo de generación interna. |
+| Registrador | `src/no_conformidades/report_registrar.py` | Construcción y registro final de emails (calidad / técnicos). |
+| Generador HTML | `src/common/html_report_generator.py` | Header / footer modernos y tablas unificadas. |
+| Tipos | `src/no_conformidades/types.py` | TypedDict para estructuras de datos AR técnicas y calidad. |
+| Persistencia Avisos | Tabla `TbNCARAvisos` | Evita correos repetidos por AR y rango (0 / 7 / 15 días). |
+| Registro Email | Tabla `TbCorreosEnviados` (BD Tareas) | Trazabilidad de envíos y cuerpo HTML. |
 
-### 🔄 Flujo de Ejecución
-
-El sistema ejecuta dos procesos principales de manera secuencial:
-
-1. **Generación de correos para Miembros de Calidad** (`_generar_correo_calidad()`)
-2. **Generación de correos individuales para Técnicos** (`_generar_correos_tecnicos()`)
-
-### 👥 Proceso para Miembros de Calidad
-
-Se genera un **único correo consolidado** con información de 4 consultas SQL principales:
-
-#### 1. ARs Próximas a Caducar o Caducadas
-```sql
--- Obtiene ARs sin fecha fin real y próximas a vencer (< 16 días)
-SELECT DISTINCT DateDiff('d',Now(),[FPREVCIERRE]) AS DiasParaCierre, 
-    TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
-    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
-    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
-FROM TbNoConformidades 
-INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
-    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva) 
-ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad 
-WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL 
-  AND DateDiff('d',Now(),[FPREVCIERRE]) < 16;
+### 3. Flujo Alto Nivel
+```mermaid
+flowchart TD
+  A[Ejecutar run_no_conformidades.py] --> B{Flags fuerza?}
+  B -->|--force-all| C[Calidad + Técnicos]
+  B -->|--force-calidad| C1[Calidad]
+  B -->|--force-tecnica| C2[Técnicos]
+  B -->|Normal| D[Evalúa should_execute_*( )]
+  D --> C
+  C --> E[Manager obtiene datos]
+  E --> F[HTMLReportGenerator compone HTML]
+  F --> G[ReportRegistrar registra correo]
+  G --> H[Registrar avisos TbNCARAvisos]
+  H --> I[Actualizar TbTareas]
 ```
 
-#### 2. NCs Pendientes de Control de Eficacia
-```sql
--- NCs resueltas que requieren verificación de eficacia (< 30 días)
-SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
-    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD,  
-    TbNoConformidades.FECHACIERRE, TbNoConformidades.FechaPrevistaControlEficacia,
-    DateDiff('d',Now(),[FechaPrevistaControlEficacia]) AS Dias
-FROM TbNoConformidades INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
-    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
-WHERE DateDiff('d',Now(),[FechaPrevistaControlEficacia]) < 30
-  AND TbNCAccionesRealizadas.FechaFinReal IS NOT NULL
-  AND TbNoConformidades.RequiereControlEficacia = 'Sí'
-  AND TbNoConformidades.FechaControlEficacia IS NULL;
+### 4. Consultas Clave (Resumen)
+Calidad consolida 4 bloques de datos:
+1. ARs próximas a vencer (<16 días) o vencidas sin fecha real.
+2. NCs resueltas pendientes de control de eficacia (<30 días para control) aún sin control efectuado.
+3. NCs sin acciones correctivas registradas.
+4. ARs a replanificar (FechaFinPrevista <16 días / vencida y abierta).
+
+Técnicos (por cada responsable):
+* ARs 8–15 días (primer aviso – campo `IDCorreo15`).
+* ARs 1–7 días (aviso urgente – `IDCorreo7`).
+* ARs vencidas (≤0 días – `IDCorreo0`).
+
+### 5. Método Genérico de Recuperación de ARs Técnicas
+Se sustituyeron tres métodos duplicados por `_get_ars_tecnico(...)`, que parametriza:
+* Rango de días (`dias_min`, `dias_max`) o bandera `vencidas`.
+* Campo de control de aviso (`IDCorreo0`, `IDCorreo7`, `IDCorreo15`).
+* Responsable (`RESPONSABLETELEFONICA`).
+
+Esto reduce deuda técnica y facilita futuros ajustes de ventanas de aviso.
+
+### 6. Unificación HTML
+Todo el marcado moderno se centraliza en `HTMLReportGenerator`:
+* `generar_header_moderno` / `generar_footer_moderno`.
+* Tablas: `tabla_arapc_proximas`, `tabla_nc_pendientes_eficacia`, `tabla_nc_sin_acciones`, `tabla_ars_replanificar`, `tabla_ar_tecnico`.
+* Reportes compuestos: `generar_reporte_calidad_moderno` y `generar_reporte_tecnico_moderno`.
+
+Beneficios: estilo consistente, menor duplicación, facilidad para personalizar CSS global.
+
+### 7. Control de Avisos (Anti-duplicado)
+Tabla `TbNCARAvisos` mantiene columnas `IDCorreo0`, `IDCorreo7`, `IDCorreo15` por AR (`IDAR`). El manager:
+1. Consulta si existe la fila (`IDAR`).
+2. Inserta (con nuevo ID secuencial) o actualiza el campo de aviso.
+3. Evita reenviar avisos ya marcados sin borrar histórico.
+
+### 8. Manejo de Errores
+* Errores de base de datos: captura específica (cuando `pyodbc` disponible) para logging diferenciado.
+* Fallback genérico con `logger.exception` para trazas completas.
+* Cierre seguro de conexiones incluso ante fallos parciales.
+
+### 9. Tipado y Mantenibilidad
+`types.py` define `ARTecnicaRecord` y `ARCalidadProximaRecord`. Ventajas:
+* Mejora autocompletado IDE.
+* Reduce errores de clave en dicts dinámicos.
+* Base futura para migrar a `dataclasses` si se requiere inmutabilidad o validación.
+
+### 10. Variables y Parámetros Relevantes
+| Concepto | Variable / Origen | Descripción |
+|----------|-------------------|-------------|
+| Días ventana AR técnicos | Hardcoded (8–15 / 1–7 / ≤0) | Ajustables modificando llamadas a `_get_ars_tecnico`. |
+| Umbral AR calidad | `<16` días | Consulta SQL principal. |
+| Umbral control eficacia | `<30` días | Consulta NC eficacia. |
+| App ID módulo | `APP_ID_NOCONFORMIDADES=8` (.env) | Identifica aplicación en registros. |
+| CSS moderno | `herramientas/CSS_moderno.css` | Inyectado inline para emails. |
+
+### 11. Ejecución Directa
+```powershell
+# Forzar ambas tareas (calidad + técnicos)
+python scripts/run_no_conformidades.py --force-all
+
+# Solo calidad
+python scripts/run_no_conformidades.py --force-calidad
+
+# Solo técnicos con logging detallado
+python scripts/run_no_conformidades.py --force-tecnica -v
+
+# Simulación (sin ingresar correos) – si se desea (modo no forzado existente en código)
+python scripts/run_no_conformidades.py --dry-run
 ```
 
-#### 3. NCs sin Acciones Correctivas
-```sql
--- NCs que no tienen acciones correctivas registradas
-SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico,
-    TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
-    TbNoConformidades.FECHAAPERTURA, TbNoConformidades.FPREVCIERRE
-FROM TbNoConformidades LEFT JOIN TbNCAccionCorrectivas 
-    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad
-WHERE TbNCAccionCorrectivas.IDNoConformidad IS NULL;
+### 12. Pseudocódigo Simplificado Runner
+```python
+if args.force/all -> set flags
+else:
+  with NoConformidadesManager() as m:
+    ejecutar_calidad = m.should_execute_quality_task()
+    ejecutar_tecnica = m.should_execute_technical_task()
+
+if ejecutar_calidad:
+   ejecutar_tarea_calidad()
+if ejecutar_tecnica:
+   ejecutar_tarea_tecnica()
 ```
 
-#### 4. ARs para Replanificar
-```sql
--- ARs con fecha prevista cercana o pasada, sin completar (< 16 días)
-SELECT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
-    TbNCAccionCorrectivas.AccionCorrectiva AS Accion, TbNCAccionesRealizadas.AccionRealizada AS Tarea,
-    TbUsuariosAplicaciones.Nombre AS Tecnico, TbNoConformidades.RESPONSABLECALIDAD, 
-    TbNCAccionesRealizadas.FechaFinPrevista,
-    DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) AS Dias
-FROM (TbNoConformidades INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
-    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-LEFT JOIN TbUsuariosAplicaciones ON TbNCAccionesRealizadas.Responsable = TbUsuariosAplicaciones.UsuarioRed
-WHERE DateDiff('d',Now(),[TbNCAccionesRealizadas].[FechaFinPrevista]) < 16 
-  AND TbNCAccionesRealizadas.FechaFinReal IS NULL;
-```
+### 13. Depuración y Artefactos
+* HTML de debug opcional guardado (si se activa internamente) en `src/no_conformidades/debug_html/`.
+* Logs específicos: `logs/no_conformidades.log` (vía `setup_logging`).
+* Revisar avisos en `TbNCARAvisos` para validar no duplicidades.
 
-**Características del correo de Calidad:**
-- **Destinatarios**: Miembros del equipo de Calidad
-- **Asunto**: "Informe Tareas No Conformidades (No Conformidades)"
-- **Contenido**: Tablas HTML modernas con datos consolidados
-- **Condición**: Se envía solo si hay datos en al menos una consulta
+### 14. Pruebas
+Archivo principal unitario: `tests/unit/no_conformidades/test_no_conformidades_manager.py` incluye:
+* Casos de consulta simulada (mock DB) para rangos 8–15, 1–7 y vencidas.
+* Inserción / actualización de avisos (`registrar_aviso_ar`).
+* Generación de HTML moderno (calidad y técnico) con datos mínimos.
 
-### 🔧 Proceso para Técnicos
+Sugerencias futuras:
+* Test parametrizado de branch de error `DBErrors` simulando `pyodbc.Error`.
+* Verificación de que un segundo envío no re-registra avisos ya existentes.
 
-Se generan **correos individuales** para cada técnico con ARs pendientes, basados en 3 categorías de vencimiento:
+### 15. Extensión Rápida
+Para añadir un nuevo rango (ej. 16–30 días) a técnicos:
+1. Añadir llamada nueva a `_get_ars_tecnico(tecnico, 16, 30, 'IDCorreo30')` (requiere columna extra en `TbNCARAvisos`).
+2. Ampliar tabla HTML (`tabla_ar_tecnico`).
+3. Ajustar registrar avisos y tests.
 
-#### Identificación de Técnicos Activos
-```sql
--- Obtiene técnicos con al menos una NC activa con AR pendiente
-SELECT DISTINCT TbNoConformidades.RESPONSABLETELEFONICA
-FROM (TbNoConformidades INNER JOIN TbNCAccionCorrectivas 
-    ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-    INNER JOIN TbNCAccionesRealizadas 
-    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva
-WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL 
-  AND TbNoConformidades.Borrado = False 
-  AND DateDiff('d', Now(), [FechaFinPrevista]) <= 15;
-```
+---
 
-#### Categorías de ARs por Técnico
-
-Para cada técnico identificado, se ejecutan 3 consultas específicas:
-
-**1. ARs Próximas a Vencer (8-15 días)**
-- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN 8 AND 15`
-- **Control**: `TbNCARAvisos.IDCorreo15 IS NULL` (no avisadas previamente)
-- **Propósito**: Alerta temprana para planificación
-
-**2. ARs Próximas a Vencer (1-7 días)**
-- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) > 0 AND DateDiff('d',Now(),[FechaFinPrevista]) <= 7`
-- **Control**: `TbNCARAvisos.IDCorreo7 IS NULL` (no avisadas previamente)
-- **Propósito**: Alerta urgente de vencimiento inminente
-
-**3. ARs Vencidas (≤ 0 días)**
-- **Condición**: `DateDiff('d',Now(),[FechaFinPrevista]) <= 0`
-- **Control**: `TbNCARAvisos.IDCorreo0 IS NULL` (no avisadas previamente)
-- **Propósito**: Notificación de tareas vencidas
-
-**Características de los correos de Técnicos:**
-- **Destinatarios**: Técnico individual (`RESPONSABLETELEFONICA`)
-- **Asunto**: "Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)"
-- **Contenido**: Tablas HTML específicas por categoría de vencimiento
-- **Condición**: Se envía solo si hay datos en al menos una categoría
-- **Copia**: Se incluyen destinatarios en copia solo para categorías 2 y 3 (urgentes y vencidas)
-
-### 🎨 Generación de Reportes HTML
-
-El sistema genera reportes HTML modernos con:
-
-- **Header personalizado** con logo SVG y estilos CSS
-- **Tablas responsivas** con indicadores visuales de estado
-- **Códigos de color** para diferentes niveles de urgencia:
-  - 🟢 Verde: Más de 7 días
-  - 🟡 Amarillo: 1-7 días
-  - 🔴 Rojo: Vencidas (≤ 0 días)
-- **Footer informativo** con disclaimers
-- **Archivos de debug** guardados en `src/no_conformidades/debug_html/`
-
-### 🗃️ Control de Avisos
+## 🗃️ Control de Avisos
 
 El sistema mantiene un registro de avisos enviados en la tabla `TbNCARAvisos`:
 

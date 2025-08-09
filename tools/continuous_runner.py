@@ -14,26 +14,35 @@ import importlib
 import traceback
 import json
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/continuous_runner.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-
 logger = logging.getLogger(__name__)
 
 class ContinuousRunner:
     """Ejecutor continuo de scripts"""
     
     def __init__(self):
+        """Inicializa el runner continuo."""
         self.running = True
         self.scripts = {}
         self.threads = {}
-        self.status_file = Path('logs/runner_status.json')
+        
+        # Usar ruta absoluta basada en el directorio del proyecto
+        project_root = Path(__file__).parent.parent
+        self.status_file = project_root / 'logs' / 'runner_status.json'
+        
+        # Asegurar que el directorio de logs existe
+        self.status_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Configurar logging con ruta absoluta
+        log_file = project_root / 'logs' / 'continuous_runner.log'
+        
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_file, encoding='utf-8'),
+                logging.StreamHandler()
+            ]
+        )
         
         # Configurar manejo de señales
         signal.signal(signal.SIGINT, self._signal_handler)

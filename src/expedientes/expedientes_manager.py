@@ -826,6 +826,18 @@ class ExpedientesManager(TareaDiaria):
             self.logger.error(f"Error registrando tarea: {e}")
             return False
 
+    def should_execute_task(self) -> bool:
+        """
+        Determina si debe ejecutarse la tarea de expedientes (diaria, primer día laborable)
+        """
+        try:
+            from src.common.utils import should_execute_weekly_task
+            return should_execute_weekly_task(self.db_tareas, "Expedientes", logger=self.logger)
+            
+        except Exception as e:
+            self.logger.error("Error verificando si ejecutar tarea de expedientes: {}".format(e))
+            return False
+
     def run(self) -> bool:
         """
         Método principal para ejecutar la tarea de Expedientes

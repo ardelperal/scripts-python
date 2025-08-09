@@ -1,37 +1,30 @@
 #!/usr/bin/env python3
 import sys
-import argparse
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from src.common.database_adapter import AccessAdapter
 from src.common.config import config
 
 def main():
-    parser = argparse.ArgumentParser(description='Verificar estado de correos enviados')
-    parser.add_argument('--application', default='Riesgos', help='Aplicación a filtrar')
-    parser.add_argument('--limit', type=int, default=5, help='Número de correos a mostrar')
-    
-    args = parser.parse_args()
-    
     with AccessAdapter(Path(config.db_correos_path), config.db_password) as db:
-        query = f"""
-        SELECT TOP {args.limit} IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio 
+        query = """
+        SELECT TOP 5 IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio 
         FROM TbCorreosEnviados 
-        WHERE Aplicacion = '{args.application}' 
         ORDER BY IDCorreo DESC
         """
         result = db.execute_query(query)
         if result:
-            print(f"\n=== Últimos {args.limit} correos de {args.application} ===")
+            print("=== Últimos 5 correos registrados ===")
             for row in result:
                 print(f"ID: {row['IDCorreo']}")
+                print(f"  App: {row['Aplicacion']}")
                 print(f"  Asunto: {row['Asunto']}")
                 print(f"  Destinatarios: {row['Destinatarios']}")
                 print(f"  Fecha: {row['FechaEnvio']}")
                 print("-" * 50)
         else:
-            print(f"No se encontraron correos para {args.application}")
+            print("No se encontraron correos")
 
 if __name__ == "__main__":
     main()

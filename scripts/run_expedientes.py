@@ -118,16 +118,10 @@ def main():
         try:
             # Usar context manager para verificar si se requiere ejecutar la tarea
             with ExpedientesManager() as expedientes_manager:
-                # Verificar si se requiere ejecutar tarea usando función común
-                # Tareas de expedientes: diarias (configurables via .env)
-                frecuencia_expedientes = int(os.getenv('EXPEDIENTES_FRECUENCIA_DIAS', '1'))
-                ejecutar_tarea = should_execute_task(
-                    expedientes_manager.db_tareas, 
-                    "Expedientes", 
-                    frecuencia_expedientes, 
-                    logger
-                )
-                logger.info(f"Requiere tarea de expedientes (cada {frecuencia_expedientes} días): {ejecutar_tarea}")
+                # Verificar si se requiere ejecutar tarea usando función del manager
+                # Tareas de expedientes: semanales (primer día laborable)
+                ejecutar_tarea = expedientes_manager.should_execute_task()
+                logger.info(f"Requiere tarea de expedientes (primer día laborable de la semana): {ejecutar_tarea}")
                 
         except Exception as e:
             logger.error(f"Error verificando horarios: {e}")

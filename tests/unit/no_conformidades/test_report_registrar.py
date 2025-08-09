@@ -46,19 +46,16 @@ class TestReportRegistrar(unittest.TestCase):
     # Tests legacy de notificaciones técnicas e individuales eliminados (flujo moderno usa enviar_notificacion_tecnico_individual)
 
     def test__register_email_nc_inserta(self):
-        # Parchar AccessDatabase para simular inserción y get_max_id
+        # Simplificación: parchear directamente get_max_id y conexión mínima
         fake_cursor = MagicMock()
-        fake_cursor.execute.return_value = None
-        fake_cursor.fetchall.return_value = []
-        fake_cursor.fetchone.return_value = [5]
-        fake_db = MagicMock()
-        fake_db.get_connection.return_value = ContextConn(fake_cursor)
-        fake_db.get_max_id.return_value = 10
+        fake_conn = ContextConn(fake_cursor)
+        fake_db = MagicMock(get_connection=MagicMock(return_value=fake_conn), get_max_id=MagicMock(return_value=10))
         with patch('no_conformidades.report_registrar.AccessDatabase', return_value=fake_db), \
              patch('no_conformidades.report_registrar.Config.get_db_tareas_connection_string', return_value='DSN=mem'):
             new_id = rr._register_email_nc('App','Asunto','<b>Body</b>','dest@a.com','cc@a.com')
-            self.assertEqual(new_id, 11)  # max + 1
-            fake_cursor.execute.assert_called()
+        self.assertEqual(new_id, 11)  # max + 1
+        fake_cursor.execute.assert_called_once()
+        fake_db.get_max_id.assert_called_once_with('TbCorreosEnviados', 'IDCorreo')
 
     def test__register_arapc_notification_registra(self):
         fake_cursor = MagicMock()
@@ -112,6 +109,65 @@ class TestManagerDelegacion(unittest.TestCase):
         with patch.object(self.manager, '_get_nc_connection', return_value=FakeDB()):
             res = self.manager.get_ars_tecnico_por_vencer('TEC',8,15,'IDCorreo15')
             self.assertEqual(res, [])
+
+# ---------------------------------------------------------------------------
+# Tests unificados de enviar_notificacion_tecnico_individual (antes en archivo separado)
+# Escenarios:
+#  - Sin contenido HTML (generador devuelve string vacío) -> retorna True y no registra correo
+#  - Sin email técnico encontrado -> retorna False
+#  - Éxito completo -> registra correo y avisos AR
+# ---------------------------------------------------------------------------
+
+def test_enviar_notificacion_tecnico_individual_sin_contenido():
+    datos = {"ars_15_dias": [], "ars_7_dias": [], "ars_vencidas": []}
+    with patch("no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno", return_value="   ") as gen, \
+         patch("no_conformidades.report_registrar._obtener_email_tecnico") as get_mail, \
+         patch("no_conformidades.report_registrar._register_email_nc") as reg_mail, \
+         patch("no_conformidades.report_registrar._register_arapc_notification") as reg_av:
+        ok = rr.enviar_notificacion_tecnico_individual("TEC1", datos)
+    assert ok is True
+    gen.assert_called_once()
+    get_mail.assert_not_called()  # Se sale antes de buscar email
+    reg_mail.assert_not_called()
+    reg_av.assert_not_called()
+
+
+def test_enviar_notificacion_tecnico_individual_sin_email():
+    datos = {"ars_15_dias": [{"IDAccionRealizada": 1}], "ars_7_dias": [], "ars_vencidas": []}
+    with patch("no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno", return_value="<html>cuerpo</html>") as gen, \
+         patch("no_conformidades.report_registrar._obtener_email_tecnico", return_value=None) as get_mail, \
+         patch("no_conformidades.report_registrar._register_email_nc") as reg_mail, \
+         patch("no_conformidades.report_registrar._register_arapc_notification") as reg_av:
+        ok = rr.enviar_notificacion_tecnico_individual("TEC2", datos)
+    assert ok is False
+    gen.assert_called_once()
+    get_mail.assert_called_once_with("TEC2")
+    reg_mail.assert_not_called()  # Sin email no se registra
+    reg_av.assert_not_called()
+
+
+def test_enviar_notificacion_tecnico_individual_exito():
+    datos = {
+        "ars_15_dias": [{"IDAccionRealizada": 10}],
+        "ars_7_dias": [{"IDAccionRealizada": 20}],
+        "ars_vencidas": [{"IDAccionRealizada": 30}],
+    }
+    with patch("no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno", return_value="<html>ok</html>") as gen, \
+         patch("no_conformidades.report_registrar._obtener_email_tecnico", return_value="tec@ex.com") as get_mail, \
+         patch("no_conformidades.report_registrar.ReportRegistrar.get_admin_emails", return_value=["admin@ex.com"]) as get_admins, \
+         patch("no_conformidades.report_registrar._register_email_nc", return_value=999) as reg_mail, \
+         patch("no_conformidades.report_registrar._register_arapc_notification") as reg_av:
+        ok = rr.enviar_notificacion_tecnico_individual("TEC3", datos)
+    assert ok is True
+    gen.assert_called_once()
+    get_mail.assert_called_once_with("TEC3")
+    reg_mail.assert_called_once()
+    reg_av.assert_called_once()
+    args, kwargs = reg_av.call_args
+    assert args[0] == 999
+    assert args[1] == [10]
+    assert args[2] == [20]
+    assert args[3] == [30]
 
 
 if __name__ == '__main__':

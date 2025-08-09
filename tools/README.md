@@ -7,15 +7,27 @@ Este directorio contiene scripts y utilidades para el desarrollo, testing y mant
 ### 📊 Diagnóstico y Verificación
 - **`check_email_status.py`** - Verifica el estado de los correos en la base de datos
 - **`check_email_structure.py`** - Valida la estructura de las tablas de correos
-- **`diagnose_id_issue.py`** - Diagnostica problemas con IDs en la base de datos
+- **`check_email_recipients.py`** - Verifica los destinatarios de correos
+- **`check_last_emails.py`** - Muestra los últimos correos registrados
+- **`check_riesgos_emails.py`** - Verifica correos específicos del módulo de riesgos
+- **`check_table_structure.py`** - Verifica la estructura de tablas de la base de datos
+- **`test_db_connection.py`** - Prueba la conexión a las bases de datos
 
 ### 🧪 Gestión de Datos de Prueba
-- **`fix_test_email.py`** - Corrige datos de correos de prueba
-- **`insert_test_email.py`** - Inserta correos de prueba en la base de datos
+- **`prepare_test_emails.py`** - Prepara correos de prueba en la base de datos
 
-### 🔧 Entorno de Desarrollo
+### 🔧 Testing y Desarrollo
+- **`test_individual_queries.py`** - Prueba consultas SQL individuales para diagnóstico
+- **`test_monthly_report.py`** - Prueba la generación de informes mensuales
+- **`test_riesgos_queries.py`** - Prueba específica de consultas del módulo de riesgos
+
+### 🏗️ Entorno de Desarrollo
 - **`setup_local_environment.py`** - Configura el entorno local de desarrollo y testing
 - **`generate_coverage_report.py`** - Genera reportes de cobertura de código
+- **`generate_full_coverage_report.py`** - Genera reportes completos de cobertura
+- **`check_coverage_dependencies.py`** - Verifica dependencias para cobertura de código
+- **`continuous_runner.py`** - Ejecutor continuo para desarrollo
+- **`database_schemas.py`** - Herramientas para esquemas de base de datos
 
 ## Uso
 

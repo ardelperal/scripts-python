@@ -51,7 +51,7 @@ Const adCmdText = 1
 Public Function UltimaEjecucion(p_TipoTarea)
     Dim m_SQL
     'RiesgosSemanalesCalidad
-    'RiesgosDiariosTecnicos
+    'RiesgosSemanalesTecnicos
     'RiesgosMensualesCalidad
     Dim rcdDatos
     m_SQL = "SELECT Last(TbTareas.Fecha) AS Ultima " & _
@@ -78,7 +78,7 @@ Public Function TareaTecnicaParaEjecutar()
     Dim m_UltimaEjecucion
    
     Dim m_Dias
-    m_UltimaEjecucion = UltimaEjecucion("RiesgosDiariosTecnicos")
+    m_UltimaEjecucion = UltimaEjecucion("RiesgosSemanalesTecnicos")
     If Not IsDate(m_UltimaEjecucion) Then
         TareaTecnicaParaEjecutar = True
     Else
@@ -93,60 +93,45 @@ Public Function TareaTecnicaParaEjecutar()
         End If
     End If
 End Function
-Public Function TareaCalidadParaEjecutar1()
-    
-    Dim m_UltimaEjecucionCalidad
-   
-    m_UltimaEjecucionCalidad = UltimaEjecucion("RiesgosSemanalesCalidad")
-    If Not IsDate(m_UltimaEjecucionCalidad) Then
-        TareaCalidadParaEjecutar1 = True
-    Else
-        If CDate(m_UltimaEjecucionCalidad) = CDate(Date) Then
-            TareaCalidadParaEjecutar1 = False
-        Else
-            TareaCalidadParaEjecutar1 = True
-        End If
-    End If
-    
-End Function
 
-Public Function TareaCalidadParaEjecutar()
+
+Public Function TareaCalidadSemanalParaEjecutar()
     
     Dim m_UltimaEjecucion
    
     Dim m_Dias
     m_UltimaEjecucion = UltimaEjecucion("RiesgosSemanalesCalidad")
     If Not IsDate(m_UltimaEjecucion) Then
-        TareaCalidadParaEjecutar = True
+        TareaCalidadSemanalParaEjecutar = True
     Else
         m_Dias = DateDiff("d", CDate(Date), m_UltimaEjecucion)
         If m_Dias < 0 Then
             m_Dias = m_Dias * -1
         End If
         If m_Dias >= 7 Then
-            TareaCalidadParaEjecutar = True
+            TareaCalidadSemanalParaEjecutar = True
         Else
-            TareaCalidadParaEjecutar = False
+            TareaCalidadSemanalParaEjecutar = False
         End If
     End If
     
 End Function
-Public Function TareaMensualParaEjecutar()
+Public Function TareaCalidadMensualParaEjecutar()
     
     Dim m_UltimaEjecucion
     Dim m_Dias
     m_UltimaEjecucion = UltimaEjecucion("RiesgosMensualesCalidad")
     If Not IsDate(m_UltimaEjecucion) Then
-        TareaMensualParaEjecutar = True
+        TareaCalidadMensualParaEjecutar = True
     Else
         m_Dias = DateDiff("d", CDate(Date), m_UltimaEjecucion)
         If m_Dias < 0 Then
             m_Dias = m_Dias * -1
         End If
         If m_Dias >= 30 Then
-            TareaMensualParaEjecutar = True
+            TareaCalidadMensualParaEjecutar = True
         Else
-            TareaMensualParaEjecutar = False
+            TareaCalidadMensualParaEjecutar = False
         End If
     End If
     
@@ -328,7 +313,7 @@ Public Function getFechaParaConsulta(p_Fecha)
 End Function
 Public Function RegistrarTarea(p_TipoTarea)
     'RiesgosSemanalesCalidad
-    'RiesgosDiariosTecnicos
+    'RiesgosSemanalesTecnicos
     'RiesgosMensualesCalidad
     Dim rcdDatos
     Dim m_SQL
@@ -411,18 +396,18 @@ End Function
 Public Function Lanzar()
     
     Dim m_TareaTecnicaParaEjecutar
-    Dim m_TareaCalidadDiariaParaEjecutar
+    Dim m_TareaCalidadSemanalParaEjecutar
     Dim m_TareaCalidadMensualParaEjecutar
     
     m_URLBBDDRiesgos = "\\Datoste\aplicaciones_dys\Aplicaciones PpD\GESTION RIESGOS\Gestion_Riesgos_Datos.accdb"
     m_URLBBDDRegistrosTareas = "\\Datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\Tareas_datos1.accdb"
     m_IDAplicacion = 5
     Set CnTareas = Conn(m_URLBBDDRegistrosTareas, m_Pass)
-    m_TareaCalidadDiariaParaEjecutar = TareaCalidadParaEjecutar()
     m_TareaTecnicaParaEjecutar = TareaTecnicaParaEjecutar()
-    m_TareaCalidadMensualParaEjecutar = TareaMensualParaEjecutar()
+    m_TareaCalidadSemanalParaEjecutar = TareaCalidadSemanalParaEjecutar()
+    m_TareaCalidadMensualParaEjecutar = TareaCalidadMensualParaEjecutar()
     
-    If m_TareaCalidadDiariaParaEjecutar = False And m_TareaTecnicaParaEjecutar = False And m_TareaCalidadMensualParaEjecutar = False Then
+    If m_TareaTecnicaParaEjecutar = False And m_TareaCalidadSemanalParaEjecutar = False And m_TareaCalidadMensualParaEjecutar = False Then
         CnTareas.Close
         Set CnTareas = Nothing
         Exit Function
@@ -437,15 +422,13 @@ Public Function Lanzar()
     Set ColUsuariosCalidad = getColusuariosTareas("Calidad")
     m_CadenaCorreoCalidad = getCadenaCorreoCalidad()
     
-   
-    If m_TareaCalidadDiariaParaEjecutar = True Then
-        RealizarTareaDiariaCalidad
-    End If
-    
     If m_TareaTecnicaParaEjecutar = True Then
         RealizarTareaTecnicos
     End If
-    
+   
+    If m_TareaCalidadSemanalParaEjecutar = True Then
+        RealizarTareaSemanalCalidad
+    End If
     If m_TareaCalidadMensualParaEjecutar = True Then
         RealizarTareaCalidadMensual
     End If
@@ -572,7 +555,7 @@ Public Function RealizarTareaTecnicos()
        
                                 
     Next
-    RegistrarTarea "RiesgosDiariosTecnicos"
+    RegistrarTarea "RiesgosSemanalesTecnicos"
 End Function
 
 Public Function RealizarTareaCalidadMensual()
@@ -691,7 +674,7 @@ Public Function getHTMLTablasMiembroCalidad(p_NombreCalidad)
     getHTMLTablasMiembroCalidad = m_mensaje
 End Function
 
-Public Function RealizarTareaDiariaCalidad()
+Public Function RealizarTareaSemanalCalidad()
     Dim m_CorreoCalidad1
     Dim m_CorreoCalidad2
     Dim m_CorreoCalidad3

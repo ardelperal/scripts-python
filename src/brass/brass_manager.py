@@ -224,6 +224,18 @@ class BrassManager(TareaDiaria):
         self._admin_emails = ';'.join(emails)
         return self._admin_emails
     
+    def should_execute_task(self) -> bool:
+        """
+        Determina si debe ejecutarse la tarea de BRASS (semanal, primer día laborable)
+        """
+        try:
+            from src.common.utils import should_execute_weekly_task
+            return should_execute_weekly_task(self.db_tareas, "BRASS", logger=self.logger)
+            
+        except Exception as e:
+            self.logger.error("Error verificando si ejecutar tarea de BRASS: {}".format(e))
+            return False
+
     def ejecutar_logica_especifica(self) -> bool:
         """
         Implementa la lógica específica de la tarea BRASS
@@ -276,8 +288,8 @@ class BrassManager(TareaDiaria):
         """
         try:
             # Verificar si debe ejecutarse
-            if not self.debe_ejecutarse():
-                self.logger.info("La tarea BRASS no debe ejecutarse hoy")
+            if not self.should_execute_task():
+                self.logger.info("La tarea BRASS no debe ejecutarse hoy (no es el primer día laborable de la semana)")
                 return True
             
             # Ejecutar la lógica específica

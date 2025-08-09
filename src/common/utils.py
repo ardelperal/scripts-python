@@ -27,8 +27,18 @@ def hide_password_in_connection_string(connection_string: str) -> str:
     return re.sub(pattern, r'\1=***;', connection_string, flags=re.IGNORECASE)
 
 
-def setup_logging(log_level: str = "INFO", log_file: Optional[Path] = None):
-    """Configura el sistema de logging"""
+def setup_logging(module_name: str = "app", log_level: str = "INFO", log_file: Optional[Path] = None):
+    """
+    Configura el sistema de logging y devuelve un logger
+    
+    Args:
+        module_name: Nombre del módulo para el logger
+        log_level: Nivel de logging
+        log_file: Archivo de log opcional
+        
+    Returns:
+        Logger configurado
+    """
     # Crear directorio de logs si no existe
     if log_file:
         log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -59,6 +69,10 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[Path] = None):
         handlers=handlers,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+    
+    # Crear y devolver logger específico para el módulo
+    logger = logging.getLogger(module_name)
+    return logger
 
 
 def is_workday(check_date: date, holidays_file: Optional[Path] = None) -> bool:
@@ -318,14 +332,15 @@ def get_technical_emails_string(db_connection, config, logger) -> str:
         logging.error(f"Error obteniendo emails de técnicos: {e}")
         return ""
 
-def get_quality_emails_string(db_connection, config, logger) -> str:
+def get_quality_emails_string(app_id, config, logger, db_connection) -> str:
     """
     Obtiene una cadena con los emails de los usuarios de calidad separados por punto y coma
     
     Args:
-        db_connection: Conexión a la base de datos de tareas
+        app_id: ID de la aplicación
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
+        db_connection: Conexión a la base de datos de tareas
         
     Returns:
         Cadena de emails
@@ -336,7 +351,8 @@ def get_quality_emails_string(db_connection, config, logger) -> str:
             user_type='quality',
             db_connection=db_connection,
             config=config,
-            logger=logger
+            logger=logger,
+            app_id=app_id
         )
         return "; ".join([user['CorreoUsuario'] for user in quality_users if user.get('CorreoUsuario')])
     except Exception as e:
@@ -686,32 +702,7 @@ def get_user_email(username: str, config, logger=None) -> str:
         return ""
 
 
-def get_quality_emails_string(app_id: str, config, logger, db_connection) -> str:
-    """
-    Obtiene una cadena con los emails de los usuarios de calidad separados por punto y coma
-    
-    Args:
-        app_id: ID de la aplicación
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-        db_connection: Conexión a la base de datos de tareas
-        
-    Returns:
-        Cadena de emails
-    """
-    try:
-        from .user_adapter import get_users_with_fallback
-        quality_users = get_users_with_fallback(
-            user_type='quality', 
-            app_id=app_id, 
-            config=config, 
-            logger=logger,
-            db_connection=db_connection
-        )
-        return "; ".join([user['CorreoUsuario'] for user in quality_users if user.get('CorreoUsuario')])
-    except Exception as e:
-        logging.error(f"Error obteniendo emails de calidad: {e}")
-        return ""
+
 
 
 def get_technical_emails_string(app_id: str, config, logger) -> str:
@@ -845,6 +836,246 @@ def should_execute_task(db_connection, task_name: str, frequency_days: int, logg
             logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
         else:
             logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        return True
+
+
+def should_execute_quality_task(db_connection, task_name: str, preferred_weekday: int = 0, 
+                               holidays_file: Optional[Path] = None, logger=None) -> bool:
+    """
+    Determina si se debe ejecutar una tarea de calidad basándose en el día de la semana preferido
+    y considerando días festivos
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
+        holidays_file: Archivo con días festivos
+        logger: Logger para registrar eventos (opcional)
+        
+    Returns:
+        True si se debe ejecutar la tarea
+    """
+    try:
+        today = date.today()
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        
+        if logger:
+            logger.info(f"Verificando tarea de calidad {task_name} - Última ejecución: {last_execution}")
+        
+        # Si no hay registro previo, verificar si hoy es un día laborable válido
+        if last_execution is None:
+            if is_workday(today, holidays_file):
+                if logger:
+                    logger.info(f"No hay registro previo de tarea {task_name} y hoy es laborable, se requiere ejecutar")
+                return True
+            else:
+                if logger:
+                    logger.info(f"No hay registro previo de tarea {task_name} pero hoy no es laborable")
+                return False
+        
+        # Obtener el próximo día laborable desde el día preferido de esta semana
+        next_workday = get_next_workday_from_preferred(preferred_weekday, holidays_file)
+        
+        if logger:
+            logger.info(f"Próximo día laborable desde día preferido ({preferred_weekday}): {next_workday}")
+        
+        # Si hoy es el próximo día laborable y han pasado al menos 7 días desde la última ejecución
+        if today == next_workday:
+            days_since_last = (today - last_execution).days
+            should_execute = days_since_last >= 7  # Mínimo una semana
+            
+            if logger:
+                logger.info(f"Hoy es el día laborable objetivo. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
+            
+            return should_execute
+        
+        # Si no es el día objetivo, no ejecutar
+        if logger:
+            logger.info(f"Hoy ({today}) no es el día laborable objetivo ({next_workday})")
+        
+        return False
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
+        else:
+            logging.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
+        return True
+
+
+def get_first_workday_of_week(reference_date: Optional[date] = None, holidays_file: Optional[Path] = None) -> date:
+    """
+    Obtiene el primer día laborable de la semana
+    
+    Args:
+        reference_date: Fecha de referencia (si no se proporciona, usa la actual)
+        holidays_file: Archivo con días festivos
+        
+    Returns:
+        Fecha del primer día laborable de la semana
+    """
+    if reference_date is None:
+        reference_date = date.today()
+    
+    # Obtener el lunes de la semana actual
+    monday = reference_date - timedelta(days=reference_date.weekday())
+    
+    # Buscar el primer día laborable desde el lunes
+    candidate_date = monday
+    max_attempts = 7  # Máximo una semana de búsqueda
+    attempts = 0
+    
+    while attempts < max_attempts:
+        if is_workday(candidate_date, holidays_file):
+            return candidate_date
+        
+        candidate_date += timedelta(days=1)
+        attempts += 1
+    
+    # Si no encontramos un día laborable en la semana, devolver el lunes
+    return monday
+
+
+def get_first_workday_of_month(reference_date: Optional[date] = None, holidays_file: Optional[Path] = None) -> date:
+    """
+    Obtiene el primer día laborable del mes
+    
+    Args:
+        reference_date: Fecha de referencia (si no se proporciona, usa la actual)
+        holidays_file: Archivo con días festivos
+        
+    Returns:
+        Fecha del primer día laborable del mes
+    """
+    if reference_date is None:
+        reference_date = date.today()
+    
+    # Obtener el primer día del mes
+    first_day = reference_date.replace(day=1)
+    
+    # Buscar el primer día laborable desde el primer día del mes
+    candidate_date = first_day
+    max_attempts = 31  # Máximo un mes de búsqueda
+    attempts = 0
+    
+    while attempts < max_attempts:
+        if is_workday(candidate_date, holidays_file):
+            return candidate_date
+        
+        candidate_date += timedelta(days=1)
+        attempts += 1
+    
+    # Si no encontramos un día laborable en el mes, devolver el primer día
+    return first_day
+
+
+def should_execute_weekly_task(db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None) -> bool:
+    """
+    Determina si se debe ejecutar una tarea semanal en el primer día laborable de la semana
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        holidays_file: Archivo con días festivos
+        logger: Logger para registrar eventos (opcional)
+        
+    Returns:
+        True si se debe ejecutar la tarea
+    """
+    try:
+        today = date.today()
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        
+        if logger:
+            logger.info(f"Verificando tarea semanal {task_name} - Última ejecución: {last_execution}")
+        
+        # Obtener el primer día laborable de esta semana
+        first_workday_this_week = get_first_workday_of_week(today, holidays_file)
+        
+        if logger:
+            logger.info(f"Primer día laborable de esta semana: {first_workday_this_week}")
+        
+        # Si hoy no es el primer día laborable de la semana, no ejecutar
+        if today != first_workday_this_week:
+            if logger:
+                logger.info(f"Hoy ({today}) no es el primer día laborable de la semana ({first_workday_this_week})")
+            return False
+        
+        # Si no hay registro previo, ejecutar
+        if last_execution is None:
+            if logger:
+                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+            return True
+        
+        # Si hoy es el primer día laborable de la semana y han pasado al menos 7 días desde la última ejecución
+        days_since_last = (today - last_execution).days
+        should_execute = days_since_last >= 7  # Mínimo una semana
+        
+        if logger:
+            logger.info(f"Hoy es el primer día laborable de la semana. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
+        
+        return should_execute
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error determinando si requiere tarea semanal {task_name}: {e}")
+        else:
+            logging.error(f"Error determinando si requiere tarea semanal {task_name}: {e}")
+        return True
+
+
+def should_execute_monthly_task(db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None) -> bool:
+    """
+    Determina si se debe ejecutar una tarea mensual en el primer día laborable del mes
+    
+    Args:
+        db_connection: Conexión a la base de datos de tareas
+        task_name: Nombre de la tarea
+        holidays_file: Archivo con días festivos
+        logger: Logger para registrar eventos (opcional)
+        
+    Returns:
+        True si se debe ejecutar la tarea
+    """
+    try:
+        today = date.today()
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        
+        if logger:
+            logger.info(f"Verificando tarea mensual {task_name} - Última ejecución: {last_execution}")
+        
+        # Obtener el primer día laborable de este mes
+        first_workday_this_month = get_first_workday_of_month(today, holidays_file)
+        
+        if logger:
+            logger.info(f"Primer día laborable de este mes: {first_workday_this_month}")
+        
+        # Si hoy no es el primer día laborable del mes, no ejecutar
+        if today != first_workday_this_month:
+            if logger:
+                logger.info(f"Hoy ({today}) no es el primer día laborable del mes ({first_workday_this_month})")
+            return False
+        
+        # Si no hay registro previo, ejecutar
+        if last_execution is None:
+            if logger:
+                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+            return True
+        
+        # Si hoy es el primer día laborable del mes y han pasado al menos 30 días desde la última ejecución
+        days_since_last = (today - last_execution).days
+        should_execute = days_since_last >= 30  # Mínimo un mes
+        
+        if logger:
+            logger.info(f"Hoy es el primer día laborable del mes. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
+        
+        return should_execute
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error determinando si requiere tarea mensual {task_name}: {e}")
+        else:
+            logging.error(f"Error determinando si requiere tarea mensual {task_name}: {e}")
         return True
 
 
