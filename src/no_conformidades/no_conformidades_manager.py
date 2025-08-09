@@ -32,9 +32,14 @@ from common.utils import (
 from common.html_report_generator import HTMLReportGenerator
 from common.user_adapter import get_users_with_fallback
 from .types import ARTecnicaRecord, ARCalidadProximaRecord
-from .report_registrar import enviar_notificacion_calidad
+from .report_registrar import enviar_notificacion_calidad, enviar_notificacion_tecnico_individual
 
 logger = logging.getLogger(__name__)
+
+# --- Constantes para tipos de aviso AR Técnicas ---
+AVISO_CADUCADAS = "IDCorreo0"
+AVISO_7_DIAS = "IDCorreo7"
+AVISO_15_DIAS = "IDCorreo15"
 
 
 class NoConformidadesManager(TareaDiaria):
@@ -335,43 +340,6 @@ class NoConformidadesManager(TareaDiaria):
         # Simplemente reutiliza la función existente, ya que ahora tenemos el CodigoNC
         return self.get_correo_calidad_por_nc(codigo_nc)
     
-    def get_arapcs_vencidas(self) -> List[Dict[str, Any]]:
-        """
-        Obtiene las ARAPs ya vencidas (0 días o menos)
-        Basado en la consulta del archivo original NoConformidades.vbs
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            
-            # Consulta basada en el script original para ARAPs vencidas
-            query = """
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada, 
-                       TbNCAccionCorrectivas.AccionCorrectiva AS Accion, TbNCAccionesRealizadas.AccionRealizada AS Tarea, 
-                       TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista, 
-                       TbUsuariosAplicaciones.Nombre AS RESPONSABLECALIDAD, 
-                       DateDiff('d',Now(),[FechaFinPrevista]) AS DiasVencidas, 
-                       TbExpedientes.Nemotecnico,
-                       TbNoConformidades.RESPONSABLETELEFONICA
-                FROM ((TbNoConformidades LEFT JOIN TbUsuariosAplicaciones 
-                       ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed) 
-                       INNER JOIN (TbNCAccionCorrectivas INNER JOIN (TbNCAccionesRealizadas LEFT JOIN TbNCARAvisos 
-                       ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR) 
-                       ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva) 
-                       ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad) 
-                       LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente 
-                WHERE (((TbNCAccionesRealizadas.FechaFinReal) Is Null) 
-                       AND ((DateDiff('d',Now(),[FechaFinPrevista])) <= 0) 
-                       AND ((TbNCARAvisos.IDCorreo0) Is Null))
-                ORDER BY TbNCAccionesRealizadas.FechaFinPrevista
-            """
-            
-            result = db_nc.execute_query(query)
-            self.logger.info("Encontradas {} ARAPs vencidas".format(len(result)))
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARs para replanificar: {e}")
-            return []
 
     def get_tecnicos_con_nc_activas(self) -> List[str]:
         """Obtiene una lista de técnicos con NC activas y ARs pendientes."""
@@ -411,7 +379,7 @@ class NoConformidadesManager(TareaDiaria):
             log_context=f"{dias_min}-{dias_max}"
         )
 
-    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = "IDCorreo0") -> List[ARTecnicaRecord]:
+    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = AVISO_CADUCADAS) -> List[ARTecnicaRecord]:
         """Obtiene las ARs vencidas de un técnico (fecha fin prevista <= 0 días)."""
         return self._get_ars_tecnico(
             tecnico=tecnico,
@@ -530,91 +498,9 @@ class NoConformidadesManager(TareaDiaria):
         except Exception as e:
             self.logger.error(f"Error registrando aviso para AR {id_ar}: {e}")
     
-    def get_nc_pendientes_eficacia(self) -> List[Dict[str, Any]]:
-        """
-        Obtiene las NCs pendientes de control de eficacia
-        Basado en la consulta del archivo original NoConformidades.vbs
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            
-            # Consulta basada en el script original para NCs pendientes de control de eficacia
-            query = """
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNoConformidades.Nemotecnico, 
-                       TbNoConformidades.DESCRIPCION, TbNoConformidades.RESPONSABLECALIDAD, 
-                       TbNoConformidades.FECHACIERRE, TbNoConformidades.FechaPrevistaControlEficacia, 
-                       DateDiff('d',Now(),[FechaPrevistaControlEficacia]) AS Dias 
-                FROM TbNoConformidades INNER JOIN (TbNCAccionCorrectivas INNER JOIN TbNCAccionesRealizadas 
-                     ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva) 
-                     ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad 
-                WHERE (((DateDiff('d',Now(),[FechaPrevistaControlEficacia])) < 30) 
-                       AND (Not (TbNCAccionesRealizadas.FechaFinReal) Is Null) 
-                       AND ((TbNoConformidades.RequiereControlEficacia) = 'Sí') 
-                       AND ((TbNoConformidades.FechaControlEficacia) Is Null))
-                ORDER BY TbNoConformidades.FechaPrevistaControlEficacia
-            """
-            
-            result = db_nc.execute_query(query)
-            self.logger.info("Encontradas {} NCs pendientes de control de eficacia".format(len(result)))
-            return result
-            
-        except Exception as e:
-            self.logger.error("Error obteniendo NCs pendientes de eficacia: {}".format(e))
-            return []
+    # get_nc_pendientes_eficacia legacy eliminado; usar get_ncs_pendientes_eficacia
     
-    def get_araps_tecnicas_proximas_a_vencer(self, dias_inicio: int, dias_fin: int) -> List[Dict]:
-        """
-        Obtiene las ARAPs técnicas próximas a vencer en un rango de días específico.
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            
-            query = f"""
-                SELECT ac.Nemotecnico, nc.CodigoNoConformidad, ac.Accion, ac.Tarea, 
-                       ac.RESPONSABLETELEFONICA, nc.RESPONSABLECALIDAD, ac.FechaFinPrevista,
-                       (ac.FechaFinPrevista - Date()) AS Dias
-                FROM (TbNCAccionCorrectivas ac INNER JOIN TbNoConformidades nc ON ac.IDNoConformidad = nc.IDNoConformidad) 
-                LEFT JOIN TbUsuariosAplicaciones u ON ac.RESPONSABLETELEFONICA = u.UsuarioRed
-                WHERE nc.Borrado = False 
-                AND (u.Area = 'TECNICA' OR u.Area IS NULL) 
-                AND ac.FechaFinReal IS NULL 
-                AND ac.FechaFinPrevista IS NOT NULL
-                AND (ac.FechaFinPrevista - Date()) BETWEEN {dias_inicio} AND {dias_fin}
-                ORDER BY ac.FechaFinPrevista
-            """
-            
-            return db_nc.execute_query(query)
-
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARAPs técnicas próximas a vencer: {e}")
-            return []
-
-    def get_araps_tecnicas_vencidas(self) -> List[Dict]:
-        """
-        Obtiene las ARAPs técnicas vencidas.
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            
-            query = """
-                SELECT ac.Nemotecnico, nc.CodigoNoConformidad, ac.Accion, ac.Tarea, 
-                       ac.RESPONSABLETELEFONICA, nc.RESPONSABLECALIDAD, ac.FechaFinPrevista,
-                       (ac.FechaFinPrevista - Date()) AS Dias
-                FROM (TbNCAccionCorrectivas ac INNER JOIN TbNoConformidades nc ON ac.IDNoConformidad = nc.IDNoConformidad) 
-                LEFT JOIN TbUsuariosAplicaciones u ON ac.RESPONSABLETELEFONICA = u.UsuarioRed
-                WHERE nc.Borrado = False 
-                AND (u.Area = 'TECNICA' OR u.Area IS NULL) 
-                AND ac.FechaFinReal IS NULL 
-                AND ac.FechaFinPrevista IS NOT NULL
-                AND (ac.FechaFinPrevista - Date()) <= 0
-                ORDER BY ac.FechaFinPrevista
-            """
-            
-            return db_nc.execute_query(query)
-
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARAPs técnicas vencidas: {e}")
-            return []
+    # get_araps_tecnicas_proximas_a_vencer / get_araps_tecnicas_vencidas legacy eliminados
     
     def get_technical_users(self) -> List[Dict[str, Any]]:
         """
@@ -665,19 +551,7 @@ class NoConformidadesManager(TareaDiaria):
             return []
     
 
-    def generate_quality_report_html(self, nc_pendientes_eficacia, nc_sin_acciones, ar_vencidas_calidad, ar_proximas_vencer_calidad, **kwargs):
-        """Genera el cuerpo del email para el reporte de Calidad usando el generador unificado."""
-        ars_replanificar = self.get_ars_para_replanificar()
-        return self.html_generator.generar_reporte_calidad_moderno(
-            ar_proximas_vencer_calidad,
-            nc_pendientes_eficacia,
-            nc_sin_acciones,
-            ars_replanificar
-        )
-
-    def generate_technician_report_html(self, ar_15_dias, ar_7_dias, ar_vencidas, **kwargs):
-        """Genera el cuerpo del email para el reporte de Técnicos usando el generador unificado."""
-        return self.html_generator.generar_reporte_tecnico_moderno(ar_15_dias, ar_7_dias, ar_vencidas)
+    # generate_quality_report_html / generate_technician_report_html eliminados (se genera directamente donde se necesitan)
     
     # Métodos legacy de generación de tablas/HTML eliminados tras unificación en HTMLReportGenerator.
     
@@ -794,10 +668,11 @@ class NoConformidadesManager(TareaDiaria):
             self.logger.error(f"Error reuniendo/enviando datos de Calidad: {e}")
 
     def _generar_correos_tecnicos(self):
-        """(Pendiente de refactor completo) Compila datos por técnico.
+        """Compila datos por técnico y delega registro/envío al registrador.
 
-        Actualmente sólo genera HTML de debug por técnico; el registro centralizado se
-        implementará en una fase posterior similar a Calidad.
+        Sustituye la versión previa que sólo generaba HTML de depuración. Ahora
+        mantiene guardado opcional del HTML (debug) y usa report_registrar para
+        registrar correos e insertar avisos en TbNCARAvisos.
         """
         try:
             self.logger.info("Compilando datos para técnicos")
@@ -831,45 +706,61 @@ class NoConformidadesManager(TareaDiaria):
             return []
 
     def _generar_correo_tecnico_individual(self, tecnico: str):
-        """Genera únicamente HTML de debug para un técnico (fase transición)."""
+        """Reúne ARs del técnico y delega el registro al registrador.
+
+        Conserva el guardado de HTML para debug local.
+        """
         try:
-            ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, "IDCorreo15")
-            ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, "IDCorreo7")
-            ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, "IDCorreo0")
+            ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, AVISO_15_DIAS)
+            ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, AVISO_7_DIAS)
+            ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, AVISO_CADUCADAS)
             if not (ars_15_dias or ars_7_dias or ars_vencidas):
                 self.logger.info(f"Sin ARs para técnico {tecnico}")
                 return
-            cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
-                ars_15_dias, ars_7_dias, ars_vencidas
+
+            # Debug HTML
+            try:
+                cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
+                    ars_15_dias, ars_7_dias, ars_vencidas
+                )
+                if cuerpo_html.strip():
+                    self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
+            except Exception as gen_err:  # pragma: no cover - debug no crítico
+                self.logger.debug(f"Error generando HTML debug técnico {tecnico}: {gen_err}")
+
+            datos_tecnico = {
+                "ars_15_dias": ars_15_dias,
+                "ars_7_dias": ars_7_dias,
+                "ars_vencidas": ars_vencidas,
+            }
+            ok = enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
+            self.logger.info(
+                f"Notificación técnica registrada para {tecnico}" if ok else f"Fallo registrando notificación técnica para {tecnico}"
             )
-            if cuerpo_html.strip():
-                self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
         except Exception as e:
-            self.logger.error(f"Error generando HTML debug para técnico {tecnico}: {e}")
+            self.logger.error(f"Error procesando notificación para técnico {tecnico}: {e}")
 
     # (Los métodos específicos _get_ars_tecnico_15_dias / 7_dias / vencidas fueron
     #  eliminados en favor de _get_ars_tecnico para reducir duplicación.)
 
-    def _guardar_html_debug(self, html_content: str, filename: str):
-        """
-        Guarda el HTML generado en un archivo para debug
-        """
+    def _guardar_html_debug(self, html_content: str, filename: str):  # pragma: no cover (sólo uso manual)
+        """Guarda el HTML generado en un archivo para debug"""
         try:
             import os
             debug_dir = os.path.join(os.path.dirname(__file__), "debug_html")
             if not os.path.exists(debug_dir):
                 os.makedirs(debug_dir)
-            
+
             filepath = os.path.join(debug_dir, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            
+
             self.logger.info(f"HTML guardado en: {filepath}")
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - errores de debug no críticos
             self.logger.error(f"Error guardando HTML debug: {e}")
 
 
-def main():
+def main():  # pragma: no cover (entry point manual)
     """
     Función principal para ejecutar el manager directamente con argumentos
     """
