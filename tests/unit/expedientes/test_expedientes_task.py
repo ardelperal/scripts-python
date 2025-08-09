@@ -24,12 +24,15 @@ class TestExpedientesTask(unittest.TestCase):
         self.assertTrue(hasattr(self.task, 'db_expedientes'))
 
     @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
-    @patch('src.expedientes.expedientes_task.get_admin_emails_string', return_value='admin@test')
+    @patch('src.expedientes.expedientes_task.EmailRecipientsService')
     @patch('src.expedientes.expedientes_task.ExpedientesManager')
-    def test_execute_specific_logic_with_html(self, mock_mgr_cls, _mock_admin_emails, mock_register_email):
+    def test_execute_specific_logic_with_html(self, mock_mgr_cls, mock_recip_service_cls, mock_register_email):
         mgr = Mock()
         mgr.generate_expedientes_report_html.return_value = '<html>ok</html>'
         mock_mgr_cls.return_value = mgr
+        recip_instance = Mock()
+        recip_instance.get_admin_emails_string.return_value = 'admin@test'
+        mock_recip_service_cls.return_value = recip_instance
         result = self.task.execute_specific_logic()
         self.assertTrue(result)
         mgr.generate_expedientes_report_html.assert_called_once()
@@ -58,13 +61,16 @@ class TestExpedientesTask(unittest.TestCase):
         self.assertTrue(self.task.execute_specific_logic())
 
     @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
-    @patch('src.expedientes.expedientes_task.get_admin_emails_string', return_value='admin@test')
+    @patch('src.expedientes.expedientes_task.EmailRecipientsService')
     @patch('src.expedientes.expedientes_task.ExpedientesManager')
-    def test_execute_specific_logic_orden_llamadas(self, mock_mgr_cls, _mock_admin_emails, mock_register):
+    def test_execute_specific_logic_orden_llamadas(self, mock_mgr_cls, mock_recip_service_cls, mock_register):
         """Verifica orden: crear manager -> generar html -> registrar email -> (sin marcar completada aquí)."""
         mgr = Mock()
         mgr.generate_expedientes_report_html.return_value = '<html>contenido</html>'
         mock_mgr_cls.return_value = mgr
+        recip_instance = Mock()
+        recip_instance.get_admin_emails_string.return_value = 'admin@test'
+        mock_recip_service_cls.return_value = recip_instance
         self.assertTrue(self.task.execute_specific_logic())
         # Orden aproximado: instancia manager (implícito), luego genera html, luego registra email
         mgr.generate_expedientes_report_html.assert_called_once()

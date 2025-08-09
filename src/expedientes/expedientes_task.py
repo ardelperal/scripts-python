@@ -3,6 +3,7 @@
 from src.common.base_task import TareaDiaria
 from src.common.database import AccessDatabase
 from src.common.utils import register_email_in_database, get_admin_emails_string
+from src.common.email.recipients_service import EmailRecipientsService
 from .expedientes_manager import ExpedientesManager
 
 
@@ -37,8 +38,12 @@ class ExpedientesTask(TareaDiaria):
                 self.logger.info("Informe vacío: no se registra correo")
                 return True
 
-            # Destinatarios: admins (puede ajustarse en el futuro)
-            recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
+            # Servicio centralizado (fallback a función legacy)
+            try:
+                recipients_service = EmailRecipientsService(self.db_tareas, self.config, self.logger)
+                recipients = recipients_service.get_admin_emails_string() or "ADMIN"
+            except Exception:  # pragma: no cover
+                recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
             subject = "Informe Diario de Expedientes"
             success = register_email_in_database(
                 self.db_tareas,
