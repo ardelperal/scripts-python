@@ -12,6 +12,7 @@ from datetime import datetime
 
 from src.common.database import AccessDatabase
 from src.common.html_report_generator import HTMLReportGenerator
+from src.common.reporting.table_builder import build_table_html
 
 
 def safe_str(value) -> str:
@@ -29,6 +30,7 @@ class ExpedientesManager:
         self.db_tareas = db_tareas
         self.logger = logger or logging.getLogger(__name__)
         self.html_generator = HTMLReportGenerator()
+    from src.common.reporting.table_builder import build_table_html
 
     def get_expedientes_tsol_sin_cod_s4h(self) -> List[Dict]:
         """Obtiene expedientes TSOL adjudicados sin código S4H"""
@@ -287,27 +289,7 @@ class ExpedientesManager:
                 extra={'context': '_guardar_html_debug'}
             )
 
-    def _build_table_html(self, title: str, data: List[Dict]) -> str:
-        """Construye tabla HTML simple para una lista de dicts."""
-        if not data:
-            return ""
-        headers = sorted(data[0].keys())
-        html = [f"<div class='section'><h2>{title}</h2><table class='data-table'>"]
-        # Cabeceras
-        html.append('<thead><tr>')
-        for h in headers:
-            html.append(f"<th>{h}</th>")
-        html.append('</tr></thead><tbody>')
-        for row in data:
-            html.append('<tr>')
-            for h in headers:
-                val = row.get(h, '')
-                if isinstance(val, datetime):
-                    val = val.strftime('%d/%m/%Y')
-                html.append(f"<td>{safe_str(val)}</td>")
-            html.append('</tr>')
-        html.append('</tbody></table></div>')
-        return ''.join(html)
+    # _build_table_html eliminado en favor de build_table_html común (common.reporting.table_builder)
 
     def generate_expedientes_report_html(self) -> str:
         """Genera el reporte HTML completo de Expedientes y registra métricas."""
@@ -326,7 +308,7 @@ class ExpedientesManager:
                 return ""
             parts = [self.html_generator.generar_header_moderno("INFORME DE AVISOS DE EXPEDIENTES")]
             for title, data in non_empty:
-                parts.append(self._build_table_html(title, data))
+                parts.append(build_table_html(title, data, sort_headers=True))
             parts.append(self.html_generator.generar_footer_moderno())
             html = ''.join(parts)
             self.logger.info(
