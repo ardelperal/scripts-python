@@ -4,6 +4,7 @@ from src.common.base_task import TareaDiaria
 from src.common.database import AccessDatabase
 from src.common.utils import register_email_in_database, get_admin_emails_string
 from src.common.email.recipients_service import EmailRecipientsService
+from src.common.email.registration_service import register_standard_report
 from .expedientes_manager import ExpedientesManager
 
 
@@ -45,19 +46,15 @@ class ExpedientesTask(TareaDiaria):
             except Exception:  # pragma: no cover
                 recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
             subject = "Informe Diario de Expedientes"
-            success = register_email_in_database(
+            return register_standard_report(
                 self.db_tareas,
                 application="EXPEDIENTES",
                 subject=subject,
-                body=html,
+                body_html=html,
                 recipients=recipients,
-                admin_emails=""
+                admin_emails="",
+                logger=self.logger
             )
-            if success:
-                self.logger.info("Correo de Expedientes registrado", extra={'metric_name': 'expedientes_email_registered', 'metric_value': 1})
-            else:
-                self.logger.error("Fallo registrando correo de Expedientes")
-            return success
         except Exception as e:
             self.logger.error(f"Error en execute_specific_logic Expedientes: {e}", extra={'context': 'execute_specific_logic'})
             return False

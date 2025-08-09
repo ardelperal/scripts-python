@@ -23,7 +23,7 @@ class TestExpedientesTask(unittest.TestCase):
         self.assertEqual(self.task.frequency_days, 1)
         self.assertTrue(hasattr(self.task, 'db_expedientes'))
 
-    @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
+    @patch('src.expedientes.expedientes_task.register_standard_report', return_value=True)
     @patch('src.expedientes.expedientes_task.EmailRecipientsService')
     @patch('src.expedientes.expedientes_task.ExpedientesManager')
     def test_execute_specific_logic_with_html(self, mock_mgr_cls, mock_recip_service_cls, mock_register_email):
@@ -38,7 +38,7 @@ class TestExpedientesTask(unittest.TestCase):
         mgr.generate_expedientes_report_html.assert_called_once()
         mock_register_email.assert_called_once()
 
-    @patch('src.expedientes.expedientes_task.register_email_in_database')
+    @patch('src.expedientes.expedientes_task.register_standard_report')
     @patch('src.expedientes.expedientes_task.ExpedientesManager')
     def test_execute_specific_logic_empty_html(self, mock_mgr_cls, mock_register):
         mgr = Mock()
@@ -60,7 +60,7 @@ class TestExpedientesTask(unittest.TestCase):
         # No debe lanzar y debe devolver True (se omite informe)
         self.assertTrue(self.task.execute_specific_logic())
 
-    @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
+    @patch('src.expedientes.expedientes_task.register_standard_report', return_value=True)
     @patch('src.expedientes.expedientes_task.EmailRecipientsService')
     @patch('src.expedientes.expedientes_task.ExpedientesManager')
     def test_execute_specific_logic_orden_llamadas(self, mock_mgr_cls, mock_recip_service_cls, mock_register):
