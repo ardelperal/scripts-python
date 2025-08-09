@@ -25,13 +25,14 @@ from common.base_task import TareaDiaria
 from common.config import config, Config
 from common.database import AccessDatabase
 from common.utils import (
-    load_css_content, safe_str, generate_html_header, generate_html_footer,
+    load_css_content,
     register_email_in_database, get_admin_emails_string, get_quality_emails_string,
     get_technical_emails_string
 )
 from common.html_report_generator import HTMLReportGenerator
 from common.user_adapter import get_users_with_fallback
 from .types import ARTecnicaRecord, ARCalidadProximaRecord
+from .report_registrar import enviar_notificacion_calidad
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +264,16 @@ class NoConformidadesManager(TareaDiaria):
             return []
 
     def get_ars_para_replanificar(self) -> List[Dict[str, Any]]:
-        """Obtiene ARs que necesitan replanificación."""
+        """Obtiene ARs que requieren replanificación.
+
+        Criterio: Acciones (AR) cuya FechaFinPrevista está a menos de 16 días (o pasada)
+        y aún no poseen FechaFinReal (no cerradas). Se usa para alertar a Calidad sobre
+        posibles retrasos o necesidad de ajuste de planificación.
+
+        Returns:
+            Lista de dicts con campos: CodigoNoConformidad, Nemotecnico, Accion, Tarea,
+            Tecnico, RESPONSABLECALIDAD, FechaFinPrevista, Dias.
+        """
         try:
             db_nc = self._get_nc_connection()
             query = """
@@ -424,7 +434,7 @@ class NoConformidadesManager(TareaDiaria):
         vencidas: bool = False,
         log_context: str = ""
     ) -> List[ARTecnicaRecord]:
-        """Obtiene ARs para un técnico según rango de días o vencidas.
+        """Obtiene ARs para un técnico según rango de días o si están vencidas.
 
         Args:
             tecnico: Identificador del responsable telefónica.
@@ -433,6 +443,10 @@ class NoConformidadesManager(TareaDiaria):
             campo_aviso: Campo de la tabla TbNCARAvisos a comprobar (IDCorreo0/7/15).
             vencidas: Si True ignora rango y usa condición <= 0.
             log_context: Texto adicional para logging (e.g. "8-15", "1-7", "vencidas").
+        
+        Returns:
+            Lista de registros (dict) con información de AR para construcción posterior
+            de reportes y/o registro de avisos.
         """
         try:
             db_nc = self._get_nc_connection()
@@ -484,7 +498,11 @@ class NoConformidadesManager(TareaDiaria):
             return []
 
     def registrar_aviso_ar(self, id_ar: int, id_correo: int, tipo_aviso: str):
-        """Registra un aviso para una AR en la tabla TbNCARAvisos."""
+        """Registra (insert/update) un aviso para una AR en TbNCARAvisos.
+
+        Si existe fila para el IDAR se actualiza el campo del tipo de aviso; en caso
+        contrario se inserta una nueva fila calculando el próximo ID secuencial.
+        """
         try:
             db_nc = self._get_nc_connection()
             # Verificar si ya existe un registro para este IDAR
@@ -647,65 +665,6 @@ class NoConformidadesManager(TareaDiaria):
             return []
     
 
-    def generate_technical_report_html(self, nc_proximas: List[Dict], nc_caducadas: List[Dict], 
-                                     arapcs_proximas: List[Dict], arapcs_vencidas: List[Dict]) -> str:
-        """
-        Genera el reporte HTML para técnicos
-        """
-        title = "INFORME DE NO CONFORMIDADES Y ARAPCS - TÉCNICOS"
-        html_content = generate_html_header(title, self.css_content)
-        
-        html_content += f"<h1>{title}</h1>\n"
-        html_content += "<br><br>\n"
-        
-        # Sección de NCs próximas a caducar
-        if nc_proximas:
-            html_content += self._generate_nc_table_html(nc_proximas, "NO CONFORMIDADES PRÓXIMAS A CADUCAR")
-        
-        # Sección de NCs caducadas
-        if nc_caducadas:
-            html_content += self._generate_nc_table_html(nc_caducadas, "NO CONFORMIDADES CADUCADAS")
-        
-        # Sección de ARAPs próximas a vencer
-        if arapcs_proximas:
-            html_content += self._generate_arapc_table_html(arapcs_proximas, "ARAPCS PRÓXIMAS A VENCER")
-        
-        # Sección de ARAPs vencidas
-        if arapcs_vencidas:
-            html_content += self._generate_arapc_table_html(arapcs_vencidas, "ARAPCS VENCIDAS")
-        
-        html_content += generate_html_footer()
-        return html_content
-    
-    def generar_informe_tecnico_individual_html(self, araps_8_15, araps_1_7, araps_vencidas):
-        """Genera el cuerpo del email para el informe individual de un técnico."""
-        html = f"""\
-        <html>
-        <head>{self.css_content}</head>
-        <body>
-            <h2>Informe de Acciones Correctivas Pendientes</h2>
-            <p>A continuación se detallan las acciones correctivas (ARAPs) que requieren su atención.</p>
-        """
-
-        if araps_vencidas:
-            html += "<h3>Acciones Correctivas Vencidas</h3>"
-            html += self._generate_arapc_table_html(araps_vencidas)
-
-        if araps_1_7:
-            html += "<h3>Acciones Correctivas con Vencimiento en 1-7 días</h3>"
-            html += self._generate_arapc_table_html(araps_1_7)
-
-        if araps_8_15:
-            html += "<h3>Acciones Correctivas con Vencimiento en 8-15 días</h3>"
-            html += self._generate_arapc_table_html(araps_8_15)
-
-        html += """\
-            <p>Por favor, revise y actualice el estado de estas acciones en la herramienta correspondiente.</p>
-        </body>
-        </html>
-        """
-        return html
-    
     def generate_quality_report_html(self, nc_pendientes_eficacia, nc_sin_acciones, ar_vencidas_calidad, ar_proximas_vencer_calidad, **kwargs):
         """Genera el cuerpo del email para el reporte de Calidad usando el generador unificado."""
         ars_replanificar = self.get_ars_para_replanificar()
@@ -720,99 +679,7 @@ class NoConformidadesManager(TareaDiaria):
         """Genera el cuerpo del email para el reporte de Técnicos usando el generador unificado."""
         return self.html_generator.generar_reporte_tecnico_moderno(ar_15_dias, ar_7_dias, ar_vencidas)
     
-    def _generate_nc_table_html(self, nc_list: List[Dict]) -> str:
-        """Genera tabla HTML para No Conformidades"""
-        html = f'<table>\n'
-        
-        # Encabezados
-        html += '<tr>\n'
-        html += '<td class="centrado"><strong>NEMOTÉCNICO</strong></td>\n'
-        html += '<td class="centrado"><strong>CÓDIGO</strong></td>\n'
-        html += '<td class="centrado"><strong>DESCRIPCIÓN</strong></td>\n'
-        html += '<td class="centrado"><strong>RESPONSABLE CALIDAD</strong></td>\n'
-        html += '<td class="centrado"><strong>FECHA APERTURA</strong></td>\n'
-        html += '<td class="centrado"><strong>FECHA PREV. CIERRE</strong></td>\n'
-        html += '<td class="centrado"><strong>DÍAS</strong></td>\n'
-        html += '</tr>\n'
-        
-        # Filas de datos
-        for nc in nc_list:
-            html += '<tr>\n'
-            html += f'<td>{safe_str(nc.get("Nemotecnico"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("CodigoNoConformidad"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("DESCRIPCION"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("RESPONSABLECALIDAD"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("FECHAAPERTURA"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("FPREVCIERRE"))}</td>\n'
-            html += f'<td>{safe_str(nc.get("DiasParaCierre", nc.get("DiasVencidas")))}</td>\n'
-            html += '</tr>\n'
-        
-        html += '</table>\n<br><br>\n'
-        return html
-    
-    def _generate_arapc_table_html(self, arapc_list: List[Dict]) -> str:
-        """Genera tabla HTML para ARAPs"""
-        html = f'<table>\n'
-        
-        # Encabezados
-        html += '<tr>\n'
-        html += '<td class="centrado"><strong>NEMOTÉCNICO</strong></td>\n'
-        html += '<td class="centrado"><strong>CÓDIGO</strong></td>\n'
-        html += '<td class="centrado"><strong>ACCIÓN</strong></td>\n'
-        html += '<td class="centrado"><strong>TAREA</strong></td>\n'
-        html += '<td class="centrado"><strong>RESPONSABLE TELEFÓNICA</strong></td>\n'
-        html += '<td class="centrado"><strong>RESPONSABLE CALIDAD</strong></td>\n'
-        html += '<td class="centrado"><strong>FECHA FIN PREVISTA</strong></td>\n'
-        html += '<td class="centrado"><strong>DÍAS</strong></td>\n'
-        html += '</tr>\n'
-        
-        # Filas de datos
-        for arapc in arapc_list:
-            html += '<tr>\n'
-            html += f'<td>{safe_str(arapc.get("Nemotecnico"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("CodigoNoConformidad"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("Accion"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("Tarea"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("RESPONSABLETELEFONICA"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("RESPONSABLECALIDAD"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("FechaFinPrevista"))}</td>\n'
-            html += f'<td>{safe_str(arapc.get("DiasParaVencer", arapc.get("DiasVencidas", arapc.get("Dias"))))}</td>\n'
-            html += '</tr>\n'
-        
-        html += '</table>\n<br><br>\n'
-        return html
-    
-    def _generate_eficacia_table_html(self, eficacia_list: List[Dict]) -> str:
-        """Genera tabla HTML para control de eficacia"""
-        html = f'<table>\n'
-        
-        # Encabezados
-        html += '<tr>\n'
-        html += '<td class="centrado"><strong>NEMOTÉCNICO</strong></td>\n'
-        html += '<td class="centrado"><strong>CÓDIGO</strong></td>\n'
-        html += '<td class="centrado"><strong>DESCRIPCIÓN</strong></td>\n'
-        html += '<td class="centrado"><strong>FECHA APERTURA</strong></td>\n'
-        html += '<td class="centrado"><strong>ACCIÓN</strong></td>\n'
-        html += '<td class="centrado"><strong>FECHA FIN ACCIÓN</strong></td>\n'
-        html += '<td class="centrado"><strong>RESPONSABLE</strong></td>\n'
-        html += '<td class="centrado"><strong>DÍAS TRANSCURRIDOS</strong></td>\n'
-        html += '</tr>\n'
-        
-        # Filas de datos
-        for item in eficacia_list:
-            html += '<tr>\n'
-            html += f'<td>{safe_str(item.get("Nemotecnico"))}</td>\n'
-            html += f'<td>{safe_str(item.get("CodigoNoConformidad"))}</td>\n'
-            html += f'<td>{safe_str(item.get("DESCRIPCION"))}</td>\n'
-            html += f'<td>{safe_str(item.get("FECHAAPERTURA"))}</td>\n'
-            html += f'<td>{safe_str(item.get("Accion"))}</td>\n'
-            html += f'<td>{safe_str(item.get("FechaFinReal"))}</td>\n'
-            html += f'<td>{safe_str(item.get("RESPONSABLETELEFONICA"))}</td>\n'
-            html += f'<td>{safe_str(item.get("DiasTranscurridos"))}</td>\n'
-            html += '</tr>\n'
-        
-        html += '</table>\n<br><br>\n'
-        return html
+    # Métodos legacy de generación de tablas/HTML eliminados tras unificación en HTMLReportGenerator.
     
     def should_execute_technical_task(self) -> bool:
         """
@@ -893,51 +760,52 @@ class NoConformidadesManager(TareaDiaria):
 
 
     def _generar_correo_calidad(self):
-        """
-        Genera y registra el correo para Miembros de Calidad con las 4 consultas principales
+        """Reúne datos de Calidad y delega el registro/envío de correo al registrador.
+
+        Mantiene un guardado de debug opcional del HTML resultante para inspección.
         """
         try:
-            self.logger.info("Generando correo para Miembros de Calidad")
-            
-            # Obtener datos de las 4 consultas principales
-            ars_proximas_vencer = self.get_ars_proximas_vencer_calidad()
-            ncs_pendientes_eficacia = self.get_ncs_pendientes_eficacia()
-            ncs_sin_acciones = self.get_ncs_sin_acciones()
-            ars_para_replanificar = self.get_ars_para_replanificar()
-            
-            # Generar tablas HTML
-            tablas_html = []
-            
-            cuerpo_html = self.html_generator.generar_reporte_calidad_moderno(
-                ars_proximas_vencer,
-                ncs_pendientes_eficacia,
-                ncs_sin_acciones,
-                ars_para_replanificar
+            self.logger.info("Compilando datos para correo de Miembros de Calidad")
+            datos_calidad = {
+                "ars_proximas_vencer": self.get_ars_proximas_vencer_calidad(),
+                "ncs_pendientes_eficacia": self.get_ncs_pendientes_eficacia(),
+                "ncs_sin_acciones": self.get_ncs_sin_acciones(),
+                "ars_para_replanificar": self.get_ars_para_replanificar(),
+            }
+
+            if not any(datos_calidad.values()):
+                self.logger.info("Sin datos para correo de Calidad – se omite registro")
+                return
+
+            # Generar HTML únicamente para debug local (fuente de verdad está en registrar)
+            html_preview = self.html_generator.generar_reporte_calidad_moderno(
+                datos_calidad["ars_proximas_vencer"],
+                datos_calidad["ncs_pendientes_eficacia"],
+                datos_calidad["ncs_sin_acciones"],
+                datos_calidad["ars_para_replanificar"],
             )
-            if cuerpo_html.strip():
-                self._guardar_html_debug(cuerpo_html, "correo_calidad.html")
-                self.logger.info("Correo HTML (unificado) generado para Miembros de Calidad")
-            else:
-                self.logger.info("No hay datos para generar correo de Calidad")
-                
+            if html_preview.strip():
+                self._guardar_html_debug(html_preview, "correo_calidad.html")
+
+            # Delegar a registrador
+            ok = enviar_notificacion_calidad(datos_calidad)
+            self.logger.info("Notificación de Calidad registrada" if ok else "Fallo registrando notificación de Calidad")
         except Exception as e:
-            self.logger.error(f"Error generando correo para Calidad: {e}")
+            self.logger.error(f"Error reuniendo/enviando datos de Calidad: {e}")
 
     def _generar_correos_tecnicos(self):
-        """
-        Genera y registra correos individuales para cada técnico con ARs pendientes
+        """(Pendiente de refactor completo) Compila datos por técnico.
+
+        Actualmente sólo genera HTML de debug por técnico; el registro centralizado se
+        implementará en una fase posterior similar a Calidad.
         """
         try:
-            self.logger.info("Generando correos para Técnicos")
-            
-            # Obtener técnicos con NCs activas
+            self.logger.info("Compilando datos para técnicos")
             tecnicos = self._get_tecnicos_con_nc_activas()
-            
             for tecnico in tecnicos:
                 self._generar_correo_tecnico_individual(tecnico)
-                
         except Exception as e:
-            self.logger.error(f"Error generando correos para técnicos: {e}")
+            self.logger.error(f"Error compilando datos para técnicos: {e}")
 
     def _get_tecnicos_con_nc_activas(self) -> List[str]:
         """
@@ -963,34 +831,21 @@ class NoConformidadesManager(TareaDiaria):
             return []
 
     def _generar_correo_tecnico_individual(self, tecnico: str):
-        """
-        Genera correo individual para un técnico específico
-        """
+        """Genera únicamente HTML de debug para un técnico (fase transición)."""
         try:
-            self.logger.info(f"Generando correo para técnico: {tecnico}")
-            
-            # Obtener ARs del técnico en las 3 categorías
-            # Usar métodos públicos refactorizados (que internamente usan el genérico)
             ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, "IDCorreo15")
             ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, "IDCorreo7")
             ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, "IDCorreo0")
-            
-            # Generar tablas HTML
-            tablas_html = []
-            
+            if not (ars_15_dias or ars_7_dias or ars_vencidas):
+                self.logger.info(f"Sin ARs para técnico {tecnico}")
+                return
             cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
-                ars_15_dias,
-                ars_7_dias,
-                ars_vencidas
+                ars_15_dias, ars_7_dias, ars_vencidas
             )
             if cuerpo_html.strip():
                 self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
-                self.logger.info(f"Correo HTML (unificado) generado para técnico: {tecnico}")
-            else:
-                self.logger.info(f"No hay datos para generar correo para técnico: {tecnico}")
-                
         except Exception as e:
-            self.logger.error(f"Error generando correo para técnico {tecnico}: {e}")
+            self.logger.error(f"Error generando HTML debug para técnico {tecnico}: {e}")
 
     # (Los métodos específicos _get_ars_tecnico_15_dias / 7_dias / vencidas fueron
     #  eliminados en favor de _get_ars_tecnico para reducir duplicación.)

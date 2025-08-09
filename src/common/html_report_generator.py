@@ -643,3 +643,45 @@ class HTMLReportGenerator:
         html += self.generar_footer_html()
         
         return html
+
+    # ================= Notificación individual ARAPC =================
+    def generar_notificacion_individual_arapc(self, arapc: Dict, usuario: Dict) -> str:
+        """Genera HTML para una notificación individual de ARAPC.
+
+        Args:
+            arapc: Datos de la acción correctiva/preventiva.
+            usuario: Datos del usuario responsable (correo / nombre).
+        """
+        correo = usuario.get('correo', 'N/A')
+        dias_restantes = arapc.get('dias_restantes', 0)
+        fecha_prev = arapc.get('FechaFinPrevista')
+        if isinstance(fecha_prev, datetime):
+            fecha_prev_str = fecha_prev.strftime('%d/%m/%Y')
+        else:
+            try:
+                fecha_prev_str = fecha_prev.strftime('%d/%m/%Y')  # type: ignore
+            except Exception:
+                fecha_prev_str = str(fecha_prev) if fecha_prev else 'N/A'
+
+        if dias_restantes < 0:
+            estado = f"VENCIDA ({abs(dias_restantes)} días)"
+            clase = 'negativo'
+        elif dias_restantes <= 7:
+            estado = f"PRÓXIMA A VENCER ({dias_restantes} días)"
+            clase = 'critico'
+        else:
+            estado = f"{dias_restantes} días restantes"
+            clase = 'normal'
+
+        return f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><style>{self.css_styles}</style></head>
+<body>
+<h3>Aviso Acción Correctiva/Preventiva</h3>
+<table class='table'>
+  <tr><th>Código NC</th><td>{arapc.get('CodigoNoConformidad','N/A')}</td></tr>
+  <tr><th>Acción</th><td>{arapc.get('AccionRealizada') or arapc.get('AccionCorrectiva','N/A')}</td></tr>
+  <tr><th>Responsable</th><td>{correo}</td></tr>
+  <tr><th>Fecha Fin Prevista</th><td>{fecha_prev_str}</td></tr>
+  <tr><th>Estado</th><td><span class='dias-indicador {clase}'>{estado}</span></td></tr>
+</table>
+<p>Por favor revise y actualice el estado en el sistema.</p>
+</body></html>"""
