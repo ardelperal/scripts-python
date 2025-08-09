@@ -265,6 +265,48 @@ class TestExpedientesManager(unittest.TestCase):
         self.assertIn('expedientes_email_html_length_chars', metric_names)
         self.assertGreater(metric_names['expedientes_email_html_length_chars'], 0)
 
+    def test_ejecutar_logica_especifica_success_logs_duration_metric(self):
+        """Test de éxito que verifica el log de métrica de duración"""
+        self.manager.get_admin_emails = Mock(return_value=['admin@test.com'])
+        self.manager._get_tramitadores_emails = Mock(return_value=['user1@test.com'])
+        self.manager.generate_email_body = Mock(return_value='<html>OK</html>')
+        self.manager.register_email = Mock(return_value=True)
+        mock_logger = Mock()
+        self.manager.logger = mock_logger
+
+        result = self.manager.ejecutar_logica_especifica()
+        self.assertTrue(result)
+        # Verifica métrica de duración
+        duration_calls = [c for c in mock_logger.info.call_args_list if c.kwargs.get('extra', {}).get('metric_name') == 'execution_duration_ms']
+        self.assertTrue(duration_calls, 'No se registró la métrica execution_duration_ms')
+        value = duration_calls[0].kwargs['extra']['metric_value']
+        self.assertIsInstance(value, int)
+        self.assertGreaterEqual(value, 0)
+
+    def test_ejecutar_logica_especifica_no_task_emails(self):
+        """Test cuando no hay correos de tramitadores (retorna False y log warning)"""
+        self.manager.get_admin_emails = Mock(return_value=['admin@test.com'])
+        self.manager._get_tramitadores_emails = Mock(return_value=[])
+        mock_logger = Mock()
+        self.manager.logger = mock_logger
+        result = self.manager.ejecutar_logica_especifica()
+        self.assertFalse(result)
+        self.assertTrue(any('No se encontraron correos de tramitadores' in (c.args[0] if c.args else '') for c in mock_logger.warning.call_args_list))
+
+    def test_ejecutar_logica_especifica_exception(self):
+        """Test de excepción durante la lógica específica (log error con contexto)"""
+        self.manager.get_admin_emails = Mock(return_value=['admin@test.com'])
+        self.manager._get_tramitadores_emails = Mock(return_value=['user1@test.com'])
+        self.manager.generate_email_body = Mock(side_effect=Exception('boom'))
+        mock_logger = Mock()
+        self.manager.logger = mock_logger
+        result = self.manager.ejecutar_logica_especifica()
+        self.assertFalse(result)
+        self.assertTrue(any(
+            kwargs.get('extra', {}).get('context') == 'ejecutar_logica_especifica'
+            for _, kwargs in ( (c.args, c.kwargs) for c in mock_logger.error.call_args_list )
+        ))
+
 
 if __name__ == '__main__':
     unittest.main()
