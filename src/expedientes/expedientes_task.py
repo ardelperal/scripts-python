@@ -29,6 +29,7 @@ class ExpedientesTask(TareaDiaria):
     def execute_specific_logic(self) -> bool:
         """Ejecuta la lógica principal: genera informe y registra email si aplica."""
         try:
+            self.logger.info("Inicio lógica específica Expedientes", extra={'event': 'expedientes_task_logic_start', 'app': 'EXPEDIENTES'})
             if not self.db_expedientes:
                 self.logger.warning("Sin conexión a BD Expedientes; se omite informe")
                 return True
@@ -46,7 +47,7 @@ class ExpedientesTask(TareaDiaria):
             except Exception:  # pragma: no cover
                 recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
             subject = "Informe Diario de Expedientes"
-            return register_standard_report(
+            result = register_standard_report(
                 self.db_tareas,
                 application="EXPEDIENTES",
                 subject=subject,
@@ -55,6 +56,11 @@ class ExpedientesTask(TareaDiaria):
                 admin_emails="",
                 logger=self.logger
             )
+            self.logger.info(
+                "Fin lógica específica Expedientes",
+                extra={'event': 'expedientes_task_logic_end', 'success': bool(result), 'app': 'EXPEDIENTES'}
+            )
+            return result
         except Exception as e:
             self.logger.error(f"Error en execute_specific_logic Expedientes: {e}", extra={'context': 'execute_specific_logic'})
             return False

@@ -36,9 +36,7 @@ def main(argv: list[str] | None = None):
     setup_logging(log_file=Path("logs/expedientes.log"))
     logger = logging.getLogger()
 
-    logger.info("===============================================")
-    logger.info("=      INICIANDO TAREA DE EXPEDIENTES         =")
-    logger.info("===============================================")
+    logger.info("=== INICIO TAREA EXPEDIENTES ===", extra={'event': 'task_start', 'task': 'EXPEDIENTES', 'app': 'EXPEDIENTES'})
 
     exit_code = 0
 
@@ -67,7 +65,7 @@ def main(argv: list[str] | None = None):
         )
         exit_code = 1
 
-    logger.info("Finalizada la ejecución de la tarea de Expedientes.")
+    logger.info("=== FIN TAREA EXPEDIENTES ===", extra={'event': 'task_end', 'task': 'EXPEDIENTES', 'exit_code': exit_code, 'app': 'EXPEDIENTES'})
     sys.exit(exit_code)
 
 

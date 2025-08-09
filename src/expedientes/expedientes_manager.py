@@ -292,8 +292,18 @@ class ExpedientesManager:
     # _build_table_html eliminado en favor de build_table_html común (common.reporting.table_builder)
 
     def generate_expedientes_report_html(self) -> str:
-        """Genera el reporte HTML completo de Expedientes y registra métricas."""
+        """Genera el reporte HTML completo de Expedientes y registra métricas detalladas.
+
+        Logging estructurado para Grafana/Loki:
+          - event: 'expedientes_report_start' / 'expedientes_report_empty' / 'expedientes_report_section' / 'expedientes_report_summary'
+          - metric_name / metric_value: pares genéricos ya utilizados en el ecosistema
+          - section: slug de la sección (sin espacios ni acentos) para facilitar agregaciones
+        """
         try:
+            self.logger.info(
+                "Inicio generación reporte Expedientes",
+                extra={'event': 'expedientes_report_start', 'app': 'EXPEDIENTES'}
+            )
             sections = [
                 ("Expedientes TSOL adjudicados sin código S4H", self.get_expedientes_tsol_sin_cod_s4h()),
                 ("Expedientes a punto de finalizar", self.get_expedientes_a_punto_finalizar()),
@@ -304,20 +314,51 @@ class ExpedientesManager:
             ]
             non_empty = [s for s in sections if s[1]]
             if not non_empty:
-                self.logger.info("Sin datos para generar reporte de expedientes")
+                self.logger.info(
+                    "Sin datos para generar reporte de expedientes",
+                    extra={
+                        'event': 'expedientes_report_empty',
+                        'metric_name': 'expedientes_report_sections',
+                        'metric_value': 0,
+                        'app': 'EXPEDIENTES'
+                    }
+                )
                 return ""
+
+            def _slug(title: str) -> str:
+                import unicodedata, re
+                norm = unicodedata.normalize('NFKD', title).encode('ascii', 'ignore').decode('ascii')
+                norm = norm.lower()
+                norm = re.sub(r'[^a-z0-9]+', '_', norm).strip('_')
+                return norm[:60]
             parts = [self.html_generator.generar_header_moderno("INFORME DE AVISOS DE EXPEDIENTES")]
+            total_rows = 0
             for title, data in non_empty:
                 parts.append(build_table_html(title, data, sort_headers=True))
+                row_count = len(data)
+                total_rows += row_count
+                self.logger.info(
+                    f"Sección '{title}' generada con {row_count} filas",
+                    extra={
+                        'event': 'expedientes_report_section',
+                        'section': _slug(title),
+                        'metric_name': 'expedientes_section_rows',
+                        'metric_value': row_count,
+                        'app': 'EXPEDIENTES'
+                    }
+                )
             parts.append(self.html_generator.generar_footer_moderno())
             html = ''.join(parts)
             self.logger.info(
-                "Secciones reporte expedientes",
-                extra={'metric_name': 'expedientes_report_sections', 'metric_value': len(non_empty)}
-            )
-            self.logger.info(
-                "Longitud HTML reporte expedientes",
-                extra={'metric_name': 'expedientes_report_length_chars', 'metric_value': len(html)}
+                "Resumen reporte expedientes",
+                extra={
+                    'event': 'expedientes_report_summary',
+                    'metric_name': 'expedientes_report_sections',
+                    'metric_value': len(non_empty),
+                    'total_rows': total_rows,
+                    'html_length': len(html),
+                    'app': 'EXPEDIENTES'
+                }
             )
             return html
         except Exception as e:
