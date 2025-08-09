@@ -13,10 +13,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), 'src')
 sys.path.insert(0, src_dir)
 
-from expedientes.expedientes_manager import ExpedientesManager
-from expedientes.expedientes_task import ExpedientesTask
-from common.config import Config
-from common.database import AccessDatabase
+from src.expedientes.expedientes_manager import ExpedientesManager
+from src.expedientes.expedientes_task import ExpedientesTask
+from src.common.config import Config
+from src.common.database import AccessDatabase
 
 
 class TestExpedientesIntegration(unittest.TestCase):
@@ -30,8 +30,8 @@ class TestExpedientesIntegration(unittest.TestCase):
         cls.config = Config()
         
         # Verificar que las bases de datos locales existen
-        cls.db_expedientes_path = cls.config.get_db_expedientes_path()
-        cls.db_tareas_path = cls.config.get_db_tareas_path()
+        cls.db_expedientes_path = cls.config.db_expedientes_path
+        cls.db_tareas_path = cls.config.db_tareas_path
         
         if not os.path.exists(cls.db_expedientes_path):
             cls.skipTest(f"Base de datos Expedientes local no encontrada: {cls.db_expedientes_path}")
@@ -201,22 +201,24 @@ class TestExpedientesTaskIntegration(unittest.TestCase):
     def tearDown(self):
         """Limpieza después de cada test"""
         if hasattr(self, 'task'):
-            self.task.cleanup()
+            self.task.close_connections()
     
     def test_task_initialization_integration(self):
         """Test de inicialización de tarea con dependencias reales"""
         self.assertIsNotNone(self.task.manager)
-        self.assertEqual(self.task.nombre_tarea, "Expedientes")
+        self.assertEqual(self.task.name, "EXPEDIENTES")
     
     def test_get_task_emails_integration(self):
         """Test de obtención de emails con configuración real"""
         # Test emails de expedientes diario
-        emails_expedientes = self.task.get_task_emails("ExpedientesDiario")
-        self.assertIsInstance(emails_expedientes, str)
+        emails_expedientes = self.task.get_task_emails()
+        self.assertIsInstance(emails_expedientes, list)
         
-        # Test tarea desconocida
-        emails_unknown = self.task.get_task_emails("UnknownTask")
-        self.assertEqual(emails_unknown, "")
+        # Verificar que es una lista válida (puede estar vacía)
+        for email in emails_expedientes:
+            self.assertIsInstance(email, str)
+            if email:  # Si no está vacío, debe contener @
+                self.assertIn('@', email)
     
     def test_cleanup_integration(self):
         """Test de limpieza con recursos reales"""
@@ -228,7 +230,7 @@ class TestExpedientesTaskIntegration(unittest.TestCase):
         self.assertIsNotNone(db_expedientes)
         
         # Ejecutar cleanup
-        self.task.cleanup()
+        self.task.close_connections()
         
         # Verificar que no hay errores (el cleanup debe ser silencioso)
         # No podemos verificar el estado interno porque depende de la implementación

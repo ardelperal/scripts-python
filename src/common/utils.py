@@ -7,6 +7,10 @@ import re
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict
+from logging.handlers import RotatingFileHandler
+# Importa los componentes de la librería correcta: python-logging-loki
+from logging_loki import LokiQueueHandler
+from queue import Queue
 
 # Importar config para funciones que lo necesitan
 from .config import config
@@ -27,52 +31,69 @@ def hide_password_in_connection_string(connection_string: str) -> str:
     return re.sub(pattern, r'\1=***;', connection_string, flags=re.IGNORECASE)
 
 
-def setup_logging(module_name: str = "app", log_level: str = "INFO", log_file: Optional[Path] = None):
+def setup_logging(log_file: Path, level=logging.INFO):
     """
-    Configura el sistema de logging y devuelve un logger
+    Configura el logging para escribir en archivo/consola y enviar a un servidor Loki.
+    Usa LokiQueueHandler para un envío no bloqueante con etiquetas estáticas.
+    Para etiquetas dinámicas, usar el argumento 'extra' en las llamadas de logging.
+    """
+    logger = logging.getLogger()
     
-    Args:
-        module_name: Nombre del módulo para el logger
-        log_level: Nivel de logging
-        log_file: Archivo de log opcional
+    # Prevenir handlers duplicados
+    if logger.hasHandlers():
+        logger.handlers.clear()
         
-    Returns:
-        Logger configurado
-    """
-    # Crear directorio de logs si no existe
-    if log_file:
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Configurar logging
-    level = getattr(logging, log_level.upper(), logging.INFO)
-    
-    # Formato de log
-    formatter = logging.Formatter(
+    logger.setLevel(level)
+
+    # --- Handlers estándar (consola y archivo) ---
+    default_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Handler para archivo
-    handlers = []
-    if log_file:
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setFormatter(formatter)
-        handlers.append(file_handler)
-    
-    # Handler para consola
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    handlers.append(console_handler)
-    
-    # Configurar logging básico
-    logging.basicConfig(
-        level=level,
-        handlers=handlers,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    # Handler de Archivo
+    if not log_file.parent.exists():
+        log_file.parent.mkdir(parents=True)
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=5 * 1024 * 1024, backupCount=2, encoding='utf-8'
     )
-    
-    # Crear y devolver logger específico para el módulo
-    logger = logging.getLogger(module_name)
-    return logger
+    file_handler.setFormatter(default_formatter)
+    logger.addHandler(file_handler)
+
+    # Handler de Consola
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(default_formatter)
+    logger.addHandler(stream_handler)
+
+    # --- Handler para Loki ---
+    loki_url = os.getenv("LOKI_URL")
+    if loki_url:
+        try:
+            # Etiquetas estáticas que se aplicarán a todos los logs
+            static_tags = {
+                "application": "scripts_python",
+                "environment": os.getenv("ENVIRONMENT", "development"),
+            }
+
+            # Crear una cola para el handler no bloqueante
+            log_queue = Queue()
+            
+            # LokiQueueHandler es recomendado para no bloquear la aplicación mientras envía logs
+            # La URL debe incluir el path completo: http://localhost:3100/loki/api/v1/push
+            full_loki_url = f"{loki_url.rstrip('/')}/loki/api/v1/push"
+            loki_handler = LokiQueueHandler(
+                queue=log_queue,
+                url=full_loki_url,
+                tags=static_tags,
+                version="1",
+            )
+            loki_handler.setFormatter(default_formatter)
+            
+            logger.addHandler(loki_handler)
+            logging.info(f"Logging configurado. Destinos: archivo, consola y Loki en {full_loki_url}")
+        except Exception as e:
+            logging.warning(f"No se pudo configurar Loki handler: {e}. Continuando solo con archivo y consola.")
+    else:
+        logging.info("LOKI_URL no configurada. Logging configurado solo para archivo y consola.")
 
 
 def is_workday(check_date: date, holidays_file: Optional[Path] = None) -> bool:

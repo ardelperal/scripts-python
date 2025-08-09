@@ -648,7 +648,8 @@ class NoConformidadesManager(TareaDiaria):
             }
 
             if not any(datos_calidad.values()):
-                self.logger.info("Sin datos para correo de Calidad – se omite registro")
+                self.logger.info("Sin datos para correo de Calidad – se omite registro", 
+                               extra={'tags': {'report_type': 'calidad', 'outcome': 'skipped'}})
                 return
 
             # Generar HTML únicamente para debug local (fuente de verdad está en registrar)
@@ -663,9 +664,16 @@ class NoConformidadesManager(TareaDiaria):
 
             # Delegar a registrador
             ok = enviar_notificacion_calidad(datos_calidad)
-            self.logger.info("Notificación de Calidad registrada" if ok else "Fallo registrando notificación de Calidad")
+            if ok:
+                self.logger.info("Notificación de Calidad registrada", 
+                               extra={'tags': {'report_type': 'calidad', 'outcome': 'success'}})
+            else:
+                self.logger.info("Fallo registrando notificación de Calidad", 
+                               extra={'tags': {'report_type': 'calidad', 'outcome': 'failure'}})
         except Exception as e:
-            self.logger.error(f"Error reuniendo/enviando datos de Calidad: {e}")
+            self.logger.error(f"Error reuniendo/enviando datos de Calidad: {e}", 
+                            extra={'tags': {'report_type': 'calidad', 'outcome': 'error'}}, 
+                            exc_info=True)
 
     def _generar_correos_tecnicos(self):
         """Compila datos por técnico y delega registro/envío al registrador.
@@ -715,7 +723,8 @@ class NoConformidadesManager(TareaDiaria):
             ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, AVISO_7_DIAS)
             ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, AVISO_CADUCADAS)
             if not (ars_15_dias or ars_7_dias or ars_vencidas):
-                self.logger.info(f"Sin ARs para técnico {tecnico}")
+                self.logger.info(f"Sin ARs para técnico {tecnico}", 
+                               extra={'tags': {'report_type': 'tecnico', 'tecnico': tecnico, 'outcome': 'skipped'}})
                 return
 
             # Debug HTML
@@ -734,11 +743,16 @@ class NoConformidadesManager(TareaDiaria):
                 "ars_vencidas": ars_vencidas,
             }
             ok = enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
-            self.logger.info(
-                f"Notificación técnica registrada para {tecnico}" if ok else f"Fallo registrando notificación técnica para {tecnico}"
-            )
+            if ok:
+                self.logger.info(f"Notificación técnica registrada para {tecnico}", 
+                               extra={'tags': {'report_type': 'tecnico', 'tecnico': tecnico, 'outcome': 'success'}})
+            else:
+                self.logger.info(f"Fallo registrando notificación técnica para {tecnico}", 
+                               extra={'tags': {'report_type': 'tecnico', 'tecnico': tecnico, 'outcome': 'failure'}})
         except Exception as e:
-            self.logger.error(f"Error procesando notificación para técnico {tecnico}: {e}")
+            self.logger.error(f"Error procesando notificación para técnico {tecnico}: {e}", 
+                            extra={'tags': {'report_type': 'tecnico', 'tecnico': tecnico, 'outcome': 'error'}}, 
+                            exc_info=True)
 
     # (Los métodos específicos _get_ars_tecnico_15_dias / 7_dias / vencidas fueron
     #  eliminados en favor de _get_ars_tecnico para reducir duplicación.)

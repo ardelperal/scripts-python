@@ -20,7 +20,8 @@ class TestRiesgosManager(unittest.TestCase):
         """Configuración inicial para cada prueba."""
         self.config = Mock(spec=Config)
         self.config.database_path = "test.accdb"
-        self.manager = RiesgosManager(self.config)
+        self.logger = Mock()
+        self.manager = RiesgosManager(self.config, self.logger)
         self.manager.db = Mock()
     
     def test_init(self):

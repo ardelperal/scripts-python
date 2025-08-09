@@ -1253,6 +1253,155 @@ start htmlcov\index.html
 - 🟡 **Amarillo**: Cobertura parcial
 - ⚪ **Blanco**: Líneas no ejecutables
 
+## 📊 Monitoreo y Logging
+
+### Arquitectura de Logging con Loki y Grafana
+
+El sistema implementa una arquitectura moderna de logging centralizado utilizando **Loki** como agregador de logs y **Grafana** como interfaz de visualización y análisis.
+
+#### Componentes de la Arquitectura
+
+```
+Aplicación Python → Loki → Grafana
+     ↓
+  Logs Locales
+```
+
+- **Aplicación Python**: Genera logs estructurados con metadatos contextuales
+- **Loki**: Almacena y indexa los logs de forma eficiente
+- **Grafana**: Proporciona dashboards y alertas para monitoreo en tiempo real
+- **Logs Locales**: Respaldo local en archivos para debugging
+
+#### Características del Sistema de Logging
+
+- **Logging Estructurado**: Metadatos contextuales (tags dinámicas) para filtrado avanzado
+- **Envío No Bloqueante**: Utiliza `LokiQueueHandler` para no afectar el rendimiento
+- **Multi-destino**: Archivo local, consola y Loki simultáneamente
+- **Etiquetas Dinámicas**: Contexto específico por operación (`report_type`, `outcome`, `tecnico`)
+- **Manejo de Errores**: `exc_info=True` para trazas completas de excepciones
+
+### Iniciar los Servicios de Monitoreo
+
+Para iniciar la infraestructura de monitoreo, ejecuta:
+
+```bash
+# Iniciar servicios en segundo plano
+docker-compose up -d
+
+# Verificar estado de los servicios
+docker-compose ps
+
+# Ver logs de los servicios
+docker-compose logs -f loki
+docker-compose logs -f grafana
+```
+
+### Acceso a Grafana
+
+Una vez iniciados los servicios, puedes acceder a Grafana:
+
+- **URL**: http://localhost:3000
+- **Credenciales por defecto**:
+  - Usuario: `admin`
+  - Contraseña: `admin` (se solicitará cambio en el primer acceso)
+
+#### Configuración Automática
+
+La fuente de datos Loki se configura automáticamente al iniciar Grafana gracias al archivo de provisioning:
+- **Nombre**: Loki
+- **Tipo**: loki
+- **URL**: http://loki:3100
+- **Acceso**: proxy
+
+### Configuración de la Aplicación Python
+
+Para que la aplicación Python envíe logs a Loki, configura la variable de entorno:
+
+```bash
+# En tu archivo .env
+LOKI_URL=http://localhost:3100
+```
+
+La aplicación automáticamente:
+1. Detecta la variable `LOKI_URL`
+2. Configura el `LokiQueueHandler`
+3. Envía logs a `http://localhost:3100/loki/api/v1/push`
+
+#### Ejemplo de Uso en Código
+
+```python
+import logging
+from src.common.utils import setup_logging
+
+# Configurar logging con Loki
+logger = setup_logging("mi_modulo", "INFO")
+
+# Log con metadatos contextuales
+logger.info("Operación completada", extra={
+    'report_type': 'calidad',
+    'outcome': 'success',
+    'tecnico': 'juan.perez'
+})
+
+# Log de error con traza completa
+try:
+    # operación que puede fallar
+    pass
+except Exception as e:
+    logger.error("Error en operación", extra={
+        'report_type': 'tecnico',
+        'outcome': 'error'
+    }, exc_info=True)
+```
+
+### Consultas y Filtros en Grafana
+
+Ejemplos de consultas LogQL para filtrar logs:
+
+```logql
+# Todos los logs de un módulo específico
+{job="scripts-python"} |= "no_conformidades"
+
+# Logs de error con contexto específico
+{job="scripts-python"} | json | outcome="error"
+
+# Logs por tipo de reporte
+{job="scripts-python"} | json | report_type="calidad"
+
+# Logs de un técnico específico
+{job="scripts-python"} | json | tecnico="juan.perez"
+```
+
+### Estructura de Archivos de Monitoreo
+
+```
+scripts-python/
+├── docker-compose.yml                    # Configuración servicios
+├── loki/
+│   └── loki-config.yml                  # Configuración Loki
+├── grafana/
+│   └── provisioning/
+│       └── datasources/
+│           └── loki-datasource.yml      # Fuente de datos automática
+└── logs/                                # Logs locales de respaldo
+```
+
+### Comandos Útiles
+
+```bash
+# Detener servicios
+docker-compose down
+
+# Reiniciar servicios
+docker-compose restart
+
+# Ver logs en tiempo real
+docker-compose logs -f
+
+# Limpiar volúmenes (⚠️ elimina datos)
+docker-compose down -v
+```
+
 ## Variables de Entorno Principales
 
 **⚠️ SEGURIDAD**: Las contraseñas y datos sensibles deben configurarse únicamente en el archivo `.env`, nunca en documentación.

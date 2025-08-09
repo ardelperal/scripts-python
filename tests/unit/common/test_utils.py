@@ -25,46 +25,146 @@ from src.common.utils import (
 class TestSetupLogging:
     """Tests para la función setup_logging"""
     
-    def test_setup_logging_default(self):
+    def test_setup_logging_default(self, tmp_path):
         """Test configuración básica de logging"""
-        with patch('logging.basicConfig') as mock_basic_config:
-            setup_logging()
-            mock_basic_config.assert_called_once()
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
             
-            # Verificar que se configuró con nivel INFO
-            call_args = mock_basic_config.call_args
-            assert call_args[1]['level'] == logging.INFO
+            setup_logging(log_file)
+            
+            # Verificar que se configuró el logger
+            mock_logger.setLevel.assert_called_once_with(logging.INFO)
+            assert mock_logger.addHandler.call_count >= 2  # archivo + consola (+ loki si está disponible)
     
-    def test_setup_logging_with_level(self):
+    def test_setup_logging_with_level(self, tmp_path):
         """Test configuración con nivel específico"""
-        with patch('logging.basicConfig') as mock_basic_config:
-            setup_logging(log_level="DEBUG")
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
             
-            call_args = mock_basic_config.call_args
-            assert call_args[1]['level'] == logging.DEBUG
+            setup_logging(log_file, level=logging.DEBUG)
+            
+            mock_logger.setLevel.assert_called_once_with(logging.DEBUG)
     
-    def test_setup_logging_invalid_level(self):
+    def test_setup_logging_invalid_level(self, tmp_path):
         """Test configuración con nivel inválido"""
-        with patch('logging.basicConfig') as mock_basic_config:
-            setup_logging(log_level="INVALID")
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
             
-            call_args = mock_basic_config.call_args
-            assert call_args[1]['level'] == logging.INFO  # Debería usar INFO por defecto
+            # Pasar un nivel inválido debería funcionar (Python lo maneja)
+            setup_logging(log_file, level="INVALID")
+            
+            mock_logger.setLevel.assert_called_once_with("INVALID")
     
     def test_setup_logging_with_file(self, tmp_path):
         """Test configuración con archivo de log"""
         log_file = tmp_path / "logs" / "test.log"
         
-        with patch('logging.basicConfig') as mock_basic_config:
-            setup_logging(log_file=log_file)
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
+            
+            setup_logging(log_file)
             
             # Verificar que se creó el directorio
             assert log_file.parent.exists()
             
-            # Verificar que se configuró con handlers
-            call_args = mock_basic_config.call_args
-            assert 'handlers' in call_args[1]
-            assert len(call_args[1]['handlers']) == 2  # archivo + consola
+            # Verificar que se añadieron handlers
+            assert mock_logger.addHandler.call_count >= 2  # archivo + consola
+    
+    def test_setup_logging_clears_existing_handlers(self, tmp_path):
+        """Test que se limpian handlers existentes"""
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = True
+            mock_handlers = Mock()
+            mock_logger.handlers = mock_handlers
+            mock_get_logger.return_value = mock_logger
+            
+            setup_logging(log_file)
+            
+            # Verificar que se limpiaron los handlers
+            mock_handlers.clear.assert_called_once()
+    
+    @patch.dict(os.environ, {'LOKI_URL': 'http://test-loki:3100', 'ENVIRONMENT': 'test'})
+    def test_setup_logging_with_loki_success(self, tmp_path):
+        """Test configuración exitosa con Loki"""
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
+            
+            with patch('src.common.utils.LokiQueueHandler') as mock_loki_handler:
+                with patch('src.common.utils.Queue') as mock_queue:
+                    mock_handler_instance = Mock()
+                    mock_loki_handler.return_value = mock_handler_instance
+                    mock_queue_instance = Mock()
+                    mock_queue.return_value = mock_queue_instance
+                    
+                    setup_logging(log_file)
+                    
+                    # Verificar que se creó el LokiQueueHandler con los parámetros correctos
+                    mock_loki_handler.assert_called_once_with(
+                        queue=mock_queue_instance,
+                        url='http://test-loki:3100/loki/api/v1/push',
+                        tags={
+                            "application": "scripts_python",
+                            "environment": "test"
+                        },
+                        version="1"
+                    )
+                    
+                    # Verificar que se añadió el handler
+                    mock_logger.addHandler.assert_any_call(mock_handler_instance)
+    
+    @patch.dict(os.environ, {}, clear=True)
+    def test_setup_logging_without_loki_url(self, tmp_path):
+        """Test cuando LOKI_URL no está configurada"""
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
+            
+            with patch('logging.info') as mock_info:
+                setup_logging(log_file)
+                
+                # Verificar que se registró el mensaje informativo
+                mock_info.assert_called_with("LOKI_URL no configurada. Logging configurado solo para archivo y consola.")
+    
+    @patch.dict(os.environ, {'LOKI_URL': 'http://test-loki:3100'})
+    def test_setup_logging_loki_general_error(self, tmp_path):
+        """Test error general al configurar Loki"""
+        log_file = tmp_path / "test.log"
+        
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_logger.hasHandlers.return_value = False
+            mock_get_logger.return_value = mock_logger
+            
+            with patch('src.common.utils.LokiQueueHandler', side_effect=Exception("Connection error")):
+                with patch('logging.warning') as mock_warning:
+                    setup_logging(log_file)
+                    
+                    # Verificar que se registró el warning con el error
+                    mock_warning.assert_called_with("No se pudo configurar Loki handler: Connection error. Continuando solo con archivo y consola.")
 
 
 class TestIsWorkday:

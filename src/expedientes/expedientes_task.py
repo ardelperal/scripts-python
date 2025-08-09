@@ -16,7 +16,7 @@ class ExpedientesTask(TareaDiaria):
             task_names=["ExpedientesDiario"],  # Nombre corregido según indicación del usuario
             frequency_days=1  # Tarea diaria
         )
-        self.manager = None
+        self.manager = ExpedientesManager()
     
     def execute_specific_logic(self) -> bool:
         """
@@ -26,16 +26,23 @@ class ExpedientesTask(TareaDiaria):
             bool: True si se ejecutó correctamente
         """
         try:
-            self.manager = ExpedientesManager()
             return self.manager.ejecutar_logica_especifica()
         except Exception as e:
             self.logger.error(f"Error ejecutando lógica específica de Expedientes: {e}")
             return False
     
+    def get_task_emails(self) -> list:
+        """
+        Obtiene los correos electrónicos de los tramitadores de expedientes
+        
+        Returns:
+            Lista de correos electrónicos de tramitadores
+        """
+        return self.manager._get_tramitadores_emails()
+
     def close_connections(self):
         """Cierra las conexiones del manager"""
-        if self.manager:
-            try:
-                self.manager.close_connections()
-            except Exception as e:
-                self.logger.warning(f"Error cerrando conexiones del manager: {e}")
+        try:
+            self.manager.close_connections()
+        except Exception as e:
+            self.logger.warning(f"Error cerrando conexiones del manager: {e}")
