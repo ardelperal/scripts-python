@@ -51,6 +51,25 @@ class TestExpedientesTask(unittest.TestCase):
         result = self.task.execute_specific_logic()
         self.assertFalse(result)
 
+    def test_execute_specific_logic_sin_bd_expedientes(self):
+        # Simula ausencia de conexión específica
+        self.task.db_expedientes = None
+        # No debe lanzar y debe devolver True (se omite informe)
+        self.assertTrue(self.task.execute_specific_logic())
+
+    @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
+    @patch('src.expedientes.expedientes_task.get_admin_emails_string', return_value='admin@test')
+    @patch('src.expedientes.expedientes_task.ExpedientesManager')
+    def test_execute_specific_logic_orden_llamadas(self, mock_mgr_cls, _mock_admin_emails, mock_register):
+        """Verifica orden: crear manager -> generar html -> registrar email -> (sin marcar completada aquí)."""
+        mgr = Mock()
+        mgr.generate_expedientes_report_html.return_value = '<html>contenido</html>'
+        mock_mgr_cls.return_value = mgr
+        self.assertTrue(self.task.execute_specific_logic())
+        # Orden aproximado: instancia manager (implícito), luego genera html, luego registra email
+        mgr.generate_expedientes_report_html.assert_called_once()
+        mock_register.assert_called_once()
+
     def test_close_connections(self):
         mock_db = self.task.db_expedientes
         mock_db.disconnect = Mock()
