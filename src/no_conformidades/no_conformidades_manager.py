@@ -8,6 +8,13 @@ from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+# Definir tupla de errores de base de datos específicos (pyodbc) si disponible
+try:  # pragma: no cover - import defensivo
+    import pyodbc  # type: ignore
+    DBErrors = (pyodbc.Error,)
+except Exception:  # pyodbc no disponible en algunos entornos (tests, CI)
+    DBErrors = tuple()
+
 # Agregar el directorio src al path para imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(current_dir)
@@ -22,6 +29,9 @@ from common.utils import (
     register_email_in_database, get_admin_emails_string, get_quality_emails_string,
     get_technical_emails_string
 )
+from common.html_report_generator import HTMLReportGenerator
+from common.user_adapter import get_users_with_fallback
+from .types import ARTecnicaRecord, ARCalidadProximaRecord
 
 logger = logging.getLogger(__name__)
 
@@ -34,28 +44,27 @@ class NoConformidadesManager(TareaDiaria):
         super().__init__(
             name="NoConformidades",
             script_filename="run_no_conformidades.py",
-            task_names=["NCTecnico", "NCCalidad"],  # Nombres de las tareas en la BD
+            task_names=["NCTecnico", "NCCalidad"],
             frequency_days=int(os.getenv('NC_FRECUENCIA_DIAS', '1'))
         )
-        
+
         # Configuración específica
         self.dias_alerta_arapc = int(os.getenv('NC_DIAS_ALERTA_ARAPC', '15'))
         self.dias_alerta_nc = int(os.getenv('NC_DIAS_ALERTA_NC', '16'))
 
-        
         # Conexiones a bases de datos
         self.db_nc = None
-        # db_tareas ya se inicializa en BaseTask, no lo sobrescribimos
-        
+
         # Cache para usuarios
         self._admin_users = None
         self._admin_emails = None
         self._quality_users = None
         self._quality_emails = None
         self._technical_users = None
-        
-        # CSS
+
+        # CSS y generador HTML
         self.css_content = self._load_css_content()
+        self.html_generator = HTMLReportGenerator()
     
     def _load_css_content(self) -> str:
         """Carga el contenido CSS según la configuración"""
@@ -118,37 +127,37 @@ class NoConformidadesManager(TareaDiaria):
             self.logger.error(f"Error ejecutando inserción/actualización: {e}")
             self.logger.debug(f"Query: {query}")
             return False
-    
+
     def close_connections(self):
-        """Cierra las conexiones a las bases de datos"""
+        """Cierra conexiones abiertas del manager."""
         super().close_connections()
         if self.db_nc:
             try:
                 self.db_nc.disconnect()
-            except Exception as e:
+            except Exception as e:  # Mantener genérica aquí; cierre no crítico
                 self.logger.warning("Error cerrando conexión NC: {}".format(e))
             finally:
                 self.db_nc = None
-    
+
     def _format_date_for_access(self, fecha) -> str:
         """Formatea una fecha para uso en consultas SQL de Access"""
         if isinstance(fecha, str):
-            try:
-                fecha = datetime.strptime(fecha, '%Y-%m-%d').date()
-            except ValueError:
+            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y'):
                 try:
-                    fecha = datetime.strptime(fecha, '%m/%d/%Y').date()
+                    fecha = datetime.strptime(fecha, fmt).date()
+                    break
                 except ValueError:
-                    self.logger.error("Formato de fecha no reconocido: {}".format(fecha))
-                    return "#01/01/1900#"
-        elif isinstance(fecha, datetime):
+                    continue
+            if isinstance(fecha, str):  # No se pudo convertir
+                # Devolver fecha mínima por compatibilidad histórica (#01/01/1900#)
+                self.logger.error("Formato de fecha no reconocido: {}".format(fecha))
+                return "#01/01/1900#"
+        if isinstance(fecha, datetime):
             fecha = fecha.date()
-        elif hasattr(fecha, 'date'):
-            fecha = fecha.date()
-        
-        return f"#{fecha.strftime('%m/%d/%Y')}#"
-    
-    def get_ars_proximas_vencer_calidad(self) -> List[Dict[str, Any]]:
+        if isinstance(fecha, date):
+            return fecha.strftime('#%m/%d/%Y#')  # Formato literal para Access
+        return str(fecha)
+    def get_ars_proximas_vencer_calidad(self) -> List[ARCalidadProximaRecord]:
         """Obtiene las ARs próximas a vencer o vencidas para el equipo de calidad."""
         try:
             db_nc = self._get_nc_connection()
@@ -168,284 +177,13 @@ class NoConformidadesManager(TareaDiaria):
             result = db_nc.execute_query(query)
             self.logger.info(f"Encontradas {len(result)} ARs próximas a vencer (Calidad).")
             return result
+        except DBErrors as db_err:
+            self.logger.error(f"DBError obteniendo ARs próximas a vencer (Calidad): {db_err}", exc_info=True)
+            return []
         except Exception as e:
-            self.logger.error(f"Error obteniendo ARs próximas a vencer (Calidad): {e}")
+            self.logger.exception(f"Error inesperado obteniendo ARs próximas a vencer (Calidad): {e}")
             return []
     
-    def _get_modern_html_header(self) -> str:
-        """Genera el header HTML moderno para los correos"""
-        return f"""
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Informe No Conformidades</title>
-            <style>
-                {self.css_content}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="logo">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="40" height="40" rx="8" fill="white"/>
-                            <path d="M20 8L32 14V26L20 32L8 26V14L20 8Z" fill="#2563eb"/>
-                            <circle cx="20" cy="20" r="6" fill="white"/>
-                        </svg>
-                    </div>
-                    <div class="header-text">
-                        <h1>Informe de No Conformidades y Acciones Correctivas</h1>
-                    </div>
-                </div>
-        """
-
-    def _get_modern_html_footer(self) -> str:
-        """Genera el footer HTML moderno para los correos"""
-        return """
-            </div>
-            <div class="footer">
-                <p>Este es un mensaje generado por el servicio automatizado del departamento.</p>
-                <p>Este es un correo desatendido. No responda a este mensaje.</p>
-            </div>
-        </body>
-        </html>
-        """
-
-    def _generate_modern_arapc_table_html(self, arapc_data: List[Dict[str, Any]]) -> str:
-        """Genera tabla HTML moderna para ARAPs próximas a caducar"""
-        if not arapc_data:
-            return ""
-        
-        html = """
-        <div class="section">
-            <h2>Acciones Correctivas/Preventivas Próximas a Caducar</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Código NC</th>
-                        <th>Nemotécnico</th>
-                        <th>Descripción</th>
-                        <th>Responsable Calidad</th>
-                        <th>Fecha Apertura</th>
-                        <th>Fecha Prevista Cierre</th>
-                        <th>Días</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        for row in arapc_data:
-            dias = row.get('DiasParaCierre', 0)
-            estado_class = self._get_dias_class(dias)
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(row.get('CodigoNoConformidad', ''))}</td>
-                        <td>{safe_str(row.get('Nemotecnico', ''))}</td>
-                        <td>{safe_str(row.get('DESCRIPCION', ''))}</td>
-                        <td>{safe_str(row.get('RESPONSABLECALIDAD', ''))}</td>
-                        <td>{self._format_date_display(row.get('FECHAAPERTURA'))}</td>
-                        <td>{self._format_date_display(row.get('FPREVCIERRE'))}</td>
-                        <td><span class="dias-indicador {estado_class}">{dias}</span></td>
-                    </tr>
-            """
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        return html
-
-    def _generate_modern_eficacia_table_html(self, eficacia_data: List[Dict[str, Any]]) -> str:
-        """Genera tabla HTML moderna para NCs pendientes de control de eficacia"""
-        if not eficacia_data:
-            return ""
-        
-        html = """
-        <div class="section">
-            <h2>No Conformidades Pendientes de Control de Eficacia</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Código NC</th>
-                        <th>Nemotécnico</th>
-                        <th>Descripción</th>
-                        <th>Responsable Calidad</th>
-                        <th>Fecha Cierre</th>
-                        <th>Fecha Prevista Control</th>
-                        <th>Días</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        for row in eficacia_data:
-            dias = row.get('Dias', 0)
-            estado_class = self._get_dias_class(dias)
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(row.get('CodigoNoConformidad', ''))}</td>
-                        <td>{safe_str(row.get('Nemotecnico', ''))}</td>
-                        <td>{safe_str(row.get('DESCRIPCION', ''))}</td>
-                        <td>{safe_str(row.get('RESPONSABLECALIDAD', ''))}</td>
-                        <td>{self._format_date_display(row.get('FECHACIERRE'))}</td>
-                        <td>{self._format_date_display(row.get('FechaPrevistaControlEficacia'))}</td>
-                        <td><span class="dias-indicador {estado_class}">{dias}</span></td>
-                    </tr>
-            """
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        return html
-
-    def _generate_modern_nc_table_html(self, nc_data: List[Dict[str, Any]]) -> str:
-        """Genera tabla HTML moderna para NCs sin acciones correctivas"""
-        if not nc_data:
-            return ""
-        
-        html = """
-        <div class="section">
-            <h2>No Conformidades sin Acciones Correctivas</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Código NC</th>
-                        <th>Nemotécnico</th>
-                        <th>Descripción</th>
-                        <th>Responsable Calidad</th>
-                        <th>Fecha Apertura</th>
-                        <th>Fecha Prevista Cierre</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        for row in nc_data:
-            html += f"""
-                    <tr>
-                        <td>{safe_str(row.get('CodigoNoConformidad', ''))}</td>
-                        <td>{safe_str(row.get('Nemotecnico', ''))}</td>
-                        <td>{safe_str(row.get('DESCRIPCION', ''))}</td>
-                        <td>{safe_str(row.get('RESPONSABLECALIDAD', ''))}</td>
-                        <td>{self._format_date_display(row.get('FECHAAPERTURA'))}</td>
-                        <td>{self._format_date_display(row.get('FPREVCIERRE'))}</td>
-                    </tr>
-            """
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        return html
-
-    def _generate_modern_replanificar_table_html(self, replanificar_data: List[Dict[str, Any]]) -> str:
-        """Genera tabla HTML moderna para ARs a replanificar"""
-        if not replanificar_data:
-            return ""
-        
-        html = """
-        <div class="section">
-            <h2>Acciones Realizadas para Replanificar</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Código NC</th>
-                        <th>Nemotécnico</th>
-                        <th>Acción Correctiva</th>
-                        <th>Tarea</th>
-                        <th>Técnico</th>
-                        <th>Responsable Calidad</th>
-                        <th>Fecha Fin Prevista</th>
-                        <th>Días</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        for row in replanificar_data:
-            dias = row.get('Dias', 0)
-            estado_class = self._get_dias_class(dias)
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(row.get('CodigoNoConformidad', ''))}</td>
-                        <td>{safe_str(row.get('Nemotecnico', ''))}</td>
-                        <td>{safe_str(row.get('Accion', ''))}</td>
-                        <td>{safe_str(row.get('Tarea', ''))}</td>
-                        <td>{safe_str(row.get('Tecnico', ''))}</td>
-                        <td>{safe_str(row.get('RESPONSABLECALIDAD', ''))}</td>
-                        <td>{self._format_date_display(row.get('FechaFinPrevista'))}</td>
-                        <td><span class="dias-indicador {estado_class}">{dias}</span></td>
-                    </tr>
-            """
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        return html
-
-    def _generate_modern_ar_tecnico_table_html(self, ar_data: List[Dict[str, Any]], titulo: str) -> str:
-        """Genera tabla HTML moderna para ARs de técnicos"""
-        if not ar_data:
-            return ""
-        
-        # Determinar el icono según el título
-        icono = "🔔" if "8-15" in titulo else "⚠️" if "1-7" in titulo else "🚨"
-        
-        html = f"""
-        <div class="section">
-            <h2>{icono} {titulo}</h2>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Código NC</th>
-                        <th>Nemotécnico</th>
-                        <th>Acción Correctiva</th>
-                        <th>Acción Realizada</th>
-                        <th>Fecha Inicio</th>
-                        <th>Fecha Fin Prevista</th>
-                        <th>Responsable</th>
-                        <th>Días para Caducar</th>
-                        <th>Correo Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        for row in ar_data:
-            dias = row.get('DiasParaCaducar', 0)
-            estado_class = self._get_dias_class(dias)
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(row.get('CodigoNoConformidad', ''))}</td>
-                        <td>{safe_str(row.get('Nemotecnico', ''))}</td>
-                        <td>{safe_str(row.get('AccionCorrectiva', ''))}</td>
-                        <td>{safe_str(row.get('AccionRealizada', ''))}</td>
-                        <td>{self._format_date_display(row.get('FechaInicio'))}</td>
-                        <td>{self._format_date_display(row.get('FechaFinPrevista'))}</td>
-                        <td>{safe_str(row.get('Nombre', ''))}</td>
-                        <td><span class="dias-indicador {estado_class}">{dias}</span></td>
-                        <td>{safe_str(row.get('CorreoCalidad', ''))}</td>
-                    </tr>
-            """
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        return html
 
     def _get_dias_class(self, dias: int) -> str:
         """Retorna la clase CSS según los días restantes"""
@@ -642,14 +380,78 @@ class NoConformidadesManager(TareaDiaria):
             tecnicos = [row['RESPONSABLETELEFONICA'] for row in result if row['RESPONSABLETELEFONICA']]
             self.logger.info(f"Encontrados {len(tecnicos)} técnicos con NCs activas.")
             return tecnicos
+        except DBErrors as db_err:
+            self.logger.error(f"DBError obteniendo técnicos con NCs activas: {db_err}", exc_info=True)
+            return []
         except Exception as e:
-            self.logger.error(f"Error obteniendo técnicos con NCs activas: {e}")
+            self.logger.exception(f"Error inesperado obteniendo técnicos con NCs activas: {e}")
             return []
 
-    def get_ars_tecnico_por_vencer(self, tecnico: str, dias_min: int, dias_max: int, tipo_aviso: str) -> List[Dict[str, Any]]:
-        """Obtiene las ARs de un técnico que están por vencer en un rango de días."""
+    def get_ars_tecnico_por_vencer(self, tecnico: str, dias_min: int, dias_max: int, tipo_aviso: str) -> List[ARTecnicaRecord]:
+        """Obtiene las ARs de un técnico que están por vencer en un rango de días.
+
+        Refactorizada para reutilizar la función genérica _get_ars_tecnico.
+        """
+        return self._get_ars_tecnico(
+            tecnico=tecnico,
+            dias_min=dias_min,
+            dias_max=dias_max,
+            campo_aviso=tipo_aviso,
+            vencidas=False,
+            log_context=f"{dias_min}-{dias_max}"
+        )
+
+    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = "IDCorreo0") -> List[ARTecnicaRecord]:
+        """Obtiene las ARs vencidas de un técnico (fecha fin prevista <= 0 días)."""
+        return self._get_ars_tecnico(
+            tecnico=tecnico,
+            dias_min=None,
+            dias_max=None,
+            campo_aviso=tipo_correo,
+            vencidas=True,
+            log_context="vencidas"
+        )
+
+    # -------------------------------------------------------------
+    #  MÉTODO GENÉRICO UNIFICADO PARA OBTENER ARs POR TÉCNICO
+    # -------------------------------------------------------------
+    def _get_ars_tecnico(
+        self,
+        tecnico: str,
+        dias_min: Optional[int],
+        dias_max: Optional[int],
+        campo_aviso: str,
+        vencidas: bool = False,
+        log_context: str = ""
+    ) -> List[ARTecnicaRecord]:
+        """Obtiene ARs para un técnico según rango de días o vencidas.
+
+        Args:
+            tecnico: Identificador del responsable telefónica.
+            dias_min: Límite inferior del rango (inclusive salvo caso especial 1-7).
+            dias_max: Límite superior del rango (inclusive).
+            campo_aviso: Campo de la tabla TbNCARAvisos a comprobar (IDCorreo0/7/15).
+            vencidas: Si True ignora rango y usa condición <= 0.
+            log_context: Texto adicional para logging (e.g. "8-15", "1-7", "vencidas").
+        """
         try:
             db_nc = self._get_nc_connection()
+
+            campo_correo_map = {
+                "IDCorreo0": "TbNCARAvisos.IDCorreo0",
+                "IDCorreo7": "TbNCARAvisos.IDCorreo7",
+                "IDCorreo15": "TbNCARAvisos.IDCorreo15",
+            }
+            campo_correo = campo_correo_map.get(campo_aviso, "TbNCARAvisos.IDCorreo0")
+
+            if vencidas:
+                condicion_dias = "DateDiff('d',Now(),[FechaFinPrevista]) <= 0"
+            else:
+                if dias_min == 1:
+                    condicion_dias = f"DateDiff('d',Now(),[FechaFinPrevista]) > 0 AND DateDiff('d',Now(),[FechaFinPrevista]) <= {dias_max}"
+                else:
+                    condicion_dias = f"DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN {dias_min} AND {dias_max}"
+
             query = f"""
                 SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
                     TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
@@ -665,45 +467,20 @@ class NoConformidadesManager(TareaDiaria):
                   ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
                 LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
                 WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
-                  AND DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN {dias_min} AND {dias_max}
-                  AND TbNCARAvisos.{tipo_aviso} IS NULL
-                  AND TbNoConformidades.RESPONSABLETELEFONICA = ?;
+                  AND {condicion_dias}
+                  AND {campo_correo} IS NULL
+                  AND TbNoConformidades.RESPONSABLETELEFONICA = ?
             """
             result = db_nc.execute_query(query, (tecnico,))
-            self.logger.info(f"Encontradas {len(result)} ARs para {tecnico} con vencimiento entre {dias_min} y {dias_max} días.")
+            self.logger.info(
+                f"Encontradas {len(result)} ARs para técnico {tecnico} ({log_context or 'rango'})"
+            )
             return result
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARs para {tecnico}: {e}")
+        except DBErrors as db_err:
+            self.logger.error(f"DBError obteniendo ARs para técnico {tecnico} ({log_context}): {db_err}", exc_info=True)
             return []
-
-    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = "IDCorreo0") -> List[Dict[str, Any]]:
-        """Obtiene las ARs vencidas de un técnico."""
-        try:
-            db_nc = self._get_nc_connection()
-            query = f"""
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
-                    TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
-                    TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista,
-                    TbUsuariosAplicaciones.Nombre, DateDiff('d',Now(),[FechaFinPrevista]) AS DiasParaCaducar,
-                    TbUsuariosAplicaciones.CorreoUsuario AS CorreoCalidad, TbExpedientes.Nemotecnico
-                FROM ((TbNoConformidades 
-                  LEFT JOIN TbUsuariosAplicaciones ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed)
-                  INNER JOIN (TbNCAccionCorrectivas 
-                    INNER JOIN (TbNCAccionesRealizadas 
-                      LEFT JOIN TbNCARAvisos ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR)
-                    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-                  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-                LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
-                WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
-                  AND DateDiff('d',Now(),[FechaFinPrevista]) <= 0
-                  AND TbNCARAvisos.{tipo_correo} IS NULL
-                  AND TbNoConformidades.RESPONSABLETELEFONICA = ?;
-            """
-            result = db_nc.execute_query(query, (tecnico,))
-            self.logger.info(f"Encontradas {len(result)} ARs vencidas para {tecnico}.")
-            return result
         except Exception as e:
-            self.logger.error(f"Error obteniendo ARs vencidas para {tecnico}: {e}")
+            self.logger.exception(f"Error inesperado obteniendo ARs para técnico {tecnico} ({log_context}): {e}")
             return []
 
     def registrar_aviso_ar(self, id_ar: int, id_correo: int, tipo_aviso: str):
@@ -827,10 +604,11 @@ class NoConformidadesManager(TareaDiaria):
         """
         try:
             return get_users_with_fallback(
+                user_type='technical',
                 db_connection=self._get_nc_connection(),
-                id_aplicacion=self.id_aplicacion_nc,
-                tipo_usuario='Técnico',
-                logger=self.logger
+                config=config,
+                logger=self.logger,
+                app_id=self.id_aplicacion_nc
             )
         except Exception as e:
             self.logger.error("Error obteniendo usuarios técnicos: {}".format(e))
@@ -842,10 +620,11 @@ class NoConformidadesManager(TareaDiaria):
         """
         try:
             return get_users_with_fallback(
+                user_type='quality',
                 db_connection=self._get_nc_connection(),
-                id_aplicacion=self.id_aplicacion_nc,
-                tipo_usuario='Calidad',
-                logger=self.logger
+                config=config,
+                logger=self.logger,
+                app_id=self.id_aplicacion_nc
             )
         except Exception as e:
             self.logger.error("Error obteniendo usuarios de calidad: {}".format(e))
@@ -857,10 +636,11 @@ class NoConformidadesManager(TareaDiaria):
         """
         try:
             return get_users_with_fallback(
+                user_type='admin',
                 db_connection=self._get_nc_connection(),
-                id_aplicacion=self.id_aplicacion_nc,
-                tipo_usuario='Administrador',
-                logger=self.logger
+                config=config,
+                logger=self.logger,
+                app_id=self.id_aplicacion_nc
             )
         except Exception as e:
             self.logger.error("Error obteniendo usuarios administradores: {}".format(e))
@@ -927,68 +707,18 @@ class NoConformidadesManager(TareaDiaria):
         return html
     
     def generate_quality_report_html(self, nc_pendientes_eficacia, nc_sin_acciones, ar_vencidas_calidad, ar_proximas_vencer_calidad, **kwargs):
-        """Genera el cuerpo del email para el reporte de Calidad con las 4 secciones requeridas."""
-        html = self._get_modern_html_header()
-
-        # Sección 1: ARs Próximas a Caducar o Caducadas
-        if ar_proximas_vencer_calidad:
-            html += '<div class="seccion">\n'
-            html += '<h3>1. ARs Próximas a Caducar o Caducadas (sin fecha fin real)</h3>\n'
-            html += self._generate_modern_arapc_table_html(ar_proximas_vencer_calidad)
-            html += '</div>\n'
-
-        # Sección 2: NCs Resueltas Pendientes de Control de Eficacia
-        if nc_pendientes_eficacia:
-            html += '<div class="seccion">\n'
-            html += '<h3>2. No Conformidades Resueltas Pendientes de Control de Eficacia</h3>\n'
-            html += self._generate_modern_eficacia_table_html(nc_pendientes_eficacia)
-            html += '</div>\n'
-
-        # Sección 3: NCs sin Acciones Correctivas
-        if nc_sin_acciones:
-            html += '<div class="seccion">\n'
-            html += '<h3>3. No Conformidades sin Acciones Correctivas Registradas</h3>\n'
-            html += self._generate_modern_nc_table_html(nc_sin_acciones)
-            html += '</div>\n'
-
-        # Sección 4: ARs para Replanificar
+        """Genera el cuerpo del email para el reporte de Calidad usando el generador unificado."""
         ars_replanificar = self.get_ars_para_replanificar()
-        if ars_replanificar:
-            html += '<div class="seccion">\n'
-            html += '<h3>4. ARs para Replanificar (fecha prevista cercana o pasada, sin fecha fin real)</h3>\n'
-            html += self._generate_modern_replanificar_table_html(ars_replanificar)
-            html += '</div>\n'
-
-        html += self._get_modern_html_footer()
-        return html
+        return self.html_generator.generar_reporte_calidad_moderno(
+            ar_proximas_vencer_calidad,
+            nc_pendientes_eficacia,
+            nc_sin_acciones,
+            ars_replanificar
+        )
 
     def generate_technician_report_html(self, ar_15_dias, ar_7_dias, ar_vencidas, **kwargs):
-        """Genera el cuerpo del email para el reporte de Técnicos con las 3 secciones requeridas."""
-        html = self._get_modern_html_header()
-
-        # Sección 1: ARs con fecha fin prevista a 8-15 días
-        if ar_15_dias:
-            html += '<div class="seccion">\n'
-            html += '<h3>1. Acciones Correctivas con fecha fin prevista a 8-15 días</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_15_dias, "Acciones Correctivas con fecha fin prevista a 8-15 días")
-            html += '</div>\n'
-
-        # Sección 2: ARs con fecha fin prevista a 1-7 días
-        if ar_7_dias:
-            html += '<div class="seccion">\n'
-            html += '<h3>2. Acciones Correctivas con fecha fin prevista a 1-7 días</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_7_dias, "Acciones Correctivas con fecha fin prevista a 1-7 días")
-            html += '</div>\n'
-
-        # Sección 3: ARs con fecha fin prevista 0 o negativa (vencidas)
-        if ar_vencidas:
-            html += '<div class="seccion">\n'
-            html += '<h3>3. Acciones Correctivas con fecha fin prevista 0 o negativa (vencidas)</h3>\n'
-            html += self._generate_modern_ar_tecnico_table_html(ar_vencidas, "Acciones Correctivas vencidas")
-            html += '</div>\n'
-
-        html += self._get_modern_html_footer()
-        return html
+        """Genera el cuerpo del email para el reporte de Técnicos usando el generador unificado."""
+        return self.html_generator.generar_reporte_tecnico_moderno(ar_15_dias, ar_7_dias, ar_vencidas)
     
     def _generate_nc_table_html(self, nc_list: List[Dict]) -> str:
         """Genera tabla HTML para No Conformidades"""
@@ -1086,24 +816,26 @@ class NoConformidadesManager(TareaDiaria):
     
     def should_execute_technical_task(self) -> bool:
         """
-        Determina si debe ejecutarse la tarea técnica
+        Determina si debe ejecutarse la tarea técnica (diaria)
         """
         try:
-            # Verificar última ejecución de NCTecnico
-            last_execution = self.get_last_execution_date("NCTecnico")
-            if last_execution and last_execution.date() == date.today():
-                return False
-            
-            # Verificar si hay datos para procesar
-            nc_proximas = self.get_nc_proximas_caducar()
-            nc_caducadas = self.get_nc_caducadas()
-            arapcs_proximas = self.get_arapcs_proximas_vencer()
-            arapcs_vencidas = self.get_arapcs_vencidas()
-            
-            return len(nc_proximas) > 0 or len(nc_caducadas) > 0 or len(arapcs_proximas) > 0 or len(arapcs_vencidas) > 0
+            from src.common.utils import should_execute_task
+            return should_execute_task(self.db_tareas, "NoConformidadesTecnica", 1, self.logger)
             
         except Exception as e:
             self.logger.error("Error verificando si ejecutar tarea técnica: {}".format(e))
+            return False
+
+    def should_execute_quality_task(self) -> bool:
+        """
+        Determina si debe ejecutarse la tarea de calidad (semanal, primer día laborable)
+        """
+        try:
+            from src.common.utils import should_execute_weekly_task
+            return should_execute_weekly_task(self.db_tareas, "NoConformidadesCalidad", logger=self.logger)
+            
+        except Exception as e:
+            self.logger.error("Error verificando si ejecutar tarea de calidad: {}".format(e))
             return False
 
     def run(self) -> bool:
@@ -1176,38 +908,15 @@ class NoConformidadesManager(TareaDiaria):
             # Generar tablas HTML
             tablas_html = []
             
-            if ars_proximas_vencer:
-                tabla_arapc = self._generate_modern_arapc_table_html(ars_proximas_vencer)
-                tablas_html.append(tabla_arapc)
-                self.logger.info(f"Generada tabla ARAPC con {len(ars_proximas_vencer)} registros")
-            
-            if ncs_pendientes_eficacia:
-                tabla_eficacia = self._generate_modern_eficacia_table_html(ncs_pendientes_eficacia)
-                tablas_html.append(tabla_eficacia)
-                self.logger.info(f"Generada tabla Eficacia con {len(ncs_pendientes_eficacia)} registros")
-            
-            if ncs_sin_acciones:
-                tabla_nc = self._generate_modern_nc_table_html(ncs_sin_acciones)
-                tablas_html.append(tabla_nc)
-                self.logger.info(f"Generada tabla NC sin acciones con {len(ncs_sin_acciones)} registros")
-            
-            if ars_para_replanificar:
-                tabla_replanificar = self._generate_modern_replanificar_table_html(ars_para_replanificar)
-                tablas_html.append(tabla_replanificar)
-                self.logger.info(f"Generada tabla Replanificar con {len(ars_para_replanificar)} registros")
-            
-            # Si hay al menos una tabla, generar el correo
-            if tablas_html:
-                header = self._get_modern_html_header()
-                footer = self._get_modern_html_footer()
-                cuerpo_html = header + "\n".join(tablas_html) + footer
-                
-                # Aquí se registraría el correo usando la función común
-                self.logger.info("Correo HTML generado para Miembros de Calidad")
-                self.logger.info(f"Longitud del HTML generado: {len(cuerpo_html)} caracteres")
-                
-                # Para debug, guardamos el HTML generado
+            cuerpo_html = self.html_generator.generar_reporte_calidad_moderno(
+                ars_proximas_vencer,
+                ncs_pendientes_eficacia,
+                ncs_sin_acciones,
+                ars_para_replanificar
+            )
+            if cuerpo_html.strip():
                 self._guardar_html_debug(cuerpo_html, "correo_calidad.html")
+                self.logger.info("Correo HTML (unificado) generado para Miembros de Calidad")
             else:
                 self.logger.info("No hay datos para generar correo de Calidad")
                 
@@ -1261,134 +970,30 @@ class NoConformidadesManager(TareaDiaria):
             self.logger.info(f"Generando correo para técnico: {tecnico}")
             
             # Obtener ARs del técnico en las 3 categorías
-            ars_15_dias = self._get_ars_tecnico_15_dias(tecnico)
-            ars_7_dias = self._get_ars_tecnico_7_dias(tecnico)
-            ars_vencidas = self._get_ars_tecnico_vencidas(tecnico)
+            # Usar métodos públicos refactorizados (que internamente usan el genérico)
+            ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, "IDCorreo15")
+            ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, "IDCorreo7")
+            ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, "IDCorreo0")
             
             # Generar tablas HTML
             tablas_html = []
             
-            if ars_15_dias:
-                tabla_15 = self._generate_modern_ar_tecnico_table_html(ars_15_dias, "ARs próximas a vencer (8-15 días)")
-                tablas_html.append(tabla_15)
-                self.logger.info(f"Generada tabla 15 días para {tecnico} con {len(ars_15_dias)} registros")
-            
-            if ars_7_dias:
-                tabla_7 = self._generate_modern_ar_tecnico_table_html(ars_7_dias, "ARs próximas a vencer (1-7 días)")
-                tablas_html.append(tabla_7)
-                self.logger.info(f"Generada tabla 7 días para {tecnico} con {len(ars_7_dias)} registros")
-            
-            if ars_vencidas:
-                tabla_vencidas = self._generate_modern_ar_tecnico_table_html(ars_vencidas, "ARs vencidas")
-                tablas_html.append(tabla_vencidas)
-                self.logger.info(f"Generada tabla vencidas para {tecnico} con {len(ars_vencidas)} registros")
-            
-            # Si hay tablas, generar el correo
-            if tablas_html:
-                header = self._get_modern_html_header()
-                footer = self._get_modern_html_footer()
-                cuerpo_html = header + "\n".join(tablas_html) + footer
-                
-                # Aquí se registraría el correo usando la función común
-                self.logger.info(f"Correo HTML generado para técnico: {tecnico}")
-                
-                # Para debug, guardamos el HTML generado
+            cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
+                ars_15_dias,
+                ars_7_dias,
+                ars_vencidas
+            )
+            if cuerpo_html.strip():
                 self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
+                self.logger.info(f"Correo HTML (unificado) generado para técnico: {tecnico}")
             else:
                 self.logger.info(f"No hay datos para generar correo para técnico: {tecnico}")
                 
         except Exception as e:
             self.logger.error(f"Error generando correo para técnico {tecnico}: {e}")
 
-    def _get_ars_tecnico_15_dias(self, tecnico: str) -> List[Dict]:
-        """
-        Obtiene ARs del técnico con fecha fin prevista a 8-15 días
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            query = f"""
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
-                    TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
-                    TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista,
-                    TbUsuariosAplicaciones.Nombre, DateDiff('d',Now(),[FechaFinPrevista]) AS DiasParaCaducar,
-                    TbUsuariosAplicaciones.CorreoUsuario AS CorreoCalidad, TbExpedientes.Nemotecnico
-                FROM ((TbNoConformidades 
-                  LEFT JOIN TbUsuariosAplicaciones ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed)
-                  INNER JOIN (TbNCAccionCorrectivas 
-                    INNER JOIN (TbNCAccionesRealizadas 
-                      LEFT JOIN TbNCARAvisos ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR)
-                    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-                  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-                LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
-                WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
-                  AND DateDiff('d',Now(),[FechaFinPrevista]) BETWEEN 8 AND 15
-                  AND TbNCARAvisos.IDCorreo15 IS NULL
-                  AND TbNoConformidades.RESPONSABLETELEFONICA = '{tecnico}'
-            """
-            return db_nc.execute_query(query)
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARs 15 días para técnico {tecnico}: {e}")
-            return []
-
-    def _get_ars_tecnico_7_dias(self, tecnico: str) -> List[Dict]:
-        """
-        Obtiene ARs del técnico con fecha fin prevista a 1-7 días
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            query = f"""
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
-                    TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
-                    TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista,
-                    TbUsuariosAplicaciones.Nombre, DateDiff('d',Now(),[FechaFinPrevista]) AS DiasParaCaducar,
-                    TbUsuariosAplicaciones.CorreoUsuario AS CorreoCalidad, TbExpedientes.Nemotecnico
-                FROM ((TbNoConformidades 
-                  LEFT JOIN TbUsuariosAplicaciones ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed)
-                  INNER JOIN (TbNCAccionCorrectivas 
-                    INNER JOIN (TbNCAccionesRealizadas 
-                      LEFT JOIN TbNCARAvisos ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR)
-                    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-                  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-                LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
-                WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
-                  AND DateDiff('d',Now(),[FechaFinPrevista]) > 0 AND DateDiff('d',Now(),[FechaFinPrevista]) <= 7
-                  AND TbNCARAvisos.IDCorreo7 IS NULL
-                  AND TbNoConformidades.RESPONSABLETELEFONICA = '{tecnico}'
-            """
-            return db_nc.execute_query(query)
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARs 7 días para técnico {tecnico}: {e}")
-            return []
-
-    def _get_ars_tecnico_vencidas(self, tecnico: str) -> List[Dict]:
-        """
-        Obtiene ARs del técnico con fecha fin prevista 0 o negativa
-        """
-        try:
-            db_nc = self._get_nc_connection()
-            query = f"""
-                SELECT DISTINCT TbNoConformidades.CodigoNoConformidad, TbNCAccionesRealizadas.IDAccionRealizada,
-                    TbNCAccionCorrectivas.AccionCorrectiva, TbNCAccionesRealizadas.AccionRealizada,
-                    TbNCAccionesRealizadas.FechaInicio, TbNCAccionesRealizadas.FechaFinPrevista,
-                    TbUsuariosAplicaciones.Nombre, DateDiff('d',Now(),[FechaFinPrevista]) AS DiasParaCaducar,
-                    TbUsuariosAplicaciones.CorreoUsuario AS CorreoCalidad, TbExpedientes.Nemotecnico
-                FROM ((TbNoConformidades 
-                  LEFT JOIN TbUsuariosAplicaciones ON TbNoConformidades.RESPONSABLECALIDAD = TbUsuariosAplicaciones.UsuarioRed)
-                  INNER JOIN (TbNCAccionCorrectivas 
-                    INNER JOIN (TbNCAccionesRealizadas 
-                      LEFT JOIN TbNCARAvisos ON TbNCAccionesRealizadas.IDAccionRealizada = TbNCARAvisos.IDAR)
-                    ON TbNCAccionCorrectivas.IDAccionCorrectiva = TbNCAccionesRealizadas.IDAccionCorrectiva)
-                  ON TbNoConformidades.IDNoConformidad = TbNCAccionCorrectivas.IDNoConformidad)
-                LEFT JOIN TbExpedientes ON TbNoConformidades.IDExpediente = TbExpedientes.IDExpediente
-                WHERE TbNCAccionesRealizadas.FechaFinReal IS NULL
-                  AND DateDiff('d',Now(),[FechaFinPrevista]) <= 0
-                  AND TbNCARAvisos.IDCorreo0 IS NULL
-                  AND TbNoConformidades.RESPONSABLETELEFONICA = '{tecnico}'
-            """
-            return db_nc.execute_query(query)
-        except Exception as e:
-            self.logger.error(f"Error obteniendo ARs vencidas para técnico {tecnico}: {e}")
-            return []
+    # (Los métodos específicos _get_ars_tecnico_15_dias / 7_dias / vencidas fueron
+    #  eliminados en favor de _get_ars_tecnico para reducir duplicación.)
 
     def _guardar_html_debug(self, html_content: str, filename: str):
         """

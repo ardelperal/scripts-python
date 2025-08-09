@@ -26,53 +26,41 @@ class ReportRegistrar:
     def __init__(self):
         self.html_generator = HTMLReportGenerator()
     
-    def _generar_reporte_calidad_html(self, ars_proximas_vencer=None, ncs_pendientes_eficacia=None, 
-                                     ncs_sin_acciones=None, ars_para_replanificar=None, 
+    def _generar_reporte_calidad_html(self, ars_proximas_vencer=None, ncs_pendientes_eficacia=None,
+                                     ncs_sin_acciones=None, ars_para_replanificar=None,
                                      destinatarios_calidad="", destinatarios_admin="") -> str:
-        """Genera el HTML para el reporte de calidad"""
+        """Genera el HTML para el reporte de calidad usando el estilo moderno unificado."""
         try:
-            # Usar listas vacías si no se proporcionan datos
-            ars_proximas_vencer = ars_proximas_vencer or []
-            ncs_pendientes_eficacia = ncs_pendientes_eficacia or []
-            ncs_sin_acciones = ncs_sin_acciones or []
-            ars_para_replanificar = ars_para_replanificar or []
-            
-            # Generar reporte completo usando HTMLReportGenerator
-            html = self.html_generator.generar_reporte_completo(
-                ncs_eficacia=ncs_pendientes_eficacia,
-                arapcs=[],  # No hay ARAPs en reporte de calidad
-                ncs_caducar=ars_proximas_vencer,
-                ncs_sin_acciones=ncs_sin_acciones,
-                titulo="Reporte de Calidad - No Conformidades"
+            html = self.html_generator.generar_reporte_calidad_moderno(
+                ars_proximas_vencer or [],
+                ncs_pendientes_eficacia or [],
+                ncs_sin_acciones or [],
+                ars_para_replanificar or []
             )
-            
             return html
-            
         except Exception as e:
             logger.error(f"Error generando HTML de reporte de calidad: {e}")
             return f"<html><body><h1>Error generando reporte</h1><p>{str(e)}</p></body></html>"
     
-    def _generar_reporte_tecnico_html(self, arapcs=None, destinatarios_tecnicos="", destinatarios_admin="") -> str:
-        """Genera el HTML para el reporte técnico"""
+    def _generar_reporte_tecnico_html(self, arapcs_15=None, arapcs_7=None, arapcs_0=None,
+                                      destinatarios_tecnicos="", destinatarios_admin="") -> str:
+        """Genera el HTML para el reporte técnico usando el estilo moderno unificado.
+
+        Separa las acciones por rangos (8-15, 1-7 y vencidas/<=0) si se proporcionan listas.
+        Si solo se pasa una lista genérica antigua (arapcs_15) se incluirá tal cual en la sección 8-15.
+        """
         try:
-            logger.debug(f"Generando reporte técnico con {len(arapcs) if arapcs else 0} ARAPs.")
-            # Usar lista vacía si no se proporcionan datos
-            arapcs = arapcs or []
-            
-            # Generar reporte completo usando HTMLReportGenerator
-            html = self.html_generator.generar_reporte_completo(
-                ncs_eficacia=[],
-                arapcs=arapcs,
-                ncs_caducar=[],
-                ncs_sin_acciones=[],
-                titulo="Reporte Técnico - Tareas de Acciones Correctivas a punto de caducar o caducadas"
+            logger.debug(
+                f"Generando reporte técnico moderno con bloques: 15={len(arapcs_15 or [])}, 7={len(arapcs_7 or [])}, 0={len(arapcs_0 or [])}"
             )
-            
-            logger.debug("HTML de reporte técnico generado correctamente.")
+            html = self.html_generator.generar_reporte_tecnico_moderno(
+                arapcs_15 or [],
+                arapcs_7 or [],
+                arapcs_0 or []
+            )
             return html
-            
         except Exception as e:
-            logger.error(f"Error generando HTML de reporte técnico: {e}", exc_info=True)
+            logger.error(f"Error generando HTML de reporte técnico moderno: {e}", exc_info=True)
             return f"<html><body><h1>Error generando reporte</h1><p>{str(e)}</p></body></html>"
     
     def _generar_notificacion_individual_html(self, arap: Dict[str, Any], responsable_email: str = "") -> str:
@@ -423,7 +411,13 @@ def enviar_notificacion_calidad(datos_calidad: Dict[str, Any]) -> bool:
         
         # Generar contenido HTML
         html_generator = HTMLReportGenerator()
-        cuerpo_html = html_generator.generar_reporte_calidad(datos_calidad)
+        # Adaptación a estructura moderna: esperados keys similares
+        cuerpo_html = html_generator.generar_reporte_calidad_moderno(
+            datos_calidad.get('ars_proximas_vencer', []),
+            datos_calidad.get('ncs_pendientes_eficacia', []),
+            datos_calidad.get('ncs_sin_acciones', []),
+            datos_calidad.get('ars_para_replanificar', [])
+        )
         
         # Preparar destinatarios
         todos_destinatarios = destinatarios_calidad + destinatarios_admin
@@ -471,7 +465,12 @@ def enviar_notificacion_tecnica(datos_tecnicos: Dict[str, Any]) -> bool:
         
         # Generar contenido HTML
         html_generator = HTMLReportGenerator()
-        cuerpo_html = html_generator.generar_reporte_tecnico(datos_tecnicos)
+        arapcs_data = datos_tecnicos.get('arapcs', {}) if isinstance(datos_tecnicos, dict) else {}
+        cuerpo_html = html_generator.generar_reporte_tecnico_moderno(
+            arapcs_data.get('15_dias', []),
+            arapcs_data.get('7_dias', []),
+            arapcs_data.get('0_dias', [])
+        )
         
         # Preparar destinatarios
         todos_destinatarios = destinatarios_tecnicos + destinatarios_admin

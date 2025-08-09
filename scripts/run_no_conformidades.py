@@ -14,6 +14,7 @@ Uso:
 import sys
 import os
 import argparse
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +22,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from src.common.logger import setup_logger
+from src.common.logger import setup_logger  # Conservamos para compatibilidad si otros módulos lo usan
+from src.common.utils import setup_logging
 from src.common.utils import (
     should_execute_task, should_execute_quality_task, get_admin_emails_string, get_quality_emails_string, 
     get_technical_emails_string, register_task_completion, register_email_in_database
@@ -29,6 +31,16 @@ from src.common.utils import (
 from src.no_conformidades.no_conformidades_manager import NoConformidadesManager
 from src.no_conformidades.report_registrar import ReportRegistrar
 from src.common.user_adapter import get_users_with_fallback
+
+# ---------------------------------------------------------------------------
+# Configuración de logging unificada (con archivo + consola)
+# ---------------------------------------------------------------------------
+# Antes este script sólo usaba consola (setup_logger) y el duplicado en src añadía
+# un archivo logs/no_conformidades.log. Integramos aquí esa mejora y eliminamos
+# el script duplicado.
+
+LOG_FILE = Path(__file__).parent.parent / "logs" / "no_conformidades.log"
+logger = setup_logging(module_name=__name__, log_file=LOG_FILE)
 
 
 def parse_arguments():
@@ -81,7 +93,7 @@ Ejemplos de uso:
 
 def ejecutar_tarea_calidad(dry_run=False):
     """Ejecuta la tarea de calidad generando un informe consolidado."""
-    logger = setup_logger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("=== INICIANDO TAREA DE CALIDAD ===")
     if dry_run:
         logger.info("MODO DRY-RUN: No se enviarán emails reales")
@@ -158,7 +170,7 @@ def ejecutar_tarea_calidad(dry_run=False):
 
 def ejecutar_tarea_tecnica(dry_run=False):
     """Ejecuta la tarea técnica enviando notificaciones individuales por técnico."""
-    logger = setup_logger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("=== INICIANDO TAREA TÉCNICA ===")
     if dry_run:
         logger.info("MODO DRY-RUN: No se enviarán emails reales")
@@ -276,7 +288,7 @@ def main():
     # Parsear argumentos de línea de comandos
     args = parse_arguments()
     
-    logger = setup_logger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("=== INICIANDO PROCESAMIENTO DE NO CONFORMIDADES ===")
     
     if args.dry_run:
@@ -308,23 +320,14 @@ def main():
                 # Usar context manager para verificar qué tareas se requieren
                 with NoConformidadesManager() as nc_manager:
                     # Verificar si se requiere ejecutar tarea de calidad usando lógica de días laborables
-                    # Tareas de calidad: semanales, preferentemente los lunes (configurables via .env)
-                    dia_preferido_calidad = int(os.getenv('NC_CALIDAD_DIA_PREFERIDO', '0'))  # 0 = lunes
-                    archivo_festivos = os.getenv('MASTER_FESTIVOS_FILE', 'herramientas/Festivos.txt')
-                    ejecutar_calidad = should_execute_quality_task(
-                        nc_manager.db_tareas, 
-                        "NoConformidadesCalidad", 
-                        dia_preferido_calidad, 
-                        archivo_festivos, 
-                        logger
-                    )
-                    logger.info(f"Requiere tarea de calidad (día preferido: {['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'][dia_preferido_calidad]}): {ejecutar_calidad}")
+                    # Tareas de calidad: semanales, primer día laborable de la semana
+                    ejecutar_calidad = nc_manager.should_execute_quality_task()
+                    logger.info(f"Requiere tarea de calidad (primer día laborable de la semana): {ejecutar_calidad}")
                     
                     # Verificar si se requiere ejecutar tarea técnica usando función común
-                    # Tareas técnicas: diarias (configurables via .env)
-                    frecuencia_tecnica = int(os.getenv('NC_FRECUENCIA_TECNICA_DIAS', '1'))
-                    ejecutar_tecnica = should_execute_task(nc_manager.db_tareas, "NoConformidadesTecnica", frecuencia_tecnica, logger)
-                    logger.info(f"Requiere tarea técnica (cada {frecuencia_tecnica} días): {ejecutar_tecnica}")
+                    # Tareas técnicas: diarias
+                    ejecutar_tecnica = nc_manager.should_execute_technical_task()
+                    logger.info(f"Requiere tarea técnica (diaria): {ejecutar_tecnica}")
                     
             except Exception as e:
                 logger.error(f"Error verificando horarios: {e}")
@@ -359,11 +362,9 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     try:
         success = main()
         sys.exit(0 if success else 1)
     except Exception as e:
-        logger = setup_logger(__name__)
         logger.error(f"Error crítico en ejecución: {e}")
         sys.exit(1)
