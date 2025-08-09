@@ -5,6 +5,8 @@ Manager de Expedientes - Migración del sistema original con mejoras del módulo
 from datetime import datetime, date
 from typing import Dict, List, Optional
 import logging
+import json
+import time
 
 from src.common.base_task import TareaDiaria
 from src.common.config import Config
@@ -28,14 +30,14 @@ class ExpedientesManager(TareaDiaria):
             task_names=["ExpedientesDiario"],
             frequency_days=1
         )
-        
+
         self.config = Config()
         self.logger = logging.getLogger(__name__)
-        
+
         # Conexiones a bases de datos
         self.db_expedientes = None
         self.db_tareas = None
-        
+
         # CSS para el formato HTML
         self.css_content = self._load_css_content()
     
@@ -156,7 +158,10 @@ class ExpedientesManager(TareaDiaria):
             
             return expedientes
         except Exception as e:
-            self.logger.error(f"Error obteniendo expedientes TSOL sin código S4H: {e}")
+            self.logger.error(
+                f"Error obteniendo expedientes TSOL sin código S4H: {e}",
+                extra={'context': 'get_expedientes_tsol_sin_cod_s4h'}
+            )
             return []
 
     def get_expedientes_a_punto_finalizar(self) -> List[Dict]:
@@ -196,7 +201,10 @@ class ExpedientesManager(TareaDiaria):
             
             return expedientes
         except Exception as e:
-            self.logger.error(f"Error obteniendo expedientes a punto de finalizar: {e}")
+            self.logger.error(
+                f"Error obteniendo expedientes a punto de finalizar: {e}",
+                extra={'context': 'get_expedientes_a_punto_finalizar'}
+            )
             return []
 
     def get_hitos_a_punto_finalizar(self) -> List[Dict]:
@@ -229,7 +237,10 @@ class ExpedientesManager(TareaDiaria):
             
             return hitos
         except Exception as e:
-            self.logger.error(f"Error obteniendo hitos a punto de finalizar: {e}")
+            self.logger.error(
+                f"Error obteniendo hitos a punto de finalizar: {e}",
+                extra={'context': 'get_hitos_a_punto_finalizar'}
+            )
             return []
 
     def get_expedientes_estado_desconocido(self) -> List[Dict]:
@@ -261,7 +272,10 @@ class ExpedientesManager(TareaDiaria):
             
             return expedientes
         except Exception as e:
-            self.logger.error(f"Error obteniendo expedientes con estado desconocido: {e}")
+            self.logger.error(
+                f"Error obteniendo expedientes con estado desconocido: {e}",
+                extra={'context': 'get_expedientes_estado_desconocido'}
+            )
             return []
 
     def get_expedientes_adjudicados_sin_contrato(self) -> List[Dict]:
@@ -301,7 +315,10 @@ class ExpedientesManager(TareaDiaria):
             
             return expedientes
         except Exception as e:
-            self.logger.error(f"Error obteniendo expedientes adjudicados sin contrato: {e}")
+            self.logger.error(
+                f"Error obteniendo expedientes adjudicados sin contrato: {e}",
+                extra={'context': 'get_expedientes_adjudicados_sin_contrato'}
+            )
             return []
 
     def get_expedientes_fase_oferta_mucho_tiempo(self) -> List[Dict]:
@@ -336,7 +353,10 @@ class ExpedientesManager(TareaDiaria):
             
             return expedientes
         except Exception as e:
-            self.logger.error(f"Error obteniendo expedientes en fase de oferta por mucho tiempo: {e}")
+            self.logger.error(
+                f"Error obteniendo expedientes en fase de oferta por mucho tiempo: {e}",
+                extra={'context': 'get_expedientes_fase_oferta_mucho_tiempo'}
+            )
             return []
 
     # Funciones modernas de generación de HTML
@@ -665,7 +685,10 @@ class ExpedientesManager(TareaDiaria):
                 return []
                 
         except Exception as e:
-            self.logger.error(f"Error obteniendo emails de administradores: {e}")
+            self.logger.error(
+                f"Error obteniendo emails de administradores: {e}",
+                extra={'context': 'get_admin_emails'}
+            )
             return []
 
     def _get_tramitadores_emails(self) -> List[str]:
@@ -702,7 +725,10 @@ class ExpedientesManager(TareaDiaria):
                 return []
                 
         except Exception as e:
-            self.logger.error(f"Error obteniendo emails de tramitadores: {e}")
+            self.logger.error(
+                f"Error obteniendo emails de tramitadores: {e}",
+                extra={'context': '_get_tramitadores_emails'}
+            )
             return []
 
     def _guardar_html_debug(self, html_content: str, filename: str):
@@ -719,7 +745,10 @@ class ExpedientesManager(TareaDiaria):
             
             self.logger.info(f"HTML guardado en: {filepath}")
         except Exception as e:
-            self.logger.error(f"Error guardando HTML debug: {e}")
+            self.logger.error(
+                f"Error guardando HTML debug: {e}",
+                extra={'context': '_guardar_html_debug'}
+            )
 
     def generate_email_body(self) -> str:
         """Genera el cuerpo del correo HTML con todas las secciones usando el estilo moderno"""
@@ -738,32 +767,50 @@ class ExpedientesManager(TareaDiaria):
             if expedientes_tsol:
                 tabla_tsol = self._generate_modern_tsol_table_html(expedientes_tsol)
                 tablas_html.append(tabla_tsol)
-                self.logger.info(f"Generada tabla TSOL con {len(expedientes_tsol)} registros")
+                self.logger.info(
+                    "Tabla TSOL generada",
+                    extra={'metric_name': 'expedientes_tsol_count', 'metric_value': len(expedientes_tsol)}
+                )
             
             if expedientes_finalizar:
                 tabla_finalizar = self._generate_modern_finalizar_table_html(expedientes_finalizar)
                 tablas_html.append(tabla_finalizar)
-                self.logger.info(f"Generada tabla Finalizar con {len(expedientes_finalizar)} registros")
+                self.logger.info(
+                    "Tabla Finalizar generada",
+                    extra={'metric_name': 'expedientes_finalizar_count', 'metric_value': len(expedientes_finalizar)}
+                )
             
             if hitos_finalizar:
                 tabla_hitos = self._generate_modern_hitos_table_html(hitos_finalizar)
                 tablas_html.append(tabla_hitos)
-                self.logger.info(f"Generada tabla Hitos con {len(hitos_finalizar)} registros")
+                self.logger.info(
+                    "Tabla Hitos generada",
+                    extra={'metric_name': 'hitos_finalizar_count', 'metric_value': len(hitos_finalizar)}
+                )
             
             if expedientes_desconocido:
                 tabla_desconocido = self._generate_modern_desconocido_table_html(expedientes_desconocido)
                 tablas_html.append(tabla_desconocido)
-                self.logger.info(f"Generada tabla Estado Desconocido con {len(expedientes_desconocido)} registros")
+                self.logger.info(
+                    "Tabla Estado Desconocido generada",
+                    extra={'metric_name': 'expedientes_desconocido_count', 'metric_value': len(expedientes_desconocido)}
+                )
             
             if expedientes_sin_contrato:
                 tabla_sin_contrato = self._generate_modern_sin_contrato_table_html(expedientes_sin_contrato)
                 tablas_html.append(tabla_sin_contrato)
-                self.logger.info(f"Generada tabla Sin Contrato con {len(expedientes_sin_contrato)} registros")
+                self.logger.info(
+                    "Tabla Sin Contrato generada",
+                    extra={'metric_name': 'expedientes_sin_contrato_count', 'metric_value': len(expedientes_sin_contrato)}
+                )
             
             if expedientes_oferta_tiempo:
                 tabla_oferta = self._generate_modern_oferta_tiempo_table_html(expedientes_oferta_tiempo)
                 tablas_html.append(tabla_oferta)
-                self.logger.info(f"Generada tabla Oferta Tiempo con {len(expedientes_oferta_tiempo)} registros")
+                self.logger.info(
+                    "Tabla Oferta Tiempo generada",
+                    extra={'metric_name': 'expedientes_oferta_tiempo_count', 'metric_value': len(expedientes_oferta_tiempo)}
+                )
             
             # Si hay al menos una tabla, generar el correo
             if tablas_html:
@@ -772,7 +819,10 @@ class ExpedientesManager(TareaDiaria):
                 cuerpo_html = header + "\n".join(tablas_html) + footer
                 
                 self.logger.info("Correo HTML generado para Expedientes")
-                self.logger.info(f"Longitud del HTML generado: {len(cuerpo_html)} caracteres")
+                self.logger.info(
+                    "Longitud HTML correo",
+                    extra={'metric_name': 'expedientes_email_html_length_chars', 'metric_value': len(cuerpo_html)}
+                )
                 
                 # Para debug, guardamos el HTML generado
                 self._guardar_html_debug(cuerpo_html, "correo_expedientes.html")
@@ -783,7 +833,10 @@ class ExpedientesManager(TareaDiaria):
                 return ""
             
         except Exception as e:
-            self.logger.error(f"Error generando cuerpo del correo: {e}")
+            self.logger.error(
+                f"Error generando cuerpo del correo: {e}",
+                extra={'context': 'generate_email_body'}
+            )
             return ""
 
     def register_email(self, subject: str, body: str, recipients: List[str], bcc_recipients: List[str] = None) -> bool:
@@ -806,7 +859,10 @@ class ExpedientesManager(TareaDiaria):
             )
                 
         except Exception as e:
-            self.logger.error(f"Error registrando correo: {e}")
+            self.logger.error(
+                f"Error registrando correo: {e}",
+                extra={'context': 'register_email'}
+            )
             return False
 
     def register_task(self) -> bool:
@@ -823,7 +879,10 @@ class ExpedientesManager(TareaDiaria):
             )
                 
         except Exception as e:
-            self.logger.error(f"Error registrando tarea: {e}")
+            self.logger.error(
+                f"Error registrando tarea: {e}",
+                extra={'context': 'register_task'}
+            )
             return False
 
     def should_execute_task(self) -> bool:
@@ -835,7 +894,10 @@ class ExpedientesManager(TareaDiaria):
             return should_execute_weekly_task(self.db_tareas, "Expedientes", logger=self.logger)
             
         except Exception as e:
-            self.logger.error("Error verificando si ejecutar tarea de expedientes: {}".format(e))
+            self.logger.error(
+                "Error verificando si ejecutar tarea de expedientes: {}".format(e),
+                extra={'context': 'should_execute_task'}
+            )
             return False
 
     def run(self) -> bool:
@@ -864,7 +926,10 @@ class ExpedientesManager(TareaDiaria):
             return success
             
         except Exception as e:
-            self.logger.error("Error ejecutando tarea de Expedientes: {}".format(e))
+            self.logger.error(
+                "Error ejecutando tarea de Expedientes: {}".format(e),
+                extra={'context': 'run'}
+            )
             return False
 
     def ejecutar_logica_especifica(self) -> bool:
@@ -875,6 +940,7 @@ class ExpedientesManager(TareaDiaria):
             True si se ejecutó correctamente
         """
         try:
+            start_time = time.time()
             self.logger.info("Ejecutando lógica específica de Expedientes")
             
             # Obtener correos
@@ -897,11 +963,18 @@ class ExpedientesManager(TareaDiaria):
                 self.logger.error("No se pudo registrar el correo")
                 return False
             
-            self.logger.info("Lógica específica de Expedientes ejecutada correctamente")
+            duration_ms = int((time.time() - start_time) * 1000)
+            self.logger.info(
+                "Lógica específica de Expedientes completada",
+                extra={'metric_name': 'execution_duration_ms', 'metric_value': duration_ms}
+            )
             return True
             
         except Exception as e:
-            self.logger.error("Error en lógica específica de Expedientes: {}".format(e))
+            self.logger.error(
+                "Error en lógica específica de Expedientes: {}".format(e),
+                extra={'context': 'ejecutar_logica_especifica'}
+            )
             return False
 
     def execute(self) -> bool:
@@ -925,7 +998,28 @@ class ExpedientesManager(TareaDiaria):
                 except Exception as e:
                     self.logger.warning(f"Error cerrando conexión Tareas: {e}")
         except Exception as e:
-            self.logger.error(f"Error cerrando conexiones: {e}")
+            self.logger.error(
+                f"Error cerrando conexiones: {e}",
+                extra={'context': 'close_connections'}
+            )
+
+
+class JsonFormatter(logging.Formatter):
+    """Formatter que convierte los registros a JSON con campos estándar y extras."""
+    def format(self, record: logging.LogRecord) -> str:
+        base = {
+            'timestamp': datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
+            'level': record.levelname,
+            'message': record.getMessage(),
+            'module': record.module,
+            'logger': record.name
+        }
+        # Incluir extras (metric/context) excluyendo claves estándar
+        standard = set(['name','msg','args','levelname','levelno','pathname','filename','module','exc_info','exc_text','stack_info','lineno','funcName','created','msecs','relativeCreated','thread','threadName','processName','process'])
+        for k, v in record.__dict__.items():
+            if k not in standard and k not in base:
+                base[k] = v
+        return json.dumps(base, ensure_ascii=False)
 
 
 def main():
@@ -935,14 +1029,13 @@ def main():
     import sys
     import argparse
     
-    # Configurar logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    # Configurar logging con JsonFormatter
+    root = logging.getLogger()
+    root.handlers = []
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
     
     # Configurar argumentos
     parser = argparse.ArgumentParser(description='Manager de Expedientes')
@@ -974,7 +1067,7 @@ def main():
         
     except Exception as e:
         logger = logging.getLogger(__name__)
-        logger.error(f"Error crítico en el manager: {e}")
+        logger.error(f"Error crítico en el manager: {e}", extra={'context': 'main'})
         return 1
     finally:
         # Cerrar conexiones
@@ -985,7 +1078,7 @@ def main():
                 logger.info("Conexiones cerradas correctamente")
             except Exception as e:
                 logger = logging.getLogger(__name__)
-                logger.warning(f"Error cerrando conexiones: {e}")
+                logger.warning(f"Error cerrando conexiones: {e}", extra={'context': 'main_close'})
 
 
 if __name__ == "__main__":
