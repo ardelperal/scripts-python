@@ -43,38 +43,7 @@ class TestReportRegistrar(unittest.TestCase):
              patch.object(rr.ReportRegistrar, 'get_admin_emails', return_value=[]):
             self.assertFalse(rr.enviar_notificacion_calidad(datos))
 
-    def test_enviar_notificacion_tecnica_ok_con_arapcs(self):
-        datos = { 'arapcs': {'15_dias': [1], '7_dias': [2], '0_dias': [3]} }
-        with patch.object(rr.ReportRegistrar, 'get_quality_emails', return_value=['tec@a.com']), \
-             patch.object(rr.ReportRegistrar, 'get_admin_emails', return_value=['admin@a.com']), \
-             patch('no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno', return_value='<html></html>'), \
-             patch('no_conformidades.report_registrar._register_email_nc', return_value=77) as reg_email, \
-             patch('no_conformidades.report_registrar._register_arapc_notification', return_value=True) as reg_arapc:
-            self.assertTrue(rr.enviar_notificacion_tecnica(datos))
-            reg_email.assert_called_once()
-            reg_arapc.assert_called_once()
-
-    def test_enviar_notificacion_tecnica_sin_destinatarios(self):
-        with patch.object(rr.ReportRegistrar, 'get_quality_emails', return_value=[]), \
-             patch.object(rr.ReportRegistrar, 'get_admin_emails', return_value=[]):
-            self.assertFalse(rr.enviar_notificacion_tecnica({'arapcs': {}}))
-
-    def test_enviar_notificacion_individual_arapc_categoria(self):
-        base_arapc = {
-            'id_accion': 10,
-            'CodigoNoConformidad': 'NCX',
-            'FechaFinPrevista': datetime.now() + timedelta(days=10),
-            'dias_restantes': 10
-        }
-        usuario = {'correo': 't@a.com'}
-        # Patches dentro del método (antes estaban a nivel de clase causando fallo)
-        with patch('no_conformidades.report_registrar.HTMLReportGenerator.generar_notificacion_individual_arapc', return_value='<html/>'), \
-             patch('no_conformidades.report_registrar._register_email_nc', return_value=5), \
-             patch('no_conformidades.report_registrar._register_arapc_notification', return_value=True) as reg_arapc:
-            self.assertTrue(rr.enviar_notificacion_individual_arapc(base_arapc, usuario))
-            # call_args: (id_correo, arapcs_15, arapcs_7, arapcs_0)
-            args_cat = reg_arapc.call_args[0][1:]
-            self.assertEqual(args_cat[0], [10])  # Debe caer en categoría 15 días
+    # Tests legacy de notificaciones técnicas e individuales eliminados (flujo moderno usa enviar_notificacion_tecnico_individual)
 
     def test__register_email_nc_inserta(self):
         # Parchar AccessDatabase para simular inserción y get_max_id
