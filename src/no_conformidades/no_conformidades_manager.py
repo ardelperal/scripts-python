@@ -32,9 +32,14 @@ from common.utils import (
 from common.html_report_generator import HTMLReportGenerator
 from common.user_adapter import get_users_with_fallback
 from .types import ARTecnicaRecord, ARCalidadProximaRecord
-from .report_registrar import enviar_notificacion_calidad
+from .report_registrar import enviar_notificacion_calidad, enviar_notificacion_tecnico_individual
 
 logger = logging.getLogger(__name__)
+
+# --- Constantes para tipos de aviso AR Técnicas ---
+AVISO_CADUCADAS = "IDCorreo0"
+AVISO_7_DIAS = "IDCorreo7"
+AVISO_15_DIAS = "IDCorreo15"
 
 
 class NoConformidadesManager(TareaDiaria):
@@ -411,7 +416,7 @@ class NoConformidadesManager(TareaDiaria):
             log_context=f"{dias_min}-{dias_max}"
         )
 
-    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = "IDCorreo0") -> List[ARTecnicaRecord]:
+    def get_ars_tecnico_vencidas(self, tecnico: str, tipo_correo: str = AVISO_CADUCADAS) -> List[ARTecnicaRecord]:
         """Obtiene las ARs vencidas de un técnico (fecha fin prevista <= 0 días)."""
         return self._get_ars_tecnico(
             tecnico=tecnico,
@@ -794,10 +799,11 @@ class NoConformidadesManager(TareaDiaria):
             self.logger.error(f"Error reuniendo/enviando datos de Calidad: {e}")
 
     def _generar_correos_tecnicos(self):
-        """(Pendiente de refactor completo) Compila datos por técnico.
+        """Compila datos por técnico y delega registro/envío al registrador.
 
-        Actualmente sólo genera HTML de debug por técnico; el registro centralizado se
-        implementará en una fase posterior similar a Calidad.
+        Sustituye la versión previa que sólo generaba HTML de depuración. Ahora
+        mantiene guardado opcional del HTML (debug) y usa report_registrar para
+        registrar correos e insertar avisos en TbNCARAvisos.
         """
         try:
             self.logger.info("Compilando datos para técnicos")
@@ -831,21 +837,39 @@ class NoConformidadesManager(TareaDiaria):
             return []
 
     def _generar_correo_tecnico_individual(self, tecnico: str):
-        """Genera únicamente HTML de debug para un técnico (fase transición)."""
+        """Reúne ARs del técnico y delega el registro al registrador.
+
+        Conserva el guardado de HTML para debug local.
+        """
         try:
-            ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, "IDCorreo15")
-            ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, "IDCorreo7")
-            ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, "IDCorreo0")
+            ars_15_dias = self.get_ars_tecnico_por_vencer(tecnico, 8, 15, AVISO_15_DIAS)
+            ars_7_dias = self.get_ars_tecnico_por_vencer(tecnico, 1, 7, AVISO_7_DIAS)
+            ars_vencidas = self.get_ars_tecnico_vencidas(tecnico, AVISO_CADUCADAS)
             if not (ars_15_dias or ars_7_dias or ars_vencidas):
                 self.logger.info(f"Sin ARs para técnico {tecnico}")
                 return
-            cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
-                ars_15_dias, ars_7_dias, ars_vencidas
+
+            # Debug HTML
+            try:
+                cuerpo_html = self.html_generator.generar_reporte_tecnico_moderno(
+                    ars_15_dias, ars_7_dias, ars_vencidas
+                )
+                if cuerpo_html.strip():
+                    self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
+            except Exception as gen_err:  # pragma: no cover - debug no crítico
+                self.logger.debug(f"Error generando HTML debug técnico {tecnico}: {gen_err}")
+
+            datos_tecnico = {
+                "ars_15_dias": ars_15_dias,
+                "ars_7_dias": ars_7_dias,
+                "ars_vencidas": ars_vencidas,
+            }
+            ok = enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
+            self.logger.info(
+                f"Notificación técnica registrada para {tecnico}" if ok else f"Fallo registrando notificación técnica para {tecnico}"
             )
-            if cuerpo_html.strip():
-                self._guardar_html_debug(cuerpo_html, f"correo_tecnico_{tecnico}.html")
         except Exception as e:
-            self.logger.error(f"Error generando HTML debug para técnico {tecnico}: {e}")
+            self.logger.error(f"Error procesando notificación para técnico {tecnico}: {e}")
 
     # (Los métodos específicos _get_ars_tecnico_15_dias / 7_dias / vencidas fueron
     #  eliminados en favor de _get_ars_tecnico para reducir duplicación.)

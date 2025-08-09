@@ -594,3 +594,78 @@ def enviar_notificaciones_individuales_arapcs(arapcs_data: List[Dict[str, Any]],
     except Exception as e:
         logger.error(f"Error enviando notificaciones individuales ARAPC: {e}")
         return False
+
+
+def enviar_notificacion_tecnico_individual(tecnico: str, datos_tecnico: Dict[str, Any]) -> bool:
+    """Genera y registra una notificación individual para un técnico.
+
+    Args:
+        tecnico: Identificador / nombre del técnico (RESPONSABLETELEFONICA).
+        datos_tecnico: Dict con listas 'ars_15_dias', 'ars_7_dias', 'ars_vencidas'.
+
+    Returns:
+        True si se registró un correo (o no había contenido y se omite sin error), False en fallo.
+    """
+    try:
+        html_generator = HTMLReportGenerator()
+        cuerpo_html = html_generator.generar_reporte_tecnico_moderno(
+            datos_tecnico.get('ars_15_dias', []),
+            datos_tecnico.get('ars_7_dias', []),
+            datos_tecnico.get('ars_vencidas', []),
+        )
+
+        if not cuerpo_html.strip():
+            logger.info(f"Sin contenido para correo técnico {tecnico}; se omite.")
+            return True  # No es error: simplemente nada que enviar
+
+        # Obtener email del técnico: heurística simple (buscar en TbUsuariosAplicaciones)
+        email_tecnico = _obtener_email_tecnico(tecnico) or ""
+        if not email_tecnico:
+            logger.warning(f"No se encontró email para técnico {tecnico}; se aborta notificación.")
+            return False
+
+        admin_emails = ReportRegistrar().get_admin_emails()
+        admin_str = "; ".join(admin_emails) if admin_emails else ""
+
+        id_correo = _register_email_nc(
+            application="NoConformidades",
+            subject=f"Acciones de Resolución Pendientes ({tecnico})",
+            body=cuerpo_html,
+            recipients=email_tecnico,
+            admin_emails=admin_str,
+        )
+
+        if id_correo:
+            # Extraer IDs para registrar avisos y evitar repetición
+            ids_15 = [ar.get('IDAccionRealizada') or ar.get('IDAccion') for ar in datos_tecnico.get('ars_15_dias', []) if ar]
+            ids_7 = [ar.get('IDAccionRealizada') or ar.get('IDAccion') for ar in datos_tecnico.get('ars_7_dias', []) if ar]
+            ids_0 = [ar.get('IDAccionRealizada') or ar.get('IDAccion') for ar in datos_tecnico.get('ars_vencidas', []) if ar]
+            _register_arapc_notification(id_correo, ids_15, ids_7, ids_0)
+
+        return id_correo is not None
+    except Exception as e:
+        logger.error(f"Error enviando notificación técnica individual {tecnico}: {e}")
+        return False
+
+
+def _obtener_email_tecnico(tecnico: str) -> Optional[str]:
+    """Intenta recuperar el email del técnico desde la base de datos de tareas.
+
+    Se mantiene aquí una implementación liviana para evitar dependencias circulares.
+    """
+    try:
+        db_path = config.get_database_path('tareas')
+        connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={db_path};"
+        db = AccessDatabase(connection_string)
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT TOP 1 Correo FROM TbUsuarios WHERE UsuarioRed = ? AND Correo IS NOT NULL AND Correo <> ''",
+                (tecnico,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+    except Exception as e:  # pragma: no cover - camino de error no crítico
+        logger.debug(f"No se pudo obtener email para técnico {tecnico}: {e}")
+    return None
