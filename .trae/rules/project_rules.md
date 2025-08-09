@@ -290,7 +290,7 @@ Este documento detalla la estructura de la base de datos de Access, incluyendo s
 ### Tablas Locales
 
 #### Tabla: `ProyectoRespCalidad`
-| Nombre de Columna | Tipo de Dato |
+| Nombre de Columna | Tipo de Dato |FechaAprobacionAceptacionPorCalidad
 |-------------------|--------------|
 | `Proyecto` | `Text` |
 | `UsuarioCalidad` | `Text` |

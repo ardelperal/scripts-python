@@ -1,16 +1,17 @@
-"""
-Manager de Expedientes - Migración del sistema original con mejoras del módulo de No Conformidades
+"""Manager de Expedientes simplificado integrado con framework común.
+
+Responsabilidades:
+ - Obtener datos de expedientes mediante conexiones inyectadas
+ - Generar un informe HTML (sin envío ni scheduling)
 """
 
-from datetime import datetime, date
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 import json
-import time
+from datetime import datetime
 
-from src.common.base_task import TareaDiaria
-from src.common.config import Config
 from src.common.database import AccessDatabase
+from src.common.html_report_generator import HTMLReportGenerator
 
 
 def safe_str(value) -> str:
@@ -20,115 +21,19 @@ def safe_str(value) -> str:
     return str(value)
 
 
-class ExpedientesManager(TareaDiaria):
-    """Manager para el sistema de Expedientes con mejoras del módulo de No Conformidades"""
-    
-    def __init__(self):
-        super().__init__(
-            name="EXPEDIENTES",
-            script_filename="run_expedientes.py",
-            task_names=["ExpedientesDiario"],
-            frequency_days=1
-        )
+class ExpedientesManager:
+    """Manager independiente (sin herencia) centrado sólo en lógica de expedientes."""
 
-        self.config = Config()
-        self.logger = logging.getLogger(__name__)
-
-        # Conexiones a bases de datos
-        self.db_expedientes = None
-        self.db_tareas = None
-
-        # CSS para el formato HTML
-        self.css_content = self._load_css_content()
-    
-    def _get_expedientes_connection(self) -> AccessDatabase:
-        """Obtiene la conexión a la base de datos de expedientes"""
-        if self.db_expedientes is None:
-            connection_string = self.config.get_db_expedientes_connection_string()
-            self.db_expedientes = AccessDatabase(connection_string)
-        return self.db_expedientes
-    
-    def _get_tareas_connection(self) -> AccessDatabase:
-        """Obtiene la conexión a la base de datos de tareas"""
-        if self.db_tareas is None:
-            connection_string = self.config.get_db_tareas_connection_string()
-            self.db_tareas = AccessDatabase(connection_string)
-        return self.db_tareas
-    
-    def _load_css_content(self) -> str:
-        """Carga el contenido CSS desde el archivo"""
-        from ..common.utils import load_css_content
-        return load_css_content(self.config.css_modern_file_path)
-    
-    def _format_date_display(self, date_value) -> str:
-        """Formatea una fecha para mostrar en HTML"""
-        if not date_value:
-            return '&nbsp;'
-        
-        if isinstance(date_value, str):
-            try:
-                # Intentar parsear diferentes formatos de fecha
-                for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S']:
-                    try:
-                        date_obj = datetime.strptime(date_value, fmt)
-                        return date_obj.strftime('%d/%m/%Y')
-                    except ValueError:
-                        continue
-                return date_value
-            except:
-                return date_value
-        elif hasattr(date_value, 'strftime'):
-            return date_value.strftime('%d/%m/%Y')
-        else:
-            return str(date_value)
-    
-    def _get_dias_class(self, dias: int) -> str:
-        """Obtiene la clase CSS según los días restantes"""
-        if dias <= 0:
-            return 'dias-vencido'
-        elif dias <= 7:
-            return 'dias-critico'
-        elif dias <= 15:
-            return 'dias-alerta'
-        else:
-            return 'dias-normal'
-    
-    def _get_modern_html_header(self) -> str:
-        """Genera la cabecera HTML moderna"""
-        return f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INFORME DE AVISOS DE EXPEDIENTES</title>
-    <style type="text/css">
-        {self.css_content}
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>📋 INFORME DE AVISOS DE NO EXPEDIENTES</h1>
-        <p class="fecha">Generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
-    </div>
-"""
-    
-    def _get_modern_html_footer(self) -> str:
-        """Genera el pie HTML moderno"""
-        return """
-    <div class="footer">
-        <p>Este es un informe automático del sistema de gestión de expedientes.</p>
-        <p>Para más información, contacte con el equipo de TI.</p>
-    </div>
-</div>
-</body>
-</html>
-        """
+    def __init__(self, db_expedientes: AccessDatabase, db_tareas: AccessDatabase, logger: logging.Logger | None = None):
+        self.db_expedientes = db_expedientes
+        self.db_tareas = db_tareas
+        self.logger = logger or logging.getLogger(__name__)
+        self.html_generator = HTMLReportGenerator()
 
     def get_expedientes_tsol_sin_cod_s4h(self) -> List[Dict]:
         """Obtiene expedientes TSOL adjudicados sin código S4H"""
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             query = """
                 SELECT TbExpedientes.IDExpediente, TbExpedientes.CodExp, TbExpedientes.Nemotecnico, 
                        TbExpedientes.Titulo, TbUsuariosAplicaciones.Nombre, CadenaJuridicas, 
@@ -167,7 +72,7 @@ class ExpedientesManager(TareaDiaria):
     def get_expedientes_a_punto_finalizar(self) -> List[Dict]:
         """Obtiene expedientes a punto de recepcionar/finalizar"""
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             query = """
                 SELECT IDExpediente, CodExp, Nemotecnico, Titulo, FechaInicioContrato, 
                        FechaFinContrato, DateDiff('d',Date(),[FechaFinContrato]) AS Dias,
@@ -210,7 +115,7 @@ class ExpedientesManager(TareaDiaria):
     def get_hitos_a_punto_finalizar(self) -> List[Dict]:
         """Obtiene hitos de expedientes a punto de recepcionar"""
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             query = """
                 SELECT TbExpedientesHitos.IDExpediente, CodExp, Nemotecnico, Titulo, 
                        TbExpedientesHitos.Descripcion, FechaHito, 
@@ -246,7 +151,7 @@ class ExpedientesManager(TareaDiaria):
     def get_expedientes_estado_desconocido(self) -> List[Dict]:
         """Obtiene expedientes con estado desconocido"""
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             query = """
                 SELECT IDExpediente, CodExp, Nemotecnico, Titulo, FechaInicioContrato, 
                        FechaFinContrato, GARANTIAMESES, Estado, Nombre 
@@ -284,7 +189,7 @@ class ExpedientesManager(TareaDiaria):
         Basado en la función getColAdjudicadosSinContrato() del script original TareaExpedientes.vbs
         """
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             # Query exacta del script original con todas las condiciones
             query = """
                 SELECT IDExpediente, CodExp, Nemotecnico, Titulo, FechaInicioContrato, 
@@ -324,7 +229,7 @@ class ExpedientesManager(TareaDiaria):
     def get_expedientes_fase_oferta_mucho_tiempo(self) -> List[Dict]:
         """Obtiene expedientes en fase de oferta sin resolución en más de 45 días"""
         try:
-            db_expedientes = self._get_expedientes_connection()
+            db_expedientes = self.db_expedientes
             query = """
                 SELECT TbExpedientes.IDExpediente, TbExpedientes.CodExp, TbExpedientes.Nemotecnico, 
                        TbExpedientes.Titulo, TbExpedientes.FechaInicioContrato, TbExpedientes.FECHAOFERTA, 
@@ -359,377 +264,9 @@ class ExpedientesManager(TareaDiaria):
             )
             return []
 
-    # Funciones modernas de generación de HTML
+    # Métodos de emails / scheduling eliminados según refactor solicitado.
 
-    def _generate_modern_tsol_table_html(self, expedientes: List[Dict]) -> str:
-        """Genera tabla HTML moderna para expedientes TSOL sin código S4H"""
-        if not expedientes:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>🏢 Expedientes TSOL Adjudicados sin Código S4H</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>Resp. Calidad</th>
-                        <th>Jurídica</th>
-                        <th>F. Adjudicación</th>
-                        <th>Cod S4H</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for exp in expedientes:
-            fecha_adj = self._format_date_display(exp.get('FechaAdjudicacion'))
-            html += f"""
-                    <tr>
-                        <td>{safe_str(exp.get('IDExpediente'))}</td>
-                        <td>{safe_str(exp.get('CodExp'))}</td>
-                        <td>{safe_str(exp.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(exp.get('Titulo'))}</td>
-                        <td>{safe_str(exp.get('ResponsableCalidad'))}</td>
-                        <td>{safe_str(exp.get('CadenaJuridicas'))}</td>
-                        <td>{fecha_adj}</td>
-                        <td>{safe_str(exp.get('CodS4H'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def _generate_modern_finalizar_table_html(self, expedientes: List[Dict]) -> str:
-        """Genera tabla HTML moderna para expedientes a punto de finalizar"""
-        if not expedientes:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>⏰ Expedientes a Punto de Finalizar</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>F. Inicio</th>
-                        <th>F. Fin</th>
-                        <th>Días</th>
-                        <th>Resp. Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for exp in expedientes:
-            dias = exp.get('DiasParaFin', 0)
-            dias_class = self._get_dias_class(dias)
-            fecha_inicio = self._format_date_display(exp.get('FechaInicioContrato'))
-            fecha_fin = self._format_date_display(exp.get('FechaFinContrato'))
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(exp.get('IDExpediente'))}</td>
-                        <td>{safe_str(exp.get('CodExp'))}</td>
-                        <td>{safe_str(exp.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(exp.get('Titulo'))}</td>
-                        <td>{fecha_inicio}</td>
-                        <td>{fecha_fin}</td>
-                        <td class="{dias_class}">{safe_str(dias)}</td>
-                        <td>{safe_str(exp.get('ResponsableCalidad'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def _generate_modern_hitos_table_html(self, hitos: List[Dict]) -> str:
-        """Genera tabla HTML moderna para hitos a punto de finalizar"""
-        if not hitos:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>🎯 Hitos a Punto de Finalizar</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>Descripción Hito</th>
-                        <th>F. Hito</th>
-                        <th>Días</th>
-                        <th>Resp. Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for hito in hitos:
-            dias = hito.get('DiasParaFin', 0)
-            dias_class = self._get_dias_class(dias)
-            fecha_hito = self._format_date_display(hito.get('FechaHito'))
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(hito.get('IDExpediente'))}</td>
-                        <td>{safe_str(hito.get('CodExp'))}</td>
-                        <td>{safe_str(hito.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(hito.get('Titulo'))}</td>
-                        <td>{safe_str(hito.get('Descripcion'))}</td>
-                        <td>{fecha_hito}</td>
-                        <td class="{dias_class}">{safe_str(dias)}</td>
-                        <td>{safe_str(hito.get('ResponsableCalidad'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def _generate_modern_desconocido_table_html(self, expedientes: List[Dict]) -> str:
-        """Genera tabla HTML moderna para expedientes con estado desconocido"""
-        if not expedientes:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>❓ Expedientes con Estado Desconocido</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>F. Inicio</th>
-                        <th>F. Fin</th>
-                        <th>Garantía (meses)</th>
-                        <th>Estado</th>
-                        <th>Resp. Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for exp in expedientes:
-            fecha_inicio = self._format_date_display(exp.get('FechaInicioContrato'))
-            fecha_fin = self._format_date_display(exp.get('FechaFinContrato'))
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(exp.get('IDExpediente'))}</td>
-                        <td>{safe_str(exp.get('CodExp'))}</td>
-                        <td>{safe_str(exp.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(exp.get('Titulo'))}</td>
-                        <td>{fecha_inicio}</td>
-                        <td>{fecha_fin}</td>
-                        <td>{safe_str(exp.get('GarantiaMeses'))}</td>
-                        <td class="estado-desconocido">{safe_str(exp.get('Estado'))}</td>
-                        <td>{safe_str(exp.get('ResponsableCalidad'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def _generate_modern_sin_contrato_table_html(self, expedientes: List[Dict]) -> str:
-        """Genera tabla HTML moderna para expedientes adjudicados sin contrato"""
-        if not expedientes:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>📋 Expedientes Adjudicados sin Datos de Contrato</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>F. Inicio</th>
-                        <th>F. Fin</th>
-                        <th>F. Adjudicación</th>
-                        <th>Garantía (meses)</th>
-                        <th>Resp. Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for exp in expedientes:
-            fecha_inicio = self._format_date_display(exp.get('FechaInicioContrato'))
-            fecha_fin = self._format_date_display(exp.get('FechaFinContrato'))
-            fecha_adj = self._format_date_display(exp.get('FechaAdjudicacion'))
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(exp.get('IDExpediente'))}</td>
-                        <td>{safe_str(exp.get('CodExp'))}</td>
-                        <td>{safe_str(exp.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(exp.get('Titulo'))}</td>
-                        <td>{fecha_inicio}</td>
-                        <td>{fecha_fin}</td>
-                        <td>{fecha_adj}</td>
-                        <td>{safe_str(exp.get('GarantiaMeses'))}</td>
-                        <td>{safe_str(exp.get('ResponsableCalidad'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def _generate_modern_oferta_tiempo_table_html(self, expedientes: List[Dict]) -> str:
-        """Genera tabla HTML moderna para expedientes en fase de oferta por mucho tiempo"""
-        if not expedientes:
-            return ""
-        
-        html = f"""
-    <div class="section">
-        <h2>⏳ Expedientes en Fase de Oferta por Mucho Tiempo</h2>
-        <div class="table-container">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Código</th>
-                        <th>Nemotécnico</th>
-                        <th>Título</th>
-                        <th>F. Inicio</th>
-                        <th>F. Oferta</th>
-                        <th>Resp. Calidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        
-        for exp in expedientes:
-            fecha_inicio = self._format_date_display(exp.get('FechaInicioContrato'))
-            fecha_oferta = self._format_date_display(exp.get('FechaOferta'))
-            
-            html += f"""
-                    <tr>
-                        <td>{safe_str(exp.get('IDExpediente'))}</td>
-                        <td>{safe_str(exp.get('CodExp'))}</td>
-                        <td>{safe_str(exp.get('Nemotecnico'))}</td>
-                        <td class="titulo-cell">{safe_str(exp.get('Titulo'))}</td>
-                        <td>{fecha_inicio}</td>
-                        <td>{fecha_oferta}</td>
-                        <td>{safe_str(exp.get('ResponsableCalidad'))}</td>
-                    </tr>
-"""
-        
-        html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
-        return html
-
-    def get_admin_emails(self) -> List[str]:
-        """Obtiene los correos de los administradores usando el módulo común"""
-        try:
-            from ..common.user_adapter import get_users_with_fallback
-            
-            db_tareas = self._get_tareas_connection()
-            
-            admin_users = get_users_with_fallback(
-                user_type='admin',
-                config=self.config,
-                logger=self.logger,
-                db_connection=db_tareas
-            )
-            
-            if admin_users:
-                return [user.get('CorreoUsuario', '') for user in admin_users if user.get('CorreoUsuario') and '@' in user.get('CorreoUsuario', '')]
-            else:
-                return []
-                
-        except Exception as e:
-            self.logger.error(
-                f"Error obteniendo emails de administradores: {e}",
-                extra={'context': 'get_admin_emails'}
-            )
-            return []
-
-    def _get_tramitadores_emails(self) -> List[str]:
-        """
-        Obtiene los correos de los tramitadores de expedientes (administradores de la aplicación)
-        Basado en la función getCadenaCorreoTareas() del script original TareaExpedientes.vbs
-        """
-        try:
-            db_tareas = self._get_tareas_connection()
-            
-            # SQL específico para obtener administradores de la aplicación de expedientes
-            query = """
-                SELECT TbUsuariosAplicaciones.CorreoUsuario 
-                FROM TbUsuariosAplicaciones 
-                INNER JOIN TbUsuariosAplicacionesPermisos 
-                ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesPermisos.CorreoUsuario 
-                WHERE IDAplicacion = ? 
-                AND EsUsuarioAdministrador = 'Sí'
-            """
-            
-            # Usar el ID de aplicación desde config
-            app_id = self.config.app_id_expedientes
-            self.logger.debug(f"Consultando administradores para IDAplicacion={app_id}")
-            
-            results = db_tareas.execute_query(query, (app_id,))
-            
-            if results:
-                emails = [row.get('CorreoUsuario', '') for row in results 
-                         if row.get('CorreoUsuario') and '@' in row.get('CorreoUsuario', '')]
-                self.logger.info(f"Obtenidos {len(emails)} correos de tramitadores de expedientes: {emails}")
-                return emails
-            else:
-                self.logger.warning("No se encontraron tramitadores de expedientes")
-                return []
-                
-        except Exception as e:
-            self.logger.error(
-                f"Error obteniendo emails de tramitadores: {e}",
-                extra={'context': '_get_tramitadores_emails'}
-            )
-            return []
+    # _get_tramitadores_emails eliminado
 
     def _guardar_html_debug(self, html_content: str, filename: str):
         """Guarda el HTML generado en un archivo para debug"""
@@ -750,236 +287,69 @@ class ExpedientesManager(TareaDiaria):
                 extra={'context': '_guardar_html_debug'}
             )
 
-    def generate_email_body(self) -> str:
-        """Genera el cuerpo del correo HTML con todas las secciones usando el estilo moderno"""
+    def _build_table_html(self, title: str, data: List[Dict]) -> str:
+        """Construye tabla HTML simple para una lista de dicts."""
+        if not data:
+            return ""
+        headers = sorted(data[0].keys())
+        html = [f"<div class='section'><h2>{title}</h2><table class='data-table'>"]
+        # Cabeceras
+        html.append('<thead><tr>')
+        for h in headers:
+            html.append(f"<th>{h}</th>")
+        html.append('</tr></thead><tbody>')
+        for row in data:
+            html.append('<tr>')
+            for h in headers:
+                val = row.get(h, '')
+                if isinstance(val, datetime):
+                    val = val.strftime('%d/%m/%Y')
+                html.append(f"<td>{safe_str(val)}</td>")
+            html.append('</tr>')
+        html.append('</tbody></table></div>')
+        return ''.join(html)
+
+    def generate_expedientes_report_html(self) -> str:
+        """Genera el reporte HTML completo de Expedientes y registra métricas."""
         try:
-            # Obtener datos
-            expedientes_tsol = self.get_expedientes_tsol_sin_cod_s4h()
-            expedientes_finalizar = self.get_expedientes_a_punto_finalizar()
-            hitos_finalizar = self.get_hitos_a_punto_finalizar()
-            expedientes_desconocido = self.get_expedientes_estado_desconocido()
-            expedientes_sin_contrato = self.get_expedientes_adjudicados_sin_contrato()
-            expedientes_oferta_tiempo = self.get_expedientes_fase_oferta_mucho_tiempo()
-            
-            # Generar tablas HTML modernas
-            tablas_html = []
-            
-            if expedientes_tsol:
-                tabla_tsol = self._generate_modern_tsol_table_html(expedientes_tsol)
-                tablas_html.append(tabla_tsol)
-                self.logger.info(
-                    "Tabla TSOL generada",
-                    extra={'metric_name': 'expedientes_tsol_count', 'metric_value': len(expedientes_tsol)}
-                )
-            
-            if expedientes_finalizar:
-                tabla_finalizar = self._generate_modern_finalizar_table_html(expedientes_finalizar)
-                tablas_html.append(tabla_finalizar)
-                self.logger.info(
-                    "Tabla Finalizar generada",
-                    extra={'metric_name': 'expedientes_finalizar_count', 'metric_value': len(expedientes_finalizar)}
-                )
-            
-            if hitos_finalizar:
-                tabla_hitos = self._generate_modern_hitos_table_html(hitos_finalizar)
-                tablas_html.append(tabla_hitos)
-                self.logger.info(
-                    "Tabla Hitos generada",
-                    extra={'metric_name': 'hitos_finalizar_count', 'metric_value': len(hitos_finalizar)}
-                )
-            
-            if expedientes_desconocido:
-                tabla_desconocido = self._generate_modern_desconocido_table_html(expedientes_desconocido)
-                tablas_html.append(tabla_desconocido)
-                self.logger.info(
-                    "Tabla Estado Desconocido generada",
-                    extra={'metric_name': 'expedientes_desconocido_count', 'metric_value': len(expedientes_desconocido)}
-                )
-            
-            if expedientes_sin_contrato:
-                tabla_sin_contrato = self._generate_modern_sin_contrato_table_html(expedientes_sin_contrato)
-                tablas_html.append(tabla_sin_contrato)
-                self.logger.info(
-                    "Tabla Sin Contrato generada",
-                    extra={'metric_name': 'expedientes_sin_contrato_count', 'metric_value': len(expedientes_sin_contrato)}
-                )
-            
-            if expedientes_oferta_tiempo:
-                tabla_oferta = self._generate_modern_oferta_tiempo_table_html(expedientes_oferta_tiempo)
-                tablas_html.append(tabla_oferta)
-                self.logger.info(
-                    "Tabla Oferta Tiempo generada",
-                    extra={'metric_name': 'expedientes_oferta_tiempo_count', 'metric_value': len(expedientes_oferta_tiempo)}
-                )
-            
-            # Si hay al menos una tabla, generar el correo
-            if tablas_html:
-                header = self._get_modern_html_header()
-                footer = self._get_modern_html_footer()
-                cuerpo_html = header + "\n".join(tablas_html) + footer
-                
-                self.logger.info("Correo HTML generado para Expedientes")
-                self.logger.info(
-                    "Longitud HTML correo",
-                    extra={'metric_name': 'expedientes_email_html_length_chars', 'metric_value': len(cuerpo_html)}
-                )
-                
-                # Para debug, guardamos el HTML generado
-                self._guardar_html_debug(cuerpo_html, "correo_expedientes.html")
-                
-                return cuerpo_html
-            else:
-                self.logger.info("No hay datos para generar correo de Expedientes")
+            sections = [
+                ("Expedientes TSOL adjudicados sin código S4H", self.get_expedientes_tsol_sin_cod_s4h()),
+                ("Expedientes a punto de finalizar", self.get_expedientes_a_punto_finalizar()),
+                ("Hitos a punto de finalizar", self.get_hitos_a_punto_finalizar()),
+                ("Expedientes con estado desconocido", self.get_expedientes_estado_desconocido()),
+                ("Expedientes adjudicados sin contrato", self.get_expedientes_adjudicados_sin_contrato()),
+                ("Expedientes en fase oferta > 45 días", self.get_expedientes_fase_oferta_mucho_tiempo()),
+            ]
+            non_empty = [s for s in sections if s[1]]
+            if not non_empty:
+                self.logger.info("Sin datos para generar reporte de expedientes")
                 return ""
-            
+            parts = [self.html_generator.generar_header_moderno("INFORME DE AVISOS DE EXPEDIENTES")]
+            for title, data in non_empty:
+                parts.append(self._build_table_html(title, data))
+            parts.append(self.html_generator.generar_footer_moderno())
+            html = ''.join(parts)
+            self.logger.info(
+                "Secciones reporte expedientes",
+                extra={'metric_name': 'expedientes_report_sections', 'metric_value': len(non_empty)}
+            )
+            self.logger.info(
+                "Longitud HTML reporte expedientes",
+                extra={'metric_name': 'expedientes_report_length_chars', 'metric_value': len(html)}
+            )
+            return html
         except Exception as e:
             self.logger.error(
-                f"Error generando cuerpo del correo: {e}",
-                extra={'context': 'generate_email_body'}
+                f"Error generando reporte de expedientes: {e}",
+                extra={'context': 'generate_expedientes_report_html'}
             )
             return ""
 
-    def register_email(self, subject: str, body: str, recipients: List[str], bcc_recipients: List[str] = None) -> bool:
-        """Registra el correo en la base de datos usando el módulo común"""
-        try:
-            from ..common.utils import register_email_in_database
-            
-            db_tareas = self._get_tareas_connection()
-            
-            recipients_str = ';'.join(recipients) if recipients else ''
-            bcc_str = ';'.join(bcc_recipients) if bcc_recipients else ''
-            
-            return register_email_in_database(
-                db_tareas,
-                "EXPEDIENTES",
-                subject,
-                body,
-                recipients_str,
-                bcc_str
-            )
-                
-        except Exception as e:
-            self.logger.error(
-                f"Error registrando correo: {e}",
-                extra={'context': 'register_email'}
-            )
-            return False
+    # generate_email_body eliminado en favor de generate_expedientes_report_html
 
-    def register_task(self) -> bool:
-        """Registra la tarea como completada usando el módulo común"""
-        try:
-            from ..common.utils import register_task_completion
-            
-            db_tareas = self._get_tareas_connection()
-            
-            return register_task_completion(
-                db_tareas,
-                'ExpedientesDiario',
-                self.logger
-            )
-                
-        except Exception as e:
-            self.logger.error(
-                f"Error registrando tarea: {e}",
-                extra={'context': 'register_task'}
-            )
-            return False
+    # Métodos de registro / scheduling eliminados; orchestration externa deberá usarlos si aplica.
 
-    def should_execute_task(self) -> bool:
-        """
-        Determina si debe ejecutarse la tarea de expedientes (diaria, primer día laborable)
-        """
-        try:
-            from src.common.utils import should_execute_weekly_task
-            return should_execute_weekly_task(self.db_tareas, "Expedientes", logger=self.logger)
-            
-        except Exception as e:
-            self.logger.error(
-                "Error verificando si ejecutar tarea de expedientes: {}".format(e),
-                extra={'context': 'should_execute_task'}
-            )
-            return False
-
-    def run(self) -> bool:
-        """
-        Método principal para ejecutar la tarea de Expedientes
-        
-        Returns:
-            True si se ejecutó correctamente
-        """
-        try:
-            self.logger.info("Ejecutando tarea de Expedientes")
-            
-            # Verificar si debe ejecutarse
-            if not self.debe_ejecutarse():
-                self.logger.info("La tarea de Expedientes no debe ejecutarse hoy")
-                return True
-            
-            # Ejecutar la lógica específica
-            success = self.ejecutar_logica_especifica()
-            
-            if success:
-                # Marcar como completada
-                self.marcar_como_completada()
-                self.logger.info("Tarea de Expedientes completada exitosamente")
-            
-            return success
-            
-        except Exception as e:
-            self.logger.error(
-                "Error ejecutando tarea de Expedientes: {}".format(e),
-                extra={'context': 'run'}
-            )
-            return False
-
-    def ejecutar_logica_especifica(self) -> bool:
-        """
-        Ejecuta la lógica específica de la tarea de Expedientes
-        
-        Returns:
-            True si se ejecutó correctamente
-        """
-        try:
-            start_time = time.time()
-            self.logger.info("Ejecutando lógica específica de Expedientes")
-            
-            # Obtener correos
-            admin_emails = self.get_admin_emails()
-            task_emails = self._get_tramitadores_emails()
-            
-            if not task_emails:
-                self.logger.warning("No se encontraron correos de tramitadores")
-                return False
-            
-            # Generar cuerpo del correo
-            email_body = self.generate_email_body()
-            if not email_body:
-                self.logger.info("No hay datos para generar correo de Expedientes")
-                return True  # No es un error, simplemente no hay datos
-            
-            # Registrar correo
-            subject = "Informe Tareas De Expedientes (Expedientes)"
-            if not self.register_email(subject, email_body, task_emails, admin_emails):
-                self.logger.error("No se pudo registrar el correo")
-                return False
-            
-            duration_ms = int((time.time() - start_time) * 1000)
-            self.logger.info(
-                "Lógica específica de Expedientes completada",
-                extra={'metric_name': 'execution_duration_ms', 'metric_value': duration_ms}
-            )
-            return True
-            
-        except Exception as e:
-            self.logger.error(
-                "Error en lógica específica de Expedientes: {}".format(e),
-                extra={'context': 'ejecutar_logica_especifica'}
-            )
-            return False
-
-    def execute(self) -> bool:
-        """Ejecuta la lógica principal de Expedientes (método de compatibilidad)"""
-        return self.run()
+    # ejecutar_logica_especifica / run / execute eliminados: orquestación externa se encargará.
 
     def close_connections(self):
         """Cierra las conexiones a las bases de datos"""
@@ -1023,8 +393,11 @@ class JsonFormatter(logging.Formatter):
 
 
 def main():
-    """
-    Función principal para ejecutar el manager directamente con argumentos
+    """Entrada CLI mínima para depuración manual.
+
+    Nota: El manager requiere instancias de AccessDatabase inyectadas. Aquí sólo se
+    muestran placeholders; en un entorno real se deben construir con cadenas de conexión
+    válidas o reemplazarse por mocks para pruebas manuales.
     """
     import sys
     import argparse
@@ -1049,35 +422,29 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     
     manager = None
+    logger = logging.getLogger(__name__)
     try:
-        logger = logging.getLogger(__name__)
-        logger.info("=== INICIANDO MANAGER EXPEDIENTES ===")
-        
-        # Crear el manager
-        manager = ExpedientesManager()
-        
-        logger.info("Ejecutando lógica completa...")
-        success = manager.ejecutar_logica_especifica()
-        if not success:
-            logger.error("Error en la ejecución de la lógica específica")
-            return 1
-        
-        logger.info("=== MANAGER EXPEDIENTES COMPLETADO EXITOSAMENTE ===")
+        logger.info("=== INICIANDO MANAGER EXPEDIENTES (modo standalone) ===")
+        logger.warning("Instancias reales de AccessDatabase no configuradas; usando None (sólo HTML vacío)")
+        # Placeholders: en uso real proporcionar AccessDatabase(...)
+        db_exp = None  # type: ignore
+        db_tareas = None  # type: ignore
+        manager = ExpedientesManager(db_exp, db_tareas, logger=logger)  # type: ignore
+        html = manager.generate_expedientes_report_html()
+        if html:
+            logger.info("Reporte generado (longitud=%d)", len(html))
+        else:
+            logger.info("Sin datos para generar reporte")
         return 0
-        
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.error(f"Error crítico en el manager: {e}", extra={'context': 'main'})
         return 1
     finally:
-        # Cerrar conexiones
         if manager:
             try:
                 manager.close_connections()
-                logger = logging.getLogger(__name__)
                 logger.info("Conexiones cerradas correctamente")
             except Exception as e:
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Error cerrando conexiones: {e}", extra={'context': 'main_close'})
 
 

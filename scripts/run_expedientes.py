@@ -1,158 +1,55 @@
-"""
-Script principal para ejecutar las tareas de Expedientes
-Equivalente al Expedientes.vbs original
+"""Script de entrada para la ejecución de la Tarea de Expedientes.
 
-Uso:
-    python run_expedientes.py                    # Ejecución normal (verifica horarios)
-    python run_expedientes.py --force            # Fuerza ejecución independientemente del horario
-    python run_expedientes.py --dry-run          # Simula ejecución sin enviar emails
-"""
+Responsabilidad única: instanciar y ejecutar la clase ExpedientesTask.
 
+Ejecución recomendada (sin tocar sys.path):
+    python -m scripts.run_expedientes
+
+Requiere que el directorio del proyecto (que contiene 'src' y 'scripts') esté en PYTHONPATH (lo está al ejecutar desde raíz con -m).
+"""
 import sys
-import os
-import argparse
-from datetime import datetime
+import logging
 from pathlib import Path
 
-# Agregar el directorio raíz del proyecto al path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from src.common.logger import setup_logger
-from src.common.utils import should_execute_task, register_task_completion
-from src.expedientes.expedientes_manager import ExpedientesManager
-
-
-def parse_arguments():
-    """Parsea los argumentos de línea de comandos"""
-    parser = argparse.ArgumentParser(
-        description="Script para ejecutar tareas de Expedientes",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Ejemplos de uso:
-  %(prog)s                    # Ejecución normal (verifica horarios)
-  %(prog)s --force            # Fuerza ejecución independientemente del horario
-  %(prog)s --dry-run          # Simula ejecución sin enviar emails
-        """
-    )
-    
-    # Opciones de forzado
-    parser.add_argument(
-        '--force', 
-        action='store_true',
-        help='Fuerza la ejecución independientemente del horario'
-    )
-    
-    # Opciones adicionales
-    parser.add_argument(
-        '--dry-run', 
-        action='store_true',
-        help='Simula la ejecución sin enviar emails reales'
-    )
-    parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Habilita logging detallado'
-    )
-    
-    return parser.parse_args()
-
-
-def ejecutar_tarea_expedientes(dry_run=False):
-    """Ejecuta la tarea de expedientes."""
-    logger = setup_logger(__name__)
-    logger.info("=== INICIANDO TAREA DE EXPEDIENTES ===")
-    if dry_run:
-        logger.info("MODO DRY-RUN: No se enviarán emails reales")
-
-    try:
-        with ExpedientesManager() as expedientes_manager:
-            logger.info("Ejecutando lógica específica de expedientes...")
-            
-            if dry_run:
-                # En modo dry-run, podríamos simular la ejecución
-                logger.info("DRY-RUN: Simulando ejecución de expedientes...")
-                resultado = True
-            else:
-                resultado = expedientes_manager.ejecutar_logica_especifica()
-            
-            if resultado:
-                logger.info("Tarea de expedientes ejecutada correctamente.")
-                if not dry_run:
-                    register_task_completion(expedientes_manager.db_tareas, "Expedientes")
-                else:
-                    logger.info("DRY-RUN: Se habría registrado la ejecución de la tarea.")
-            else:
-                logger.error("Error al ejecutar la tarea de expedientes.")
-                return False
-
-        logger.info("=== TAREA DE EXPEDIENTES COMPLETADA ===")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error ejecutando tarea de expedientes: {e}")
-        return False
-
+from src.common.utils import setup_logging
+from src.expedientes.expedientes_task import ExpedientesTask
 
 def main():
-    """Función principal que determina si ejecutar la tarea"""
-    # Parsear argumentos de línea de comandos
-    args = parse_arguments()
-    
-    logger = setup_logger(__name__)
-    logger.info("=== INICIANDO PROCESAMIENTO DE EXPEDIENTES ===")
-    
-    if args.dry_run:
-        logger.info("MODO DRY-RUN ACTIVADO: No se enviarán emails ni se registrarán ejecuciones")
-    
-    # Determinar si ejecutar la tarea basado en argumentos
-    ejecutar_tarea = False
-    
-    if args.force:
-        logger.info("FORZANDO EJECUCIÓN DE TAREA DE EXPEDIENTES")
-        ejecutar_tarea = True
-    else:
-        # Verificar horarios normales
-        logger.info("Verificando horarios para ejecución normal...")
-        
-        try:
-            # Usar context manager para verificar si se requiere ejecutar la tarea
-            with ExpedientesManager() as expedientes_manager:
-                # Verificar si se requiere ejecutar tarea usando función del manager
-                # Tareas de expedientes: semanales (primer día laborable)
-                ejecutar_tarea = expedientes_manager.should_execute_task()
-                logger.info(f"Requiere tarea de expedientes (primer día laborable de la semana): {ejecutar_tarea}")
-                
-        except Exception as e:
-            logger.error(f"Error verificando horarios: {e}")
-            return False
-    
-    # Ejecutar tarea según sea necesario
-    resultado = True
-    
-    if ejecutar_tarea:
-        logger.info("Ejecutando tarea de expedientes...")
-        resultado = ejecutar_tarea_expedientes(dry_run=args.dry_run)
-    else:
-        logger.info("No se requirió ejecutar la tarea de expedientes")
-    
-    # Resumen de resultados
-    if ejecutar_tarea:
-        logger.info("=== RESUMEN DE EJECUCIÓN ===")
-        estado = "EXITOSA" if resultado else "FALLIDA"
-        logger.info(f"Tarea Expedientes: {estado}")
-    
-    logger.info("=== PROCESAMIENTO COMPLETADO ===")
-    
-    return resultado
+    """
+    Función principal que instancia y ejecuta la Tarea de Expedientes.
+    """
+    # 1. Configurar el logging centralizado
+    setup_logging(log_file=Path('logs/expedientes.log'))
+    logger = logging.getLogger()
 
+    logger.info("===============================================")
+    logger.info("=      INICIANDO TAREA DE EXPEDIENTES         =")
+    logger.info("===============================================")
+
+    exit_code = 0
+    
+    try:
+        # 2. Usar un context manager para que las conexiones se cierren solas
+        with ExpedientesTask() as task:
+            # 3. Verificar si la tarea debe ejecutarse
+            if task.debe_ejecutarse():
+                logger.info("La tarea de Expedientes requiere ejecución.")
+                # 4. Ejecutar la lógica y marcar como completada si tiene éxito
+                if task.execute_specific_logic():
+                    task.marcar_como_completada()
+                    logger.info("Tarea de Expedientes completada y marcada exitosamente.")
+                else:
+                    logger.error("La lógica específica de la tarea de Expedientes falló.")
+                    exit_code = 1
+            else:
+                logger.info("La tarea de Expedientes no requiere ejecución hoy.")
+    except Exception as e:
+        # Captura de errores no controlados en el nivel más alto
+        logging.getLogger().critical(f"Error fatal no controlado en la ejecución de la tarea de Expedientes: {e}", exc_info=True)
+        exit_code = 1
+
+    logger.info("Finalizada la ejecución de la tarea de Expedientes.")
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
-    import sys
-    try:
-        success = main()
-        sys.exit(0 if success else 1)
-    except Exception as e:
-        logger = setup_logger(__name__)
-        logger.error(f"Error crítico en ejecución: {e}")
-        sys.exit(1)
+    main()

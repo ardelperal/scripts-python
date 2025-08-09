@@ -1,112 +1,61 @@
-"""Tests unitarios para ExpedientesTask"""
+"""Tests unitarios para ExpedientesTask (refactor)."""
+
 import unittest
-from unittest.mock import Mock, patch, MagicMock
-import os
-import sys
+from unittest.mock import Mock, patch
 
-# Agregar el directorio src al path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), 'src')
-sys.path.insert(0, src_dir)
-
-from expedientes.expedientes_task import ExpedientesTask
+from src.expedientes.expedientes_task import ExpedientesTask
+from src.common.database import AccessDatabase
 
 
 class TestExpedientesTask(unittest.TestCase):
-    """Tests para ExpedientesTask"""
-    
+    """Verifica la orquestación principal de ExpedientesTask."""
+
     def setUp(self):
-        """Configuración para cada test"""
         self.task = ExpedientesTask()
-    
+        # Sustituir conexiones reales por mocks
+        self.task.db_expedientes = Mock(spec=AccessDatabase)
+        self.task.db_tareas = Mock(spec=AccessDatabase)
+
     def test_init(self):
-        """Test de inicialización de ExpedientesTask"""
         self.assertEqual(self.task.name, "EXPEDIENTES")
         self.assertEqual(self.task.script_filename, "run_expedientes.py")
         self.assertEqual(self.task.task_names, ["ExpedientesDiario"])
         self.assertEqual(self.task.frequency_days, 1)
-        self.assertIsNone(self.task.manager)  # Manager se inicializa como None
-    
-    @patch('expedientes.expedientes_task.ExpedientesManager')
-    def test_execute_specific_logic_success(self, mock_manager_class):
-        """Test de ejecución exitosa de lógica específica"""
-        # Configurar mock
-        mock_manager = Mock()
-        mock_manager.ejecutar_logica_especifica.return_value = True
-        mock_manager_class.return_value = mock_manager
-        
-        # Ejecutar
+        self.assertTrue(hasattr(self.task, 'db_expedientes'))
+
+    @patch('src.expedientes.expedientes_task.register_email_in_database', return_value=True)
+    @patch('src.expedientes.expedientes_task.get_admin_emails_string', return_value='admin@test')
+    @patch('src.expedientes.expedientes_task.ExpedientesManager')
+    def test_execute_specific_logic_with_html(self, mock_mgr_cls, _mock_admin_emails, mock_register_email):
+        mgr = Mock()
+        mgr.generate_expedientes_report_html.return_value = '<html>ok</html>'
+        mock_mgr_cls.return_value = mgr
         result = self.task.execute_specific_logic()
-        
-        # Verificar
         self.assertTrue(result)
-        mock_manager_class.assert_called_once()
-        mock_manager.ejecutar_logica_especifica.assert_called_once()
-        self.assertEqual(self.task.manager, mock_manager)
-    
-    @patch('expedientes.expedientes_task.ExpedientesManager')
-    def test_execute_specific_logic_fail(self, mock_manager_class):
-        """Test de fallo en ejecución de lógica específica"""
-        # Configurar mock
-        mock_manager = Mock()
-        mock_manager.ejecutar_logica_especifica.return_value = False
-        mock_manager_class.return_value = mock_manager
-        
-        # Ejecutar
+        mgr.generate_expedientes_report_html.assert_called_once()
+        mock_register_email.assert_called_once()
+
+    @patch('src.expedientes.expedientes_task.register_email_in_database')
+    @patch('src.expedientes.expedientes_task.ExpedientesManager')
+    def test_execute_specific_logic_empty_html(self, mock_mgr_cls, mock_register):
+        mgr = Mock()
+        mgr.generate_expedientes_report_html.return_value = ''
+        mock_mgr_cls.return_value = mgr
         result = self.task.execute_specific_logic()
-        
-        # Verificar
-        self.assertFalse(result)
-        mock_manager_class.assert_called_once()
-        mock_manager.ejecutar_logica_especifica.assert_called_once()
-    
-    @patch('expedientes.expedientes_task.ExpedientesManager')
-    def test_execute_specific_logic_exception(self, mock_manager_class):
-        """Test de excepción en ejecución de lógica específica"""
-        # Configurar mock para lanzar excepción
-        mock_manager_class.side_effect = Exception("Error de prueba")
-        
-        # Ejecutar
+        self.assertTrue(result)  # HTML vacío -> éxito sin registro
+        mock_register.assert_not_called()
+
+    @patch('src.expedientes.expedientes_task.ExpedientesManager')
+    def test_execute_specific_logic_exception(self, mock_mgr_cls):
+        mock_mgr_cls.side_effect = Exception('boom')
         result = self.task.execute_specific_logic()
-        
-        # Verificar
         self.assertFalse(result)
-        mock_manager_class.assert_called_once()
-    
+
     def test_close_connections(self):
-        """Test de cierre de conexiones"""
-        # Configurar mock manager
-        mock_manager = Mock()
-        self.task.manager = mock_manager
-        
-        # Ejecutar close_connections
+        mock_db = self.task.db_expedientes
+        mock_db.disconnect = Mock()
         self.task.close_connections()
-        
-        # Verificar que se llamó close_connections
-        mock_manager.close_connections.assert_called_once()
-    
-    def test_close_connections_no_manager(self):
-        """Test de cierre de conexiones sin manager"""
-        # Manager es None
-        self.task.manager = None
-        
-        # Ejecutar close_connections (no debe lanzar excepción)
-        self.task.close_connections()
-        
-        # No hay nada que verificar, solo que no lance excepción
-    
-    def test_close_connections_exception(self):
-        """Test de cierre de conexiones con excepción"""
-        # Configurar mock manager que lanza excepción
-        mock_manager = Mock()
-        mock_manager.close_connections.side_effect = Exception("Error de prueba")
-        self.task.manager = mock_manager
-        
-        # Ejecutar close_connections (no debe lanzar excepción)
-        self.task.close_connections()
-        
-        # Verificar que se intentó llamar close_connections
-        mock_manager.close_connections.assert_called_once()
+        mock_db.disconnect.assert_called_once()
 
 
 if __name__ == '__main__':
