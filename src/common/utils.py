@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Optional, List, Dict
 from logging.handlers import RotatingFileHandler
 # Importa los componentes de la librería correcta: python-logging-loki
-from logging_loki import LokiQueueHandler
+try:  # Hacer opcional la dependencia de logging_loki
+    from logging_loki import LokiQueueHandler  # type: ignore
+except ImportError:  # pragma: no cover - entorno sin logging_loki
+    LokiQueueHandler = None  # fallback para entornos donde no está instalada
 from queue import Queue
 
 # Importar config para funciones que lo necesitan
@@ -66,7 +69,7 @@ def setup_logging(log_file: Path, level=logging.INFO):
 
     # --- Handler para Loki ---
     loki_url = os.getenv("LOKI_URL")
-    if loki_url:
+    if loki_url and LokiQueueHandler is not None:
         try:
             # Etiquetas estáticas que se aplicarán a todos los logs
             static_tags = {
@@ -92,6 +95,8 @@ def setup_logging(log_file: Path, level=logging.INFO):
             logging.info(f"Logging configurado. Destinos: archivo, consola y Loki en {full_loki_url}")
         except Exception as e:
             logging.warning(f"No se pudo configurar Loki handler: {e}. Continuando solo con archivo y consola.")
+    elif loki_url and LokiQueueHandler is None:
+        logging.info("LOKI_URL configurada pero módulo logging_loki no instalado; continuando sin Loki.")
     else:
         logging.info("LOKI_URL no configurada. Logging configurado solo para archivo y consola.")
 

@@ -9,7 +9,8 @@ services:
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    # --- LÍNEA MODIFICADA ---
+    command: -config.file=/etc/loki/local-config.yaml -validation.allow-structured-metadata=false
     restart: unless-stopped
     networks:
       - monitoring
