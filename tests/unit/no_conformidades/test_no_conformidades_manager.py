@@ -164,51 +164,114 @@ class TestNoConformidadesManager(unittest.TestCase):
             result = self.manager.get_ars_proximas_vencer_calidad()
             
             self.assertEqual(result, [])
-    
-    def test_get_modern_html_header(self):
-        """Test de generación de header HTML moderno"""
-        header = self.manager._get_modern_html_header()
-        
-        self.assertIn("<!DOCTYPE html>", header)
-        self.assertIn("Informe de No Conformidades", header)
-        self.assertIn(self.manager.css_content, header)
-    
-    def test_get_modern_html_footer(self):
-        """Test de generación de footer HTML moderno"""
-        footer = self.manager._get_modern_html_footer()
-        
-        self.assertIn("</body>", footer)
-        self.assertIn("</html>", footer)
-        self.assertIn("mensaje generado por el servicio automatizado", footer)
-    
-    def test_generate_modern_arapc_table_html_empty(self):
-        """Test de generación de tabla ARAPC vacía"""
-        result = self.manager._generate_modern_arapc_table_html([])
-        self.assertEqual(result, "")
-    
-    def test_generate_modern_arapc_table_html_with_data(self):
-        """Test de generación de tabla ARAPC con datos"""
-        test_data = [
-            {
-                'DiasParaCierre': 5,
-                'CodigoNoConformidad': 'NC001',
-                'Nemotecnico': 'TEST',
-                'DESCRIPCION': 'Test description',
-                'RESPONSABLECALIDAD': 'user1',
-                'FECHAAPERTURA': date(2024, 1, 1),
-                'FPREVCIERRE': date(2024, 1, 15)
-            }
-        ]
-        
-        with patch.object(self.manager, '_get_dias_class', return_value='dias-critico'), \
-             patch.object(self.manager, '_format_date_display', return_value='01/01/2024'):
-            
-            result = self.manager._generate_modern_arapc_table_html(test_data)
-            
-            self.assertIn("Acciones Correctivas/Preventivas Próximas a Caducar", result)
-            self.assertIn("NC001", result)
-            self.assertIn("TEST", result)
-            self.assertIn("Test description", result)
+    # === Nuevas pruebas adaptadas al generador HTML unificado ===
+    def test_generar_reporte_calidad_moderno_vacio(self):
+        """El reporte moderno de calidad con datos vacíos debe contener header y footer."""
+        html = self.manager.html_generator.generar_reporte_calidad_moderno([], [], [], [])
+        self.assertIn("<!DOCTYPE html>", html)
+        self.assertIn("Informe de No Conformidades - Calidad", html)
+        self.assertIn("</html>", html)
+
+    def test_generar_reporte_tecnico_moderno_con_datos(self):
+        """Reporte técnico moderno con datos mínimos."""
+        sample = [{
+            'CodigoNoConformidad': 'NC001',
+            'Nemotecnico': 'NEMO',
+            'AccionCorrectiva': 'Acción X',
+            'AccionRealizada': 'Tarea Y',
+            'FechaInicio': date(2024,1,1),
+            'FechaFinPrevista': date(2024,1,10),
+            'Nombre': 'Tecnico 1',
+            'DiasParaCaducar': 5,
+            'CorreoCalidad': 'calidad@test'
+        }]
+        html = self.manager.html_generator.generar_reporte_tecnico_moderno(sample, [], [])
+        self.assertIn('Acciones Correctivas con fecha fin prevista a 8-15 días', html)
+        self.assertIn('NC001', html)
+        self.assertIn('Tecnico 1', html)
+
+    def test_get_ars_tecnico_por_vencer_queries(self):
+        """Verifica que la consulta generada para rangos correctos contiene el BETWEEN esperado."""
+        captured = {}
+        class FakeDB:
+            def execute_query(self_inner, query, params):
+                captured['query'] = query
+                return [{'CodigoNoConformidad':'NCX'}]
+        with patch.object(self.manager, '_get_nc_connection', return_value=FakeDB()):
+            res = self.manager.get_ars_tecnico_por_vencer('TECNICO1', 8, 15, 'IDCorreo15')
+            self.assertEqual(res[0]['CodigoNoConformidad'], 'NCX')
+            self.assertIn('BETWEEN 8 AND 15', captured['query'])
+
+    def test_get_ars_tecnico_por_vencer_rango_1_7_query(self):
+        """Verifica condición especial 1-7 días (>0 AND <=7)."""
+        captured = {}
+        class FakeDB:
+            def execute_query(self_inner, query, params):
+                captured['query'] = query
+                return []
+        with patch.object(self.manager, '_get_nc_connection', return_value=FakeDB()):
+            self.manager.get_ars_tecnico_por_vencer('TECNICO2', 1, 7, 'IDCorreo7')
+            self.assertIn('> 0 AND DateDiff', captured['query'])
+            self.assertIn('<= 7', captured['query'])
+
+    def test_get_ars_tecnico_vencidas_query(self):
+        """Verifica condición de vencidas (<= 0)."""
+        captured = {}
+        class FakeDB:
+            def execute_query(self_inner, query, params):
+                captured['query'] = query
+                return []
+        with patch.object(self.manager, '_get_nc_connection', return_value=FakeDB()):
+            self.manager.get_ars_tecnico_vencidas('TECNICO3')
+            self.assertIn('<= 0', captured['query'])
+
+    def test_registrar_aviso_ar_insert(self):
+        """Inserta un aviso nuevo cuando no existe registro previo."""
+        class FakeDB:
+            def __init__(self):
+                self.query_calls = []
+                self.non_query_calls = []
+                self.stage = 0
+            def execute_query(self, query, params=None):
+                self.query_calls.append(query)
+                # Primera llamada: check -> vacío; Segunda: max id
+                if 'FROM TbNCARAvisos WHERE' in query:
+                    return []
+                if 'Max(TbNCARAvisos.ID)' in query:
+                    return [{'Maximo': 7}]
+                return []
+            def execute_non_query(self, query, params=None):
+                self.non_query_calls.append((query, params))
+                return 1
+        fake = FakeDB()
+        with patch.object(self.manager, '_get_nc_connection', return_value=fake):
+            self.manager.registrar_aviso_ar(123, 55, 'IDCorreo7')
+            self.assertEqual(len(fake.non_query_calls), 1)
+            q, params = fake.non_query_calls[0]
+            self.assertIn('INSERT INTO TbNCARAvisos', q)
+            self.assertEqual(params[1], 123)
+
+    def test_registrar_aviso_ar_update(self):
+        """Actualiza aviso existente si ya hay registro."""
+        class FakeDB:
+            def __init__(self):
+                self.query_calls = []
+                self.non_query_calls = []
+            def execute_query(self, query, params=None):
+                self.query_calls.append(query)
+                if 'FROM TbNCARAvisos WHERE' in query:
+                    return [{'IDAR': 123}]
+                return []
+            def execute_non_query(self, query, params=None):
+                self.non_query_calls.append((query, params))
+                return 1
+        fake = FakeDB()
+        with patch.object(self.manager, '_get_nc_connection', return_value=fake):
+            self.manager.registrar_aviso_ar(123, 88, 'IDCorreo15')
+            self.assertEqual(len(fake.non_query_calls), 1)
+            q, params = fake.non_query_calls[0]
+            self.assertIn('UPDATE TbNCARAvisos SET', q)
+            self.assertEqual(params[1], 123)
     
     def test_close_connections(self):
         """Test de cierre de conexiones"""
