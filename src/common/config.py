@@ -31,7 +31,7 @@ class Config:
             'tareas': self._get_db_path('TAREAS_DB_PATH', 'Tareas_datos1.accdb')
         }
         
-        # Configuración de rutas según el entorno
+    # Configuración de rutas según el entorno
         if self.environment == 'local':
             self.db_agedys_path = self.root_dir / os.getenv('LOCAL_DB_AGEDYS', 'dbs-locales/AGEDYS_DATOS.accdb')
             self.db_brass_path = self.root_dir / os.getenv('LOCAL_DB_BRASS', 'dbs-locales/Gestion_Brass_Gestion_Datos.accdb')
@@ -44,6 +44,13 @@ class Config:
             # Configuración de CSS
             self.css_classic_file_path = self.root_dir / os.getenv('LOCAL_CSS_CLASSIC_FILE', 'herramientas/CSS.txt')
             self.css_modern_file_path = self.root_dir / os.getenv('LOCAL_CSS_MODERN_FILE', 'herramientas/CSS_moderno.css')
+            # Compatibilidad retro: algunos tests/antiguo código usan LOCAL_CSS_FILE apuntando a un único CSS
+            legacy_local_css = os.getenv('LOCAL_CSS_FILE')
+            if legacy_local_css:
+                legacy_path = self.root_dir / legacy_local_css
+                # Sincronizar ambos para que get_css_file_path funcione independientemente del estilo
+                self.css_classic_file_path = legacy_path
+                self.css_modern_file_path = legacy_path
             self.nc_css_style = os.getenv('NC_CSS_STYLE', 'modern')  # 'classic' o 'modern'
         else:  # oficina
             self.db_agedys_path = Path(os.getenv('OFFICE_DB_AGEDYS', r'\\datoste\Aplicaciones_dys\Aplicaciones PpD\Proyectos\AGEDYS_DATOS.accdb'))
@@ -57,6 +64,12 @@ class Config:
             # Configuración de CSS
             self.css_classic_file_path = Path(os.getenv('OFFICE_CSS_CLASSIC_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS.txt'))
             self.css_modern_file_path = Path(os.getenv('OFFICE_CSS_MODERN_FILE', r'\\datoste\aplicaciones_dys\Aplicaciones PpD\00Recursos\CSS_moderno.css'))
+            # Compatibilidad retro para OFFICE_CSS_FILE
+            legacy_office_css = os.getenv('OFFICE_CSS_FILE')
+            if legacy_office_css:
+                legacy_path = Path(legacy_office_css)
+                self.css_classic_file_path = legacy_path
+                self.css_modern_file_path = legacy_path
             self.nc_css_style = os.getenv('NC_CSS_STYLE', 'modern')  # 'classic' o 'modern'
         
         # Directorio para logs
@@ -106,6 +119,21 @@ class Config:
         
         # Crear directorios necesarios
         self._ensure_directories()
+
+        # Atributo conservado por compatibilidad: algunos tests esperan config.css_file_path
+        # Usamos el estilo configurado (modern o classic) para resolver la ruta activa.
+        # Si en el futuro se elimina, actualizar tests para usar get_css_file_path().
+        # Determinar ruta CSS activa conservando compatibilidad con atributo legacy css_file_path
+        try:
+            # Si se definió variable legacy única (LOCAL_CSS_FILE / OFFICE_CSS_FILE) usarla directamente
+            if os.getenv('LOCAL_CSS_FILE') or os.getenv('OFFICE_CSS_FILE'):
+                # Ya hemos sincronizado classic/modern arriba
+                self.css_file_path = self.css_modern_file_path
+            else:
+                self.css_file_path = self.get_css_file_path()
+        except Exception:
+            # Fallback silencioso a CSS clásico si algo falla
+            self.css_file_path = getattr(self, 'css_classic_file_path', None)
         
     def _get_db_path(self, env_var: str, default_filename: str) -> Path:
         """Obtiene la ruta de la base de datos según el entorno"""

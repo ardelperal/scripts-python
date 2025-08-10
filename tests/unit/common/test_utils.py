@@ -3,7 +3,7 @@ Tests unitarios para utils.py
 """
 import pytest
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch, mock_open, MagicMock
 import tempfile
@@ -14,11 +14,16 @@ from src.common.utils import (
     is_workday,
     is_night_time,
     load_css_content,
-    generate_html_header,
-    generate_html_footer,
     safe_str,
     format_date,
-    send_email
+    send_email,
+    is_task_completed_today,
+    should_execute_task,
+    should_execute_weekly_task,
+    should_execute_monthly_task,
+    should_execute_quality_task,
+    get_first_workday_of_week,
+    get_first_workday_of_month
 )
 
 
@@ -318,31 +323,7 @@ class TestLoadCssContent:
                     mock_warning.assert_called_once()
 
 
-class TestGenerateHtmlHeader:
-    """Tests para la función generate_html_header"""
-    
-    def test_generate_html_header(self):
-        """Test generación de header HTML"""
-        title = "Test Page"
-        css_content = "body { color: red; }"
-        
-        result = generate_html_header(title, css_content)
-        
-        assert "<!DOCTYPE html>" in result
-        assert f"<title>{title}</title>" in result
-        assert css_content in result
-        assert '<meta charset="UTF-8"' in result
-
-
-class TestGenerateHtmlFooter:
-    """Tests para la función generate_html_footer"""
-    
-    def test_generate_html_footer(self):
-        """Test generación de footer HTML"""
-        result = generate_html_footer()
-        
-        assert "</body>" in result
-        assert "</html>" in result
+## Eliminados tests de wrappers generate_html_header / generate_html_footer legacy
 
 
 class TestSafeStr:
@@ -478,3 +459,117 @@ class TestSendEmail:
             assert result is False
             mock_error.assert_called_once()
             assert "Error enviando email" in mock_error.call_args[0][0]
+
+
+# ==== NUEVOS TESTS: Scheduling y fechas laborables ====
+class DummyDB:
+    def __init__(self, last_date=None):
+        self.last_date = last_date
+
+def fake_get_last_task(monkeypatch, return_date):
+    def _fake(conn, name):
+        return return_date
+    monkeypatch.setattr('src.common.utils.get_last_task_execution_date', _fake)
+
+
+def test_is_task_completed_today_true(monkeypatch):
+    today = date.today()
+    fake_get_last_task(monkeypatch, today)
+    assert is_task_completed_today(None, 'TASK') is True
+
+
+def test_is_task_completed_today_false(monkeypatch):
+    fake_get_last_task(monkeypatch, None)
+    assert is_task_completed_today(None, 'TASK') is False
+
+
+def test_should_execute_task_first_time(monkeypatch):
+    fake_get_last_task(monkeypatch, None)
+    assert should_execute_task(None, 'T1', 3) is True
+
+
+def test_should_execute_task_wait(monkeypatch):
+    fake_get_last_task(monkeypatch, date.today())
+    assert should_execute_task(None, 'T1', 3) is False
+
+
+def test_should_execute_task_due(monkeypatch):
+    fake_get_last_task(monkeypatch, date.today() - timedelta(days=5))
+    assert should_execute_task(None, 'T1', 3) is True
+
+
+def test_get_first_workday_of_week_with_holiday(tmp_path):
+    # reference date Wednesday; create holiday Monday -> pick Tuesday if Monday holiday
+    ref = date(2024,1,3)  # Wednesday
+    holidays = tmp_path / 'hol.txt'
+    holidays.write_text('2024-01-01\n', encoding='utf-8')  # Monday is holiday
+    first = get_first_workday_of_week(ref, holidays)
+    assert first == date(2024,1,2)
+
+
+def test_get_first_workday_of_month_with_holiday(tmp_path):
+    ref = date(2024,2,15)
+    holidays = tmp_path / 'hol2.txt'
+    holidays.write_text('2024-02-01\n', encoding='utf-8')
+    first = get_first_workday_of_month(ref, holidays)
+    assert first == date(2024,2,2)
+
+
+def patch_today(monkeypatch, fixed_date):
+    class D(date):
+        @classmethod
+        def today(cls):
+            return fixed_date
+    monkeypatch.setattr('src.common.utils.date', D)
+
+
+def test_should_execute_weekly_task_first_day(monkeypatch, tmp_path):
+    # Monday week start, ensure first workday = Monday
+    monday = date(2024,1,1)
+    patch_today(monkeypatch, monday)
+    fake_get_last_task(monkeypatch, None)
+    assert should_execute_weekly_task(None, 'WEEK') is True
+
+
+def test_should_execute_weekly_task_not_first_day(monkeypatch, tmp_path):
+    tuesday = date(2024,1,2)
+    patch_today(monkeypatch, tuesday)
+    fake_get_last_task(monkeypatch, None)
+    # Tuesday not first workday (Monday), so False
+    assert should_execute_weekly_task(None, 'WEEK') is False
+
+
+def test_should_execute_monthly_task_first_day(monkeypatch):
+    first = date(2024,3,1)
+    patch_today(monkeypatch, first)
+    fake_get_last_task(monkeypatch, None)
+    assert should_execute_monthly_task(None, 'MONTH') is True
+
+
+def test_should_execute_monthly_task_not_first_day(monkeypatch):
+    patch_today(monkeypatch, date(2024,3,2))
+    fake_get_last_task(monkeypatch, None)
+    assert should_execute_monthly_task(None, 'MONTH') is False
+
+
+def test_should_execute_quality_task_first_time_on_preferred(monkeypatch):
+    # Preferred weekday Monday=0; simulate Monday
+    monday = date(2024,4,1)  # Monday
+    patch_today(monkeypatch, monday)
+    fake_get_last_task(monkeypatch, None)
+    assert should_execute_quality_task(None, 'QUAL', preferred_weekday=0) is True
+
+
+def test_should_execute_quality_task_wrong_day(monkeypatch):
+    # Simulate Wednesday but preferred Monday -> no execute (and previous exists)
+    wed = date(2024,4,3)
+    patch_today(monkeypatch, wed)
+    fake_get_last_task(monkeypatch, date(2024,3,25))  # previous Monday (9 days before) but today not next preferred workday
+    assert should_execute_quality_task(None, 'QUAL', preferred_weekday=0) is False
+
+
+def test_should_execute_quality_task_due_on_preferred(monkeypatch):
+    monday = date(2024,4,8)  # Next Monday
+    patch_today(monkeypatch, monday)
+    fake_get_last_task(monkeypatch, date(2024,4,1))  # 7 days ago
+    assert should_execute_quality_task(None, 'QUAL', preferred_weekday=0) is True

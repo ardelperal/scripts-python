@@ -1,438 +1,246 @@
-"""
-Tests unitarios para AgedysManager
-"""
+import logging
+from unittest.mock import Mock
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import date, datetime
+
 from src.agedys.agedys_manager import AgedysManager
 
 
-class TestAgedysManager:
-    """Tests para la clase AgedysManager"""
-    
-    @pytest.fixture
-    def mock_config(self):
-        """Mock de configuración"""
-        with patch('src.agedys.agedys_manager.config') as mock_config:
-            mock_config.get_db_agedys_connection_string.return_value = "mock_agedys_conn"
-            mock_config.get_db_tareas_connection_string.return_value = "mock_tareas_conn"
-            mock_config.get_db_correos_connection_string.return_value = "mock_correos_conn"
-            mock_config.css_file_path = "mock_css_path"
-            yield mock_config
-    
-    @pytest.fixture
-    def mock_access_database(self):
-        """Mock de AccessDatabase"""
-        with patch('src.agedys.agedys_manager.AccessDatabase') as mock_db:
-            yield mock_db
-    
-    @pytest.fixture
-    def mock_utils(self):
-        """Mock de utilidades"""
-        with patch('src.agedys.agedys_manager.load_css_content') as mock_css, \
-             patch('src.agedys.agedys_manager.generate_html_header') as mock_header, \
-             patch('src.agedys.agedys_manager.generate_html_footer') as mock_footer, \
-             patch('src.agedys.agedys_manager.utils.register_email_in_database') as mock_register_email, \
-             patch('src.agedys.agedys_manager.should_execute_task') as mock_should_execute, \
-             patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task:
-            
-            mock_css.return_value = "mock_css_content"
-            mock_header.return_value = "<html><head></head><body>"
-            mock_footer.return_value = "</body></html>"
-            mock_register_email.return_value = True
-            mock_should_execute.return_value = True
-            mock_register_task.return_value = True
-            
-            yield {
-                'css': mock_css,
-                'header': mock_header,
-                'footer': mock_footer,
-                'register_email': mock_register_email,
-                'should_execute': mock_should_execute,
-                'register_task': mock_register_task
-            }
-    
-    @pytest.fixture
-    def agedys_manager(self, mock_config, mock_access_database, mock_utils):
-        """Instancia de AgedysManager con mocks"""
-        return AgedysManager()
-    
-    def test_init(self, agedys_manager, mock_access_database, mock_config):
-        """Test de inicialización"""
-        assert agedys_manager.db is not None
-        assert agedys_manager.tareas_db is not None
-        assert agedys_manager.correos_db is not None
-        assert agedys_manager.css_content == "mock_css_content"
-    
-    def test_get_usuarios_facturas_pendientes_visado_tecnico(self, agedys_manager):
-        """Test obtener usuarios con facturas pendientes de visado técnico"""
-        mock_users = [
-            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'Usuario1@telefonica.com'},
-            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'Usuario2@telefonica.com'}
+@pytest.fixture
+def logger():
+    return logging.getLogger("test")
+
+@pytest.fixture
+def db():
+    return Mock()
+
+@pytest.fixture
+def manager(db, logger):
+    return AgedysManager(db, logger)
+
+# ---------------------- Tests de métodos get_* (muestran consulta) ----------------------
+
+def test_get_facturas_pendientes_por_tecnico_calls_db(manager, db):
+    db.execute_query.side_effect = [[{'NFactura': 'F1', 'NDOCUMENTO': 'D1'}], [], [], []]
+    rows = manager.get_facturas_pendientes_por_tecnico(10, 'User')
+    # 4 subconsultas
+    assert db.execute_query.call_count == 4
+    assert rows[0]['NFactura'] == 'F1'
+
+
+def test_get_dpds_sin_so_por_tecnico(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D1'}]
+    rows = manager.get_dpds_sin_so_por_tecnico('User')
+    assert db.execute_query.called
+    assert rows == [{'CODPROYECTOS': 'D1'}]
+
+
+def test_get_dpds_con_so_sin_ro_por_tecnico(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D2'}]
+    rows = manager.get_dpds_con_so_sin_ro_por_tecnico('User')
+    assert rows[0]['CODPROYECTOS'] == 'D2'
+
+
+def test_get_dpds_sin_visado_calidad_por_tecnico(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D3'}]
+    assert manager.get_dpds_sin_visado_calidad_por_tecnico('User') == [{'CODPROYECTOS': 'D3'}]
+
+
+def test_get_dpds_rechazados_calidad_por_tecnico(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D4'}]
+    assert manager.get_dpds_rechazados_calidad_por_tecnico('User') == [{'CODPROYECTOS': 'D4'}]
+
+
+def test_get_dpds_sin_visado_calidad_agrupado(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D5'}]
+    assert manager.get_dpds_sin_visado_calidad_agrupado() == [{'CODPROYECTOS': 'D5'}]
+
+
+def test_get_dpds_con_fin_agenda_tecnica_agrupado(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D6'}]
+    assert manager.get_dpds_con_fin_agenda_tecnica_agrupado() == [{'CODPROYECTOS': 'D6'}]
+
+
+def test_get_dpds_sin_pedido_agrupado(manager, db):
+    db.execute_query.return_value = [{'CODPROYECTOS': 'D7'}]
+    assert manager.get_dpds_sin_pedido_agrupado() == [{'CODPROYECTOS': 'D7'}]
+
+
+def test_get_facturas_rechazadas_agrupado(manager, db):
+    db.execute_query.return_value = [{'NFactura': 'F2'}]
+    assert manager.get_facturas_rechazadas_agrupado() == [{'NFactura': 'F2'}]
+
+
+def test_get_facturas_visadas_pendientes_op_agrupado(manager, db):
+    db.execute_query.return_value = [{'NFactura': 'F3'}]
+    assert manager.get_facturas_visadas_pendientes_op_agrupado() == [{'NFactura': 'F3'}]
+
+
+# ---------------------- Tests de generación de informes ----------------------
+
+def test_generate_technical_user_report_html_empty(manager, monkeypatch):
+    # Forzar todos los métodos get_* a devolver vacío
+    for name in [
+        'get_dpds_sin_so_por_tecnico', 'get_dpds_con_so_sin_ro_por_tecnico',
+        'get_dpds_sin_visado_calidad_por_tecnico', 'get_dpds_rechazados_calidad_por_tecnico',
+        'get_facturas_pendientes_por_tecnico']:
+        monkeypatch.setattr(manager, name, Mock(return_value=[]))
+    # Espiar uso de header/footer
+    gen = manager.html_generator
+    monkeypatch.setattr(gen, 'generar_header_moderno', Mock(wraps=gen.generar_header_moderno))
+    monkeypatch.setattr(gen, 'generar_footer_moderno', Mock(wraps=gen.generar_footer_moderno))
+
+    html = manager.generate_technical_user_report_html(1, 'User', 'u@x')
+    assert html == ''
+    gen.generar_header_moderno.assert_not_called()
+    gen.generar_footer_moderno.assert_not_called()
+
+
+def test_generate_technical_user_report_html_with_data(manager, monkeypatch):
+    monkeypatch.setattr(manager, 'get_dpds_sin_so_por_tecnico', Mock(return_value=[{'CODPROYECTOS': 'D1'}]))
+    monkeypatch.setattr(manager, 'get_dpds_con_so_sin_ro_por_tecnico', Mock(return_value=[]))
+    monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_por_tecnico', Mock(return_value=[]))
+    monkeypatch.setattr(manager, 'get_dpds_rechazados_calidad_por_tecnico', Mock(return_value=[]))
+    monkeypatch.setattr(manager, 'get_facturas_pendientes_por_tecnico', Mock(return_value=[]))
+
+    gen = manager.html_generator
+    monkeypatch.setattr(gen, 'generar_header_moderno', Mock(wraps=gen.generar_header_moderno))
+    monkeypatch.setattr(gen, 'generar_footer_moderno', Mock(wraps=gen.generar_footer_moderno))
+
+    # Patch build_table_html en el módulo objetivo
+    import src.agedys.agedys_manager as mod
+    spy_build = Mock(return_value='<table/>')
+    monkeypatch.setattr(mod, 'build_table_html', spy_build)
+
+    html = manager.generate_technical_user_report_html(1, 'User', 'u@x')
+    assert 'INFORME TAREAS PENDIENTES' in html
+    assert spy_build.call_count == 1  # solo una sección con datos
+    gen.generar_header_moderno.assert_called_once()
+    gen.generar_footer_moderno.assert_called_once()
+
+
+def test_generate_quality_report_html_empty(manager, monkeypatch):
+    monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_agrupado', Mock(return_value=[]))
+    gen = manager.html_generator
+    monkeypatch.setattr(gen, 'generar_header_moderno', Mock(wraps=gen.generar_header_moderno))
+    html = manager.generate_quality_report_html()
+    assert html == ''
+    gen.generar_header_moderno.assert_not_called()
+
+
+def test_generate_quality_report_html_with_data(manager, monkeypatch):
+    monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_agrupado', Mock(return_value=[{'CODPROYECTOS': 'D1'}]))
+    import src.agedys.agedys_manager as mod
+    spy_build = Mock(return_value='<table/>')
+    monkeypatch.setattr(mod, 'build_table_html', spy_build)
+    html = manager.generate_quality_report_html()
+    assert 'CALIDAD' in html
+    spy_build.assert_called_once()
+
+
+def test_generate_economy_report_html_empty(manager, monkeypatch):
+    for name in [
+        'get_dpds_con_fin_agenda_tecnica_agrupado', 'get_dpds_sin_pedido_agrupado',
+        'get_facturas_rechazadas_agrupado', 'get_facturas_visadas_pendientes_op_agrupado']:
+        monkeypatch.setattr(manager, name, Mock(return_value=[]))
+    html = manager.generate_economy_report_html()
+    assert html == ''
+
+
+def test_generate_economy_report_html_some(manager, monkeypatch):
+    monkeypatch.setattr(manager, 'get_dpds_con_fin_agenda_tecnica_agrupado', Mock(return_value=[{'CODPROYECTOS': 'D1'}]))
+    monkeypatch.setattr(manager, 'get_dpds_sin_pedido_agrupado', Mock(return_value=[]))
+    monkeypatch.setattr(manager, 'get_facturas_rechazadas_agrupado', Mock(return_value=[{'NFactura': 'F1'}]))
+    monkeypatch.setattr(manager, 'get_facturas_visadas_pendientes_op_agrupado', Mock(return_value=[]))
+    import src.agedys.agedys_manager as mod
+    spy_build = Mock(return_value='<table/>')
+    monkeypatch.setattr(mod, 'build_table_html', spy_build)
+    html = manager.generate_economy_report_html()
+    assert 'ECONOMÍA' in html
+    assert spy_build.call_count == 2
+
+
+def test_generate_technical_user_report_html_multiple_sections(manager, monkeypatch):
+    # Tres secciones con datos para verificar múltiples invocaciones
+    monkeypatch.setattr(manager, 'get_dpds_sin_so_por_tecnico', Mock(return_value=[{'CODPROYECTOS': 'A'}]))
+    monkeypatch.setattr(manager, 'get_dpds_con_so_sin_ro_por_tecnico', Mock(return_value=[{'CODPROYECTOS': 'B'}]))
+    monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_por_tecnico', Mock(return_value=[{'CODPROYECTOS': 'C'}]))
+    monkeypatch.setattr(manager, 'get_dpds_rechazados_calidad_por_tecnico', Mock(return_value=[]))
+    monkeypatch.setattr(manager, 'get_facturas_pendientes_por_tecnico', Mock(return_value=[]))
+    import src.agedys.agedys_manager as mod
+    calls = {}
+    def side(title, rows, **kw):
+        calls[title] = len(rows)
+        return f"<table data-title='{title}'/>"
+    monkeypatch.setattr(mod, 'build_table_html', side)
+    html = manager.generate_technical_user_report_html(99, 'UserX', 'ux@example.com')
+    assert "INFORME TAREAS PENDIENTES - UserX" in html
+    # Verifica que se generaron exactamente las tres secciones con datos
+    assert set(calls.keys()) == {"DPDs sin SO", "DPDs con SO sin RO", "DPDs sin visado calidad"}
+    # Contenido HTML incluye los tres fragmentos
+    for t in calls.keys():
+        assert f"data-title='{t}'" in html
+
+def test_pretty_headers_transformation(manager):
+    """Valida que claves como 'ResponsableCalidad' se transforman a 'Responsable Calidad' en la tabla."""
+    from src.common.reporting.table_builder import build_table_html
+    sample_rows = [{'ResponsableCalidad': 'Juan'}]
+    html = build_table_html('Seccion', sample_rows, pretty_headers=True)
+    assert 'Responsable Calidad' in html
+    assert 'ResponsableCalidad' not in html
+
+
+def test_pretty_headers_camelcase_split():
+    from src.common.reporting.table_builder import build_table_html
+    sample_rows = [{'UserName': 'Ana', 'UserEmail': 'ana@x'}]
+    html = build_table_html('Seccion', sample_rows, pretty_headers=True)
+    assert '<th>User Name</th>' in html
+    assert '<th>UserName</th>' not in html
+
+
+# ---------------------- Nuevos tests de cobertura adicional ----------------------
+
+def test_get_usuarios_con_tareas_pendientes_basic(manager, db):
+    # Simular 5 subconsultas con usuarios distintos y repetidos
+    db.execute_query.side_effect = [
+        [{'UsuarioRed': 'u1'}],  # sin SO
+        [{'UsuarioRed': 'u2'}],  # con SO sin RO
+        [{'UsuarioRed': 'u1'}],  # sin visado calidad (dup)
+        [],                      # rechazados calidad vacío
+        [{'UsuarioRed': 'u3'}],  # facturas pendientes
+        # Detalle final: tres usuarios
+        [
+            {'UserId': 1, 'UserName': 'U1', 'UserEmail': 'u1@x'},
+            {'UserId': 2, 'UserName': 'U2', 'UserEmail': 'u2@x'},
+            {'UserId': 3, 'UserName': 'U3', 'UserEmail': 'u3@x'},
         ]
-        expected_result = [
-            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'Usuario1@telefonica.com'},
-            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'Usuario2@telefonica.com'}
-        ]
-        agedys_manager.db.execute_query.return_value = mock_users
-        
-        result = agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
-        
-        assert result == expected_result
-        agedys_manager.db.execute_query.assert_called()
-    
-    def test_get_usuarios_facturas_pendientes_visado_tecnico_exception(self, agedys_manager):
-        """Test obtener usuarios con facturas pendientes - excepción"""
-        agedys_manager.db.execute_query.side_effect = Exception("DB Error")
-        
-        result = agedys_manager.get_usuarios_facturas_pendientes_visado_tecnico()
-        
-        assert result == []
-    
-    def test_get_facturas_pendientes_visado_tecnico(self, agedys_manager):
-        """Test obtener facturas pendientes de visado técnico"""
-        mock_user = [{'Id': 1, 'Nombre': 'Usuario Test'}]
-        mock_facturas = [
-            {'NFactura': 'F001', 'Suministrador': 'Proveedor1', 'ImporteFactura': 100.50},
-            {'NFactura': 'F002', 'Suministrador': 'Proveedor2', 'ImporteFactura': 200.75}
-        ]
-        
-        # Configurar side_effect para devolver usuario primero, luego facturas para las siguientes consultas
-        agedys_manager.db.execute_query.side_effect = [mock_user] + [mock_facturas] * 4
-        
-        result = agedys_manager.get_facturas_pendientes_visado_tecnico('Usuario1')
-        
-        assert result == mock_facturas
-        # El método ejecuta 1 query de usuario + hasta 4 queries de facturas
-        assert agedys_manager.db.execute_query.call_count >= 2
-    
-    def test_get_facturas_pendientes_visado_tecnico_exception(self, agedys_manager):
-        """Test obtener facturas pendientes - excepción"""
-        agedys_manager.db.execute_query.side_effect = Exception("DB Error")
-        
-        result = agedys_manager.get_facturas_pendientes_visado_tecnico('Usuario1')
-        
-        assert result == []
-    
-    @patch('src.agedys.agedys_manager.get_quality_users')
-    def test_get_usuarios_dpds_sin_visado_calidad(self, mock_get_quality_users, agedys_manager):
-        """Test obtener usuarios con DPDs sin visado de calidad"""
-        mock_users = [
-            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'},
-            {'UsuarioRed': 'Usuario2', 'CorreoUsuario': 'user2@test.com'}
-        ]
-        mock_get_quality_users.return_value = mock_users
-        
-        result = agedys_manager.get_usuarios_dpds_sin_visado_calidad()
-        
-        assert result == mock_users
-        mock_get_quality_users.assert_called_once_with("3", agedys_manager.config, agedys_manager.logger)
-    
-    def test_get_dpds_sin_visado_calidad(self, agedys_manager):
-        """Test obtener DPDs sin visado de calidad"""
-        mock_dpds = [
-            {'CODPROYECTOS': 'DPD001', 'DESCRIPCION': 'DPD Test 1'},
-            {'CODPROYECTOS': 'DPD002', 'DESCRIPCION': 'DPD Test 2'}
-        ]
-        agedys_manager.db.execute_query.return_value = mock_dpds
-        
-        result = agedys_manager.get_dpds_sin_visado_calidad('Usuario1')
-        
-        assert result == mock_dpds
-        agedys_manager.db.execute_query.assert_called_once()
-    
-    @patch('src.agedys.agedys_manager.get_quality_users')
-    def test_get_usuarios_dpds_rechazados_calidad(self, mock_get_quality_users, agedys_manager):
-        """Test obtener usuarios con DPDs rechazados por calidad"""
-        mock_users = [
-            {'UsuarioRed': 'Usuario1', 'CorreoUsuario': 'user1@test.com'}
-        ]
-        mock_get_quality_users.return_value = mock_users
-        
-        result = agedys_manager.get_usuarios_dpds_rechazados_calidad()
-        
-        assert result == mock_users
-        mock_get_quality_users.assert_called_once_with("3", agedys_manager.config, agedys_manager.logger)
-    
-    def test_get_dpds_rechazados_calidad(self, agedys_manager):
-        """Test obtener DPDs rechazados por calidad"""
-        mock_dpds = [
-            {'CODPROYECTOS': 'DPD003', 'DESCRIPCION': 'DPD Rechazado', 'FechaRechazo': datetime.now()}
-        ]
-        agedys_manager.db.execute_query.return_value = mock_dpds
-        
-        result = agedys_manager.get_dpds_rechazados_calidad('Usuario1')
-        
-        assert result == mock_dpds
-        agedys_manager.db.execute_query.assert_called_once()
-    
-    @patch('src.agedys.agedys_manager.get_economy_users')
-    def test_get_usuarios_economia(self, mock_get_economy_users, agedys_manager):
-        """Test obtener usuarios de economía"""
-        mock_users = [
-            {'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}
-        ]
-        mock_get_economy_users.return_value = mock_users
-        
-        result = agedys_manager.get_usuarios_economia()
-        
-        assert result == mock_users
-        mock_get_economy_users.assert_called_once_with(agedys_manager.config, agedys_manager.logger)
-    
-    def test_get_dpds_fin_agenda_tecnica_por_recepcionar(self, agedys_manager):
-        """Test obtener DPDs con fin de agenda técnica por recepcionar"""
-        mock_dpds = [
-            {'NumeroDPD': 'DPD004', 'Descripcion': 'DPD Fin Agenda'}
-        ]
-        agedys_manager.db.execute_query.return_value = mock_dpds
-        
-        result = agedys_manager.get_dpds_fin_agenda_tecnica_por_recepcionar()
-        
-        assert result == mock_dpds
-        agedys_manager.db.execute_query.assert_called_once()
-    
-    def test_get_usuarios_tareas(self, agedys_manager):
-        """Test obtener usuarios de tareas"""
-        mock_users = [
-            {'UsuarioRed': 'Tecnico1', 'CorreoUsuario': 'tecnico1@test.com'}
-        ]
-        agedys_manager.tareas_db.execute_query.return_value = mock_users
-        
-        result = agedys_manager.get_usuarios_tareas()
-        
-        assert result == mock_users
-        agedys_manager.tareas_db.execute_query.assert_called_once()
-    
-    def test_get_dpds_sin_pedido(self, agedys_manager):
-        """Test obtener DPDs sin pedido"""
-        mock_dpds = [
-            {'NumeroDPD': 'DPD005', 'Descripcion': 'DPD Sin Pedido'}
-        ]
-        agedys_manager.db.execute_query.return_value = mock_dpds
-        
-        result = agedys_manager.get_dpds_sin_pedido()
-        
-        assert result == mock_dpds
-        agedys_manager.db.execute_query.assert_called_once()
-    
-    def test_generate_facturas_html_table_empty(self, agedys_manager):
-        """Test generar tabla HTML de facturas vacía"""
-        result = agedys_manager.generate_facturas_html_table([])
-        
-        assert result == "<p>No hay facturas pendientes de visado técnico.</p>"
-    
-    def test_generate_facturas_html_table_with_data(self, agedys_manager):
-        """Test generar tabla HTML de facturas con datos"""
-        facturas = [
-            {'NFactura': 'F001', 'Suministrador': 'Proveedor1', 'ImporteFactura': 100.50}
-        ]
-        
-        result = agedys_manager.generate_facturas_html_table(facturas)
-        
-        assert "<table" in result
-        assert "F001" in result
-        assert "Proveedor1" in result
-        assert "100.5" in result
-    
-    def test_generate_dpds_html_table_empty(self, agedys_manager):
-        """Test generar tabla HTML de DPDs vacía"""
-        result = agedys_manager.generate_dpds_html_table([], 'sin_visado_calidad')
-        
-        assert result == "<p>No hay DPDs sin_visado_calidad.</p>"
-    
-    def test_generate_dpds_html_table_with_data(self, agedys_manager):
-        """Test generar tabla HTML de DPDs con datos"""
-        dpds = [
-            {
-                'CODPROYECTOS': 'DPD001', 
-                'DESCRIPCION': 'DPD Test',
-                'PETICIONARIO': 'Usuario Test',
-                'CodExp': 'EXP001',
-                'IMPORTEADJUDICADO': 1000.50,
-                'Suministrador': 'Proveedor Test'
-            }
-        ]
-        
-        result = agedys_manager.generate_dpds_html_table(dpds, 'sin_visado_calidad')
-        
-        assert "<table" in result
-        assert "DPD001" in result
-        assert "DPD Test" in result
-        assert "Usuario Test" in result
-        assert "1000.50€" in result
-    
-    def test_register_facturas_pendientes_notification_empty(self, agedys_manager, mock_utils):
-        """Test registrar notificación de facturas pendientes - lista vacía"""
-        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', [], dry_run=False)
-        
-        mock_utils['register_email'].assert_not_called()
-    
-    def test_register_facturas_pendientes_notification_with_data(self, agedys_manager, mock_utils):
-        """Test registrar notificación de facturas pendientes con datos"""
-        facturas = [{'NumeroFactura': 'F001', 'Proveedor': 'Proveedor1'}]
-        
-        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', facturas, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_register_facturas_pendientes_notification_dry_run(self, agedys_manager, mock_utils):
-        """Test registrar notificación de facturas pendientes - dry run"""
-        facturas = [{'NumeroFactura': 'F001', 'Proveedor': 'Proveedor1'}]
-        
-        agedys_manager.register_facturas_pendientes_notification('Usuario1', 'user1@test.com', facturas, dry_run=True)
-        
-        mock_utils['register_email'].assert_not_called()
-    
-    def test_register_dpds_sin_visado_notification_empty(self, agedys_manager, mock_utils):
-        """Test registrar notificación de DPDs sin visado - lista vacía"""
-        agedys_manager.register_dpds_sin_visado_notification('Usuario1', 'user1@test.com', [], dry_run=False)
-        
-        mock_utils['register_email'].assert_not_called()
-    
-    def test_register_dpds_sin_visado_notification_with_data(self, agedys_manager, mock_utils):
-        """Test registrar notificación de DPDs sin visado con datos"""
-        dpds = [{'CODPROYECTOS': 'DPD001', 'DESCRIPCION': 'DPD Test'}]
-        
-        agedys_manager.register_dpds_sin_visado_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_register_dpds_rechazados_notification_with_data(self, agedys_manager, mock_utils):
-        """Test registrar notificación de DPDs rechazados con datos"""
-        dpds = [{'CODPROYECTOS': 'DPD002', 'DESCRIPCION': 'DPD Rechazado'}]
-        
-        agedys_manager.register_dpds_rechazados_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_register_economia_notification_empty_users(self, agedys_manager, mock_utils):
-        """Test registrar notificación a economía - usuarios vacíos"""
-        dpds = [{'NumeroDPD': 'DPD003'}]
-        
-        agedys_manager.register_economia_notification([], dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_not_called()
-    
-    def test_register_economia_notification_empty_dpds(self, agedys_manager, mock_utils):
-        """Test registrar notificación a economía - DPDs vacíos"""
-        usuarios = [{'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}]
-        
-        agedys_manager.register_economia_notification(usuarios, [], dry_run=False)
-        
-        mock_utils['register_email'].assert_not_called()
-    
-    def test_register_economia_notification_with_data(self, agedys_manager, mock_utils):
-        """Test registrar notificación a economía con datos"""
-        usuarios = [{'UsuarioRed': 'Economia1', 'CorreoUsuario': 'economia1@test.com'}]
-        dpds = [{'CODPROYECTOS': 'DPD003', 'DESCRIPCION': 'DPD Economia'}]
-        
-        agedys_manager.register_economia_notification(usuarios, dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_register_dpds_sin_pedido_notification_with_data(self, agedys_manager, mock_utils):
-        """Test registrar notificación de DPDs sin pedido con datos"""
-        dpds = [{'CODPROYECTOS': 'DPD004', 'DESCRIPCION': 'DPD Sin Pedido'}]
-        
-        agedys_manager.register_dpds_sin_pedido_notification('Usuario1', 'user1@test.com', dpds, dry_run=False)
-        
-        mock_utils['register_email'].assert_called_once()
-    
-    def test_execute_task_should_not_execute(self, agedys_manager, mock_utils):
-        """Test ejecutar tarea - no debe ejecutarse"""
-        mock_utils['should_execute'].return_value = False
-        
-        result = agedys_manager.execute_task(force=False, dry_run=False)
-        
-        assert result is True
-    
-    def test_execute_task_force_execution(self, agedys_manager, mock_utils):
-        """Test ejecutar tarea - forzar ejecución"""
-        with patch.object(agedys_manager, 'run') as mock_run:
-            mock_run.return_value = True
-            
-            result = agedys_manager.execute_task(force=True, dry_run=False)
-            
-            assert result is True
-            mock_run.assert_called_once_with(dry_run=False)
-            mock_utils['register_task'].assert_called_once()
-    
-    def test_execute_task_dry_run(self, agedys_manager, mock_utils):
-        """Test ejecutar tarea - dry run"""
-        with patch.object(agedys_manager, 'run') as mock_run:
-            mock_run.return_value = True
-            
-            result = agedys_manager.execute_task(force=True, dry_run=True)
-            
-            assert result is True
-            mock_run.assert_called_once_with(dry_run=True)
-            mock_utils['register_task'].assert_not_called()
-    
-    def test_execute_task_run_failure(self, agedys_manager, mock_utils):
-        """Test ejecutar tarea - fallo en run"""
-        with patch.object(agedys_manager, 'run') as mock_run:
-            mock_run.return_value = False
-            
-            result = agedys_manager.execute_task(force=True, dry_run=False)
-            
-            assert result is False
-            mock_utils['register_task'].assert_called_once()
-    
-    def test_execute_task_exception(self, agedys_manager, mock_utils):
-        """Test ejecutar tarea - excepción"""
-        with patch.object(agedys_manager, 'run') as mock_run:
-            mock_run.side_effect = Exception("Test Error")
-            
-            result = agedys_manager.execute_task(force=True, dry_run=False)
-            
-            assert result is False
-    
-    def test_run_success_complete_flow(self, agedys_manager, mock_utils):
-        """Test flujo completo exitoso - registro de notificaciones"""
-        # Mock de métodos de procesamiento por fases
-        with patch.object(agedys_manager, 'process_calidad_tasks') as mock_process_calidad, \
-             patch.object(agedys_manager, 'process_economia_tasks') as mock_process_economia, \
-             patch.object(agedys_manager, 'process_tecnicos_tasks') as mock_process_tecnicos:
-            
-            # Configurar mocks para que no lancen excepciones
-            mock_process_calidad.return_value = None
-            mock_process_economia.return_value = None
-            mock_process_tecnicos.return_value = 2  # Simular 2 técnicos procesados
-            
-            result = agedys_manager.run(dry_run=False)
-            
-            assert result is True
-            # Verificar que todas las fases se ejecutaron
-            mock_process_calidad.assert_called_once_with(False)
-            mock_process_economia.assert_called_once_with(False)
-            mock_process_tecnicos.assert_called_once_with(False)
-    
-    def test_run_exception(self, agedys_manager):
-        """Test ejecutar proceso principal - excepción"""
-        with patch.object(agedys_manager, 'process_calidad_tasks') as mock_process_calidad:
-            mock_process_calidad.side_effect = Exception("Test Error")
-            
-            result = agedys_manager.run(dry_run=False)
-            
-            assert result is False
-    
-    def test_run_no_users_or_data(self, agedys_manager):
-        """Test ejecutar proceso principal - sin usuarios o datos"""
-        with patch.object(agedys_manager, 'get_usuarios_facturas_pendientes_visado_tecnico') as mock_get_usuarios_facturas, \
-             patch.object(agedys_manager, 'get_usuarios_dpds_sin_visado_calidad') as mock_get_usuarios_dpds, \
-             patch.object(agedys_manager, 'get_usuarios_dpds_rechazados_calidad') as mock_get_usuarios_rechazados, \
-             patch.object(agedys_manager, 'get_usuarios_economia') as mock_get_economia, \
-             patch.object(agedys_manager, 'get_dpds_fin_agenda_tecnica_por_recepcionar') as mock_get_dpds_economia, \
-             patch.object(agedys_manager, 'get_usuarios_tareas') as mock_get_usuarios_tareas:
-            
-            # Configurar mocks para devolver listas vacías
-            mock_get_usuarios_facturas.return_value = []
-            mock_get_usuarios_dpds.return_value = []
-            mock_get_usuarios_rechazados.return_value = []
-            mock_get_economia.return_value = []
-            mock_get_dpds_economia.return_value = []
-            mock_get_usuarios_tareas.return_value = []
-            
-            result = agedys_manager.run(dry_run=False)
-            
-            assert result is True
+    ]
+    users = manager.get_usuarios_con_tareas_pendientes()
+    assert len(users) == 3
+    # Verificar llamada final (6 total: 5 subqueries + detalle)
+    assert db.execute_query.call_count == 6
+
+
+def test_get_usuarios_con_tareas_pendientes_error_path(manager, db, caplog):
+    # Forzar excepción en primera subconsulta y devolver datos en la segunda
+    def side_effect(sql, params=None):
+        if 'SELECT DISTINCT u.UsuarioRed' in sql and 'sop.DPD IS NULL' in sql:
+            raise Exception('boom')
+        return [{'UsuarioRed': 'uX'}] if 'UsuarioRed' in sql else []
+
+    db.execute_query.side_effect = [Exception('boom'), [{'UsuarioRed': 'uX'}], [], [], [], [{'UserId': 9, 'UserName': 'UX', 'UserEmail': 'ux@x'}]]
+    users = manager.get_usuarios_con_tareas_pendientes()
+    assert users and users[0]['UserId'] == 9
+    # Asegura que pese al fallo continúa
+    assert db.execute_query.call_count == 6
+
+
+def test_get_facturas_pendientes_por_tecnico_error_subquery(manager, db):
+    # Primera subconsulta lanza excepción; las demás retornan vacío
+    def exec_side(sql, params=None):
+        if 'SELECT DISTINCT fd.NFactura' in sql and 'vf.FRECHAZOTECNICO IS NULL' in sql and 'er.CorreoSiempre=\'Sí\'' in sql:
+            raise Exception('q1_fail')
+        return []
+    db.execute_query.side_effect = exec_side
+    rows = manager.get_facturas_pendientes_por_tecnico(1, 'User')
+    # No explota y retorna lista vacía
+    assert rows == []

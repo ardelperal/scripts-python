@@ -1,74 +1,87 @@
+"""Tarea orquestadora refactorizada para No Conformidades.
+
+Responsabilidad exclusiva: decidir ejecución (planificación) y delegar la
+generación/parcial de informe a un manager puro (incremental) y registrar correo.
+
+Refactor incremental: de momento sólo se genera informe parcial (secciones migradas)
+si existen datos; el resto continúa en el manager legacy hasta completar migración.
 """
-Tarea de No Conformidades
-Implementa la tarea diaria para gestión de no conformidades y ARAPs
-"""
-import logging
+from __future__ import annotations
+
 import os
-
-# Agregar el directorio src al path para imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.dirname(current_dir)
-if src_dir not in os.sys.path:
-    os.sys.path.insert(0, src_dir)
-
+import logging
 from common.base_task import TareaDiaria
-from no_conformidades.no_conformidades_manager import NoConformidadesManager
-
-logger = logging.getLogger(__name__)
+from common.database import AccessDatabase
+from common.email.recipients_service import EmailRecipientsService
+from common.email.registration_service import register_standard_report
+from common.utils import get_admin_emails_string
+from .nc_pure_manager import NoConformidadesManagerPure
 
 
 class NoConformidadesTask(TareaDiaria):
-    """
-    Tarea para la gestión de No Conformidades y ARAPs
-    """
-    
     def __init__(self):
         super().__init__(
             name="NoConformidades",
             script_filename="run_no_conformidades.py",
             task_names=["NCTecnico", "NCCalidad"],
-            frequency_days=int(os.getenv('NC_FRECUENCIA_DIAS', '1'))
+            frequency_days=int(os.getenv('NC_FRECUENCIA_DIAS', '1') or 1)
         )
-        self.manager = None
-    
-    def execute(self) -> bool:
-        """
-        Ejecuta la tarea de No Conformidades
-        """
         try:
-            self.logger.info("Iniciando ejecución de tarea No Conformidades")
-            
-            # Crear el manager
-            self.manager = NoConformidadesManager()
-            
-            # Ejecutar la tarea
-            success = self.manager.run()
-            
-            if success:
-                self.logger.info("Tarea No Conformidades completada exitosamente")
-            else:
-                self.logger.error("Error en la ejecución de la tarea No Conformidades")
-            
-            return success
-            
-        except Exception as e:
-            self.logger.error(f"Error ejecutando tarea No Conformidades: {e}")
-            return False
-        finally:
-            # Cerrar conexiones
-            if self.manager:
-                try:
-                    self.manager.close_connections()
-                except Exception as e:
-                    self.logger.warning(f"Error cerrando conexiones: {e}")
-    
-    def close_connections(self):
-        """
-        Cierra las conexiones de la tarea
-        """
-        super().close_connections()
-        if self.manager:
+            self.db_nc = AccessDatabase(self.config.get_db_no_conformidades_connection_string())
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"Error inicializando BD NC: {e}")
+            self.db_nc = None
+
+    def execute_specific_logic(self) -> bool:
+        self.logger.info(
+            "Inicio lógica específica NC (parcial)",
+            extra={'event': 'nc_task_logic_start', 'app': 'NC'}
+        )
+        try:
+            if not self.db_nc:
+                self.logger.warning("Sin conexión BD NC; se omite informe")
+                return True
+
+            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            html = manager.generate_nc_report_html()
+            if not html:
+                self.logger.info("Informe NC parcial vacío: no se registra correo")
+                return True
+
+            # Recipients (administradores NC)
             try:
-                self.manager.close_connections()
-            except Exception as e:
-                self.logger.warning(f"Error cerrando conexiones del manager: {e}")
+                recipients_service = EmailRecipientsService(self.db_tareas, self.config, self.logger)
+                recipients = recipients_service.get_admin_emails_string() or "ADMIN"
+            except Exception:  # pragma: no cover
+                recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
+
+            subject = "Informe Parcial No Conformidades (NC)"
+            ok = register_standard_report(
+                self.db_tareas,
+                application="NC",
+                subject=subject,
+                body_html=html,
+                recipients=recipients,
+                admin_emails="",
+                logger=self.logger
+            )
+            self.logger.info(
+                "Fin lógica específica NC (parcial)",
+                extra={'event': 'nc_task_logic_end', 'success': bool(ok), 'app': 'NC'}
+            )
+            return bool(ok)
+        except Exception as e:
+            self.logger.error(f"Error en execute_specific_logic NC: {e}", extra={'context': 'execute_specific_logic_nc'})
+            return False
+
+    def close_connections(self):
+        try:
+            if getattr(self, 'db_nc', None):
+                try:
+                    self.db_nc.disconnect()
+                except Exception as e:  # pragma: no cover
+                    self.logger.warning(f"Error cerrando BD NC: {e}")
+                finally:
+                    self.db_nc = None
+        finally:
+            super().close_connections()

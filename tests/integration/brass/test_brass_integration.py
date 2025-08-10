@@ -16,7 +16,7 @@ if src_dir not in sys.path:
 from common.config import config
 from common.database import AccessDatabase
 from common.utils import load_css_content
-from brass.brass_manager import BrassManager
+from brass.brass_task import BrassTask
 
 
 class TestBrassIntegration:
@@ -42,38 +42,37 @@ class TestBrassIntegration:
         assert "Tareas_datos1.accdb" in tareas_conn
         assert config.db_password in tareas_conn
     
-    @patch('common.database.AccessDatabase')
-    def test_brass_manager_initialization(self, mock_db_class):
-        """Test BRASS: inicialización correcta del gestor de equipos de medida"""
+    @patch('src.common.database.AccessDatabase')
+    def test_brass_task_initialization(self, mock_db_class):
+        """Test BRASS: inicialización correcta de BrassTask (nuevo patrón)"""
         mock_db = MagicMock()
         mock_db_class.return_value = mock_db
-        
-        with patch('common.utils.load_css_content', return_value="/* CSS test */"):
-            manager = BrassManager()
-            
-            # Verificar que se creó el manager correctamente
-            assert manager is not None
-    
-    @patch('common.database.AccessDatabase')
-    def test_brass_complete_workflow_simulation(self, mock_db_class):
-        """Test BRASS: simulación del flujo completo de trabajo"""
+        task = BrassTask()
+        assert task is not None
+
+    @patch('src.common.database.AccessDatabase')
+    def test_brass_task_workflow_empty_report(self, mock_db_class):
+        """Flujo BrassTask cuando el manager devuelve informe vacío (no registra correo)."""
         mock_db = MagicMock()
         mock_db_class.return_value = mock_db
-        
-        # Simular que la tarea no se ha ejecutado hoy
-        mock_db.execute_query.return_value = []
-        
-        with patch('common.utils.load_css_content') as mock_css:
-            mock_css.return_value = "body { margin: 0; }"
-            
-            manager = BrassManager()
-            
-            # Mock de todos los métodos principales de BRASS
-            with patch.object(manager, 'is_task_completed_today', return_value=False), \
-                 patch.object(manager, 'get_equipment_out_of_calibration', return_value=[]), \
-                 patch.object(manager, 'register_task_completion', return_value=True):
-                
-                result = manager.execute_task()
-                
-                # Verificar que el flujo BRASS se ejecutó correctamente
-                assert result == True
+        task = BrassTask()
+        with patch('brass.brass_task.BrassManager') as mock_manager_cls:
+            instance = mock_manager_cls.return_value
+            instance.generate_brass_report_html.return_value = ""
+            ok = task.execute_specific_logic()
+            assert ok is True
+            instance.generate_brass_report_html.assert_called_once()
+
+    @patch('src.common.database.AccessDatabase')
+    def test_brass_task_workflow_with_report(self, mock_db_class):
+        """Flujo BrassTask con informe no vacío registra correo estándar."""
+        mock_db = MagicMock()
+        mock_db_class.return_value = mock_db
+        task = BrassTask()
+        with patch('brass.brass_task.BrassManager') as mock_manager_cls, \
+             patch('brass.brass_task.register_standard_report', return_value=True) as mock_register:
+            instance = mock_manager_cls.return_value
+            instance.generate_brass_report_html.return_value = "<html>ok</html>"
+            ok = task.execute_specific_logic()
+            assert ok is True
+            mock_register.assert_called_once()

@@ -560,7 +560,7 @@ class NoConformidadesManager(TareaDiaria):
         Determina si debe ejecutarse la tarea técnica (diaria)
         """
         try:
-            from src.common.utils import should_execute_task
+            from common.utils import should_execute_task
             return should_execute_task(self.db_tareas, "NoConformidadesTecnica", 1, self.logger)
             
         except Exception as e:
@@ -572,7 +572,7 @@ class NoConformidadesManager(TareaDiaria):
         Determina si debe ejecutarse la tarea de calidad (semanal, primer día laborable)
         """
         try:
-            from src.common.utils import should_execute_weekly_task
+            from common.utils import should_execute_weekly_task
             return should_execute_weekly_task(self.db_tareas, "NoConformidadesCalidad", logger=self.logger)
             
         except Exception as e:

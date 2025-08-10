@@ -5,6 +5,7 @@ Convierte los datos de no conformidades en reportes HTML formateados
 
 import os
 import logging
+import textwrap
 from datetime import datetime
 from typing import List, Dict
 # Clases de datos eliminadas - ya no se necesitan
@@ -14,10 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class HTMLReportGenerator:
-    """Generador de reportes HTML para No Conformidades"""
-    # Marca para futuras extensiones de temas
+    """Generador de reportes HTML unificado (solo modo moderno)."""
     theme = "modern"
-    
+
     def __init__(self):
         self.css_styles = self.get_css_styles()
     
@@ -100,81 +100,43 @@ class HTMLReportGenerator:
             logger.error(f"Error al leer el archivo CSS: {e}")
             return ""  # Devuelve CSS vacío en caso de error
     
-    def generar_header_html(self, titulo: str) -> str:
-        """Genera el header HTML del reporte"""
-        fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
-        
-        return f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{titulo}</title>
-    <style>
-        {self.css_styles}
-    </style>
-</head>
-<body>
-    <table border="0" width="100%">
-        <tr>
-            <td width="50%" class="Cabecera">{titulo}</td>
-            <td width="50%" align="right" class="Cabecera">Fecha: {fecha_actual}</td>
-        </tr>
-    </table>
-    <hr>
-"""
-    
-    def generar_footer_html(self) -> str:
-        """Genera el footer HTML del reporte"""
-        return """
-            <div class="footer">
-                <p>Sistema de Gestión de No Conformidades - Generado automáticamente</p>
-            </div>
-        </body>
-        </html>
-        """
+    # Eliminados header/footer legacy: usar generar_header_moderno / generar_footer_moderno
 
     # ==== NUEVO BLOQUE: HEADER/FOOTER MODERNO UNIFICADO ====
     def generar_header_moderno(self, titulo: str) -> str:
-        """Header alternativo con maquetación moderna (sustituye código duplicado en managers)."""
-        return f"""
-        <!DOCTYPE html>
-        <html lang=\"es\">
-        <head>
-            <meta charset=\"UTF-8\">
-            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-            <title>{titulo}</title>
-            <style>
-                {self.css_styles}
-            </style>
-        </head>
-        <body>
-            <div class=\"container\">
-                <div class=\"header\">
-                    <div class=\"logo\">
-                        <svg width=\"40\" height=\"40\" viewBox=\"0 0 40 40\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">
-                            <rect width=\"40\" height=\"40\" rx=\"8\" fill=\"white\"/>
-                            <path d=\"M20 8L32 14V26L20 32L8 26V14L20 8Z\" fill=\"#2563eb\"/>
-                            <circle cx=\"20\" cy=\"20\" r=\"6\" fill=\"white\"/>
-                        </svg>
-                    </div>
-                    <div class=\"header-text\">
-                        <h1>{titulo}</h1>
-                    </div>
-                </div>
-        """
+        """Header alternativo con maquetación moderna (sin indentación inicial)."""
+        raw = f"""<!DOCTYPE html>
+<html lang=\"es\">
+<head>
+<meta charset=\"UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+<title>{titulo}</title>
+<style>
+{self.css_styles}
+</style>
+</head>
+<body>
+<div class=\"container\">
+<div class=\"header\">
+<div class=\"logo\">
+<svg width=\"40\" height=\"40\" viewBox=\"0 0 40 40\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<rect width=\"40\" height=\"40\" rx=\"8\" fill=\"white\"/>\n<path d=\"M20 8L32 14V26L20 32L8 26V14L20 8Z\" fill=\"#2563eb\"/>\n<circle cx=\"20\" cy=\"20\" r=\"6\" fill=\"white\"/>\n</svg>
+</div>
+<div class=\"header-text\"><h1>{titulo}</h1></div>
+</div>
+"""
+        return textwrap.dedent(raw)
 
     def generar_footer_moderno(self) -> str:
-        """Footer moderno unificado."""
-        return """
-            </div>
-            <div class=\"footer\">
-                <p>Este es un mensaje generado por el servicio automatizado del departamento.</p>
-                <p>Correo desatendido - no responda a este mensaje.</p>
-            </div>
-        </body>
-        </html>
-        """
+        """Footer moderno sin indentación inicial."""
+        raw = """</div>
+<div class=\"footer\">
+<p>Este es un mensaje generado por el servicio automatizado del departamento.</p>
+<p>Correo desatendido - no responda a este mensaje.</p>
+</div>
+</body>
+</html>
+"""
+        return textwrap.dedent(raw)
 
     # ==== NUEVOS HELPERS MODERNOS ====
     def _dias_class(self, dias: int) -> str:
@@ -627,21 +589,15 @@ class HTMLReportGenerator:
         
         return html
     
-    def generar_reporte_completo(self, ncs_eficacia: List[Dict], 
-                               arapcs: List[Dict], 
-                               ncs_caducar: List[Dict],
-                               ncs_sin_acciones: List[Dict],
-                               titulo: str = "Reporte de No Conformidades") -> str:
-        """Genera un reporte HTML completo"""
-        
-        html = self.generar_header_html(titulo)
+    def generar_reporte_completo(self, ncs_eficacia: List[Dict], arapcs: List[Dict], ncs_caducar: List[Dict], ncs_sin_acciones: List[Dict], titulo: str = "Reporte de No Conformidades") -> str:
+        """Genera un reporte usando SOLO el header/footer modernos."""
+        html = self.generar_header_moderno(titulo)
         html += self.generar_resumen_estadisticas(ncs_eficacia, arapcs, ncs_caducar, ncs_sin_acciones)
         html += self.generar_tabla_nc_sin_acciones(ncs_sin_acciones)
         html += self.generar_tabla_arapc(arapcs)
         html += self.generar_tabla_nc_caducar(ncs_caducar)
         html += self.generar_tabla_nc_eficacia(ncs_eficacia)
-        html += self.generar_footer_html()
-        
+        html += self.generar_footer_moderno()
         return html
 
     # ================= Notificación individual ARAPC =================

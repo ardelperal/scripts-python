@@ -181,8 +181,6 @@ def mock_database_with_realistic_data():
 def mock_utils():
     """Mock de utilidades para tests funcionales"""
     with patch('src.agedys.agedys_manager.load_css_content') as mock_css, \
-         patch('src.agedys.agedys_manager.generate_html_header') as mock_header, \
-         patch('src.agedys.agedys_manager.generate_html_footer') as mock_footer, \
          patch('src.agedys.agedys_manager.register_email_in_database') as mock_register_email, \
          patch('src.agedys.agedys_manager.should_execute_task') as mock_should_execute, \
          patch('src.agedys.agedys_manager.register_task_completion') as mock_register_task:
@@ -197,41 +195,7 @@ def mock_utils():
             .footer { margin-top: 30px; padding: 20px; background-color: #ecf0f1; text-align: center; }
         """
         
-        mock_header.return_value = """
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Notificación AGEDYS</title>
-                <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
-                    .header { background-color: #2c3e50; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                    th { background-color: #f2f2f2; font-weight: bold; }
-                    .footer { margin-top: 30px; padding: 20px; background-color: #ecf0f1; text-align: center; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>Sistema AGEDYS</h1>
-                    <p>Notificación Automática</p>
-                </div>
-                <div class="content">
-        """
-        
-        mock_footer.return_value = """
-                </div>
-                <div class="footer">
-                    <p>Este es un mensaje automático del sistema AGEDYS.</p>
-                    <p>Por favor, no responda a este correo.</p>
-                    <p><small>Generado el """ + datetime.now().strftime("%d/%m/%Y a las %H:%M") + """</small></p>
-                </div>
-            </body>
-            </html>
-        """
+    # Eliminados mocks de generate_html_header / generate_html_footer (wrappers legacy eliminados)
         
         mock_register_email.return_value = True
         mock_should_execute.return_value = True
@@ -239,8 +203,6 @@ def mock_utils():
         
         yield {
             'css': mock_css,
-            'header': mock_header,
-            'footer': mock_footer,
             'register_email': mock_register_email,
             'should_execute': mock_should_execute,
             'register_task': mock_register_task

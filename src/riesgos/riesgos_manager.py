@@ -22,7 +22,7 @@ from ..common import utils  # acceso a funciones para que patch de tests funcion
 from ..common.utils import (
     format_date, get_technical_users, get_quality_users, get_admin_users,
     register_task_completion, load_css_content,
-    generate_html_header, get_technical_emails_string, get_quality_emails_string,
+    get_technical_emails_string, get_quality_emails_string,
     get_admin_emails_string
 )
 from ..common.html_report_generator import HTMLReportGenerator
@@ -978,15 +978,15 @@ class RiesgosManager:
         """
         # Cargar CSS
         css_content = self._load_css_styles()
-        
-        # Generar header HTML
+        # Generar header HTML correctamente indentado dentro del método
         title = f"Informe Técnico de Riesgos - {user_name}"
-        html = generate_html_header(title, css_content)
-        # Asegurar compatibilidad con tests que buscan literalmente '<html>'
-        if '<html>' not in html:
+        html = (
+            self.html_generator.generar_header_moderno(title)
+            if self.html_generator else "<!DOCTYPE html><html><body>"
+        )
+        if '<html>' not in html:  # compatibilidad tests que buscan literal
             html = '<html>' + html
-        
-        # Agregar título principal
+
         html += f"""
         <body>
             <div class="centrado">
@@ -995,63 +995,53 @@ class RiesgosManager:
             </div>
             <br>
         """
-        
-        # Obtener y agregar secciones del reporte
+
         sections_added = 0
-        
         # 1. Ediciones que necesitan propuesta de publicación
         editions_data = self._get_editions_need_publication_data(user_id)
         if editions_data:
             html += self.generate_table_html(editions_data, 'editions_need_publication')
             sections_added += 1
-        
         # 2. Ediciones con propuestas rechazadas
         rejected_data = self._get_editions_with_rejected_proposals_data(user_id)
         if rejected_data:
             html += self.generate_table_html(rejected_data, 'editions_with_rejected_proposals')
             sections_added += 1
-        
         # 3. Riesgos aceptados sin motivar
         accepted_unmotivated_data = self._get_accepted_risks_unmotivated_data(user_id)
         if accepted_unmotivated_data:
             html += self.generate_table_html(accepted_unmotivated_data, 'accepted_risks_unmotivated')
             sections_added += 1
-        
         # 4. Riesgos aceptados rechazados
         accepted_rejected_data = self._get_accepted_risks_rejected_data(user_id)
         if accepted_rejected_data:
             html += self.generate_table_html(accepted_rejected_data, 'accepted_risks_rejected')
             sections_added += 1
-        
         # 5. Riesgos retirados sin motivar
         retired_unmotivated_data = self._get_retired_risks_unmotivated_data(user_id)
         if retired_unmotivated_data:
             html += self.generate_table_html(retired_unmotivated_data, 'retired_risks_unmotivated')
             sections_added += 1
-        
         # 6. Riesgos retirados rechazados
         retired_rejected_data = self._get_retired_risks_rejected_data(user_id)
         if retired_rejected_data:
             html += self.generate_table_html(retired_rejected_data, 'retired_risks_rejected')
             sections_added += 1
-        
         # 7. Acciones de mitigación para replanificar
         mitigation_reschedule_data = self._get_mitigation_actions_reschedule_data(user_id)
         if mitigation_reschedule_data:
             html += self.generate_table_html(mitigation_reschedule_data, 'mitigation_actions_reschedule')
             sections_added += 1
-        
         # 8. Acciones de contingencia para replanificar
         contingency_reschedule_data = self._get_contingency_actions_reschedule_data(user_id)
         if contingency_reschedule_data:
             html += self.generate_table_html(contingency_reschedule_data, 'contingency_actions_reschedule')
             sections_added += 1
-        
-        # Si no hay secciones, no generar reporte
+
         if sections_added == 0:
             html += "</body>\n</html>"
             return html
-        
+
         html += """
             </body>
         </html>
@@ -1099,7 +1089,10 @@ class RiesgosManager:
         
         # Generar header HTML
         title = "Informe Semanal de Calidad - Gestión de Riesgos"
-        html = generate_html_header(title, css_content)
+        html = (
+            self.html_generator.generar_header_moderno(title)
+            if self.html_generator else "<!DOCTYPE html><html><body>"
+        )
         
         html += f"""
         <body>
@@ -1228,7 +1221,10 @@ class RiesgosManager:
         
         # Generar header HTML
         title = "Informe Mensual de Calidad - Gestión de Riesgos"
-        html = generate_html_header(title, css_content)
+        html = (
+            self.html_generator.generar_header_moderno(title)
+            if self.html_generator else "<!DOCTYPE html><html><body>"
+        )
         if '<html>' not in html:
             html = '<html>' + html  # compat tests que buscan substring literal
         
@@ -1466,9 +1462,9 @@ class RiesgosManager:
         metrics = self._generate_quality_metrics_html() if hasattr(self, '_generate_quality_metrics_html') else ''
         return f"<html><head>{css}</head><body><h2>Informe Semanal de Calidad</h2>{metrics}</body></html>"
         def _generate_quality_report_html(self) -> str:
-            header = self.html_generator.generar_header_moderno("Informe Semanal de Calidad") if self.html_generator else generate_html_header("Informe Semanal de Calidad", self._load_css_styles()) + '<body>'
+            header = self.html_generator.generar_header_moderno("Informe Semanal de Calidad") if self.html_generator else "<!DOCTYPE html><html><body>"
             metrics = self._generate_quality_metrics_html() if hasattr(self, '_generate_quality_metrics_html') else ''
-            footer = self.html_generator.generar_footer_html() if self.html_generator else '</body></html>'
+            footer = self.html_generator.generar_footer_moderno() if self.html_generator else '</body></html>'
             return header + metrics + footer
 
     def _generate_quality_metrics_html(self) -> str:  # pragma: no cover
@@ -1586,7 +1582,7 @@ class RiesgosManager:
             }
             
             def _generate_monthly_quality_report_html(self) -> str:
-                header = self.html_generator.generar_header_moderno("Informe Mensual de Calidad - Gestión de Riesgos") if self.html_generator else generate_html_header("Informe Mensual de Calidad - Gestión de Riesgos", self._load_css_styles()) + '<body>'
+                header = self.html_generator.generar_header_moderno("Informe Mensual de Calidad - Gestión de Riesgos") if self.html_generator else "<!DOCTYPE html><html><body>"
                 body = f"<div class='centrado'><h1>INFORME MENSUAL PARA CALIDAD</h1><p>Fecha: {format_date(datetime.now())}</p></div><br>"
                 sections = [
                     ('accepted_risks_pending_approval', self._get_accepted_risks_pending_approval_data()),
@@ -1599,7 +1595,7 @@ class RiesgosManager:
                 for table_type, data in sections:
                     if data:
                         body += self.generate_table_html(data, table_type)
-                footer = self.html_generator.generar_footer_html() if self.html_generator else '</body></html>'
+                footer = self.html_generator.generar_footer_moderno() if self.html_generator else '</body></html>'
                 return header + body + footer
             # Definir las consultas específicas
             queries = {

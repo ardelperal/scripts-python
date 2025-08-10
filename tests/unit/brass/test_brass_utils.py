@@ -39,26 +39,7 @@ class TestBrassUtils:
         assert safe_str(equipo_ns) == "NS123456"
         assert safe_str(equipo_marca) == "FLUKE"
     
-    def test_brass_html_header_generation(self):
-        """Test BRASS: generación de header HTML para reportes de calibración"""
-        from common.utils import generate_html_header
-        
-        title = "INFORME EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN (BRASS)"
-        css = """
-        .ColespanArriba { 
-            background-color: #4CAF50; 
-            color: white; 
-            font-weight: bold; 
-            text-align: center; 
-        }
-        """
-        
-        header = generate_html_header(title, css)
-        
-        assert "<!DOCTYPE html>" in header
-        assert title in header
-        assert "ColespanArriba" in header
-        assert 'charset="UTF-8"' in header
+    # Eliminado test de wrapper HTML legacy
     
     def test_brass_workday_calculation(self):
         """Test BRASS: cálculo de días laborables para ejecución de tareas"""

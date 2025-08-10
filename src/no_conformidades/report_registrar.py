@@ -71,55 +71,67 @@ class ReportRegistrar:
             return []
     
 
-
-    def generate_technical_report_html(self, ars_proximas_vencer_8_15=None, ars_proximas_vencer_1_7=None, 
-                                      ars_vencidas=None) -> str:
+    def generate_technical_report_html(self, ars_proximas_vencer_8_15=None, ars_proximas_vencer_1_7=None,
+                                       ars_vencidas=None) -> str:
         """Genera el HTML para el reporte técnico individual"""
         try:
-            # Usar listas vacías si no se proporcionan datos
+            # Normalizar listas (evitar None)
             ars_proximas_vencer_8_15 = ars_proximas_vencer_8_15 or []
             ars_proximas_vencer_1_7 = ars_proximas_vencer_1_7 or []
             ars_vencidas = ars_vencidas or []
-            
-            css_styles = self.html_generator.get_css_styles()
-            
-            html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Aviso de Acciones de Resolución</title>
-    <style>{css_styles}</style>
-</head>
-<body>
-    <h2>Aviso de Acciones de Resolución Próximas a Vencer o Vencidas</h2>
-    <p>Este es un resumen de las Acciones de Resolución asignadas que requieren su atención.</p>
-"""
+
+            html = self.html_generator.generar_header_moderno("Aviso de Acciones de Resolución")
+            html += (
+                """<div class=\"section\"><h2>Aviso de Acciones de Resolución Próximas a Vencer o Vencidas</h2>
+    <p>Este es un resumen de las Acciones de Resolución asignadas que requieren su atención.</p></div>"""
+            )
 
             if ars_proximas_vencer_8_15:
                 html += "<h3>Acciones Próximas a Vencer (8-15 días)</h3>"
-                html += self.html_generator.generate_table(ars_proximas_vencer_8_15, 
-                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
+                html += self.html_generator.generate_table(
+                    ars_proximas_vencer_8_15,
+                    [
+                        "Código NC",
+                        "Nemotécnico",
+                        "Acción Correctiva",
+                        "Acción Realizada",
+                        "Fecha Fin Prevista",
+                        "Días",
+                    ],
+                )
 
             if ars_proximas_vencer_1_7:
                 html += "<h3>Acciones Próximas a Vencer (1-7 días)</h3>"
-                html += self.html_generator.generate_table(ars_proximas_vencer_1_7, 
-                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
+                html += self.html_generator.generate_table(
+                    ars_proximas_vencer_1_7,
+                    [
+                        "Código NC",
+                        "Nemotécnico",
+                        "Acción Correctiva",
+                        "Acción Realizada",
+                        "Fecha Fin Prevista",
+                        "Días",
+                    ],
+                )
 
             if ars_vencidas:
                 html += "<h3>Acciones Vencidas</h3>"
-                html += self.html_generator.generate_table(ars_vencidas, 
-                    ["Código NC", "Nemotécnico", "Acción Correctiva", "Acción Realizada", "Fecha Fin Prevista", "Días"])
+                html += self.html_generator.generate_table(
+                    ars_vencidas,
+                    [
+                        "Código NC",
+                        "Nemotécnico",
+                        "Acción Correctiva",
+                        "Acción Realizada",
+                        "Fecha Fin Prevista",
+                        "Días",
+                    ],
+                )
 
-            html += """
-                <hr>
-                <div style="text-align: center; margin-top: 20px;">
-                    <p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>
-                    <p>Sistema de Gestión de No Conformidades - Notificación automática</p>
-                </div>
-            </body>
-            </html>
-            """
-            
+            html += (
+                """<div class=\"section\" style=\"text-align:center;margin-top:20px;\">\n<p><strong>Por favor, revise el estado de estas acciones y actualice la información correspondiente en el sistema.</strong></p>\n<p>Sistema de Gestión de No Conformidades - Notificación automática</p>\n</div>"""
+            )
+            html += self.html_generator.generar_footer_moderno()
             return html
         except Exception as e:  # pragma: no cover - generación HTML fallback
             logger.error(f"Error generando HTML de reporte técnico: {e}")

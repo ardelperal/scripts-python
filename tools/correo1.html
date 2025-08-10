@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INFORME AGEDYS - ECONOMÍA</title>
+<style>
+/* CSS Moderno para Informes de No Conformidades */
+/* Codificación: UTF-8 */
+
+body {
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+    background: #f7fafd;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+}
+
+.container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,40,120,0.08);
+    padding: 40px 32px;
+    max-width: 90vw;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #0070f0;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+    text-align: center;
+}
+
+h2 {
+    color: #0070f0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 32px 0 16px 0;
+    border-bottom: 2px solid #e6f0ff;
+    padding-bottom: 8px;
+}
+
+h3 {
+    color: #0070f0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 24px 0 12px 0;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #e6f0ff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,112,240,0.05);
+    width: 100%;
+    margin-bottom: 32px;
+}
+
+th, td {
+    padding: 16px 18px;
+    text-align: left;
+    font-size: 1rem;
+    color: #222;
+    vertical-align: top;
+}
+
+th {
+    background-color: #0070f0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+tr:not(:last-child) td {
+    border-bottom: 1px solid #cce2ff;
+}
+
+tr:hover td {
+    background: #d6eaff;
+    transition: background 0.2s;
+}
+
+.centrado {
+    text-align: center;
+}
+
+/* Indicadores de días - Colores modernos y elegantes */
+.dias-negativo {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.dias-critico {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.dias-normal {
+    color: #27ae60;
+}
+
+/* Clases adicionales para compatibilidad */
+.dias-indicador {
+    font-weight: 500;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: inline-block;
+    min-width: 40px;
+}
+
+/* Clases combinadas para indicadores de días */
+.dias-indicador.negativo {
+    color: #e74c3c !important;
+    background-color: #ffeaea;
+    border: 1px solid #f5c6cb;
+    font-weight: bold;
+}
+
+.dias-indicador.critico {
+    color: #f39c12 !important;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    font-weight: bold;
+}
+
+.dias-indicador.normal {
+    color: #27ae60 !important;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    font-weight: 500;
+}
+
+.dias-alerta {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.seccion {
+    margin-bottom: 40px;
+}
+
+.tipo-correo {
+    background: #e6f0ff;
+    border-left: 4px solid #0070f0;
+    padding: 16px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.tipo-correo h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Estilos adicionales para estados */
+.estado-pendiente {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-vencido {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.estado-proximo {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Círculos para indicadores */
+.circle {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.rojo {
+    background-color: #e74c3c;
+}
+
+.naranja {
+    background-color: #f39c12;
+}
+
+.verde {
+    background-color: #27ae60;
+}
+
+.numero {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Pie de página */
+.footer {
+    margin-top: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px 16px;
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+    }
+
+    table {
+        font-size: 0.9rem;
+    }
+
+    th, td {
+        padding: 12px 8px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.3rem;
+    }
+
+    h3 {
+        font-size: 1.1rem;
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<div class="logo">
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="40" height="40" rx="8" fill="white"/>
+<path d="M20 8L32 14V26L20 32L8 26V14L20 8Z" fill="#2563eb"/>
+<circle cx="20" cy="20" r="6" fill="white"/>
+</svg>
+</div>
+<div class="header-text"><h1>INFORME AGEDYS - ECONOMÍA</h1></div>
+</div>
+<div class='section'><h2>DPDs fin agenda técnica pendientes recepción</h2><table class='data-table'><thead><tr><th>DPD</th><th>PETICIONARIO</th><th>FECHA PETICIÓN</th><th>EXPEDIENTE</th><th>DESCRIPCIÓN</th></tr></thead><tbody><tr><td>25DPD-072</td><td>Julio Benedicto Vicario Mancho</td><td>2025-03-10 00:00:00</td><td>PROF-TIS/2024</td><td>Servicio JP Sostenimiento Lote 1     7 meses sustitución</td></tr><tr><td>25DPD-174</td><td>María Dolores Carrasco Moreno</td><td>2025-06-26 00:00:00</td><td>0070/21</td><td>Cajeado para acceso al nuevo Grupo en ACTO Capitán Sevillano</td></tr><tr><td>25DPD-175</td><td>María Dolores Carrasco Moreno</td><td>2025-06-26 00:00:00</td><td>0070/21</td><td>Asfaltado para acceso al nuevo Grupo en ACTO Capitán Sevillano</td></tr><tr><td>25DPD-185</td><td>Julio Benedicto Vicario Mancho</td><td>2025-07-02 00:00:00</td><td>1559/24</td><td>Mantenimiento Preventivo Sistema CPI Torrejón (01 julio-31 diciembre de 2025)</td></tr><tr><td>25DPD-186</td><td>Julio Benedicto Vicario Mancho</td><td>2025-07-02 00:00:00</td><td>1559/24</td><td>Mantenimiento Preventivo Sistema PCI Bermeja (01 julio-31 de diciembre de 2025)</td></tr><tr><td>25DPD-209</td><td>María Dolores Carrasco Moreno</td><td>2025-07-22 00:00:00</td><td>0070/21</td><td>Reparación urgente Climatización planta inferior CESTIC y aislamiento de conductos de 16 maquinas</td></tr><tr><td>25DPD-210</td><td>María Dolores Carrasco Moreno</td><td>2025-07-22 00:00:00</td><td>0070/21</td><td>Transporte y alquiler maquinaria para asfaltado en camino acceso grupo Acto. Capitan Seviallano</td></tr></tbody></table></div><div class='section'><h2>DPDs sin pedido</h2><table class='data-table'><thead><tr><th>DPD</th><th>PETICIONARIO</th><th>FECHA PETICIÓN</th><th>EXPEDIENTE</th><th>DESCRIPCIÓN</th></tr></thead><tbody><tr><td>25DPD-180</td><td>Julio Benedicto Vicario Mancho</td><td>2025-06-27 00:00:00</td><td>1759/25</td><td>Suministro de 3 BDC Banda X como repuestos para terminal TNX-10</td></tr><tr><td>25DPD-182</td><td>Julio Benedicto Vicario Mancho</td><td>2025-06-27 00:00:00</td><td>1759/25</td><td>Suministro de 2 modems QFlex 400</td></tr><tr><td>25DPD-202</td><td>Félix Sánchez Pimentel</td><td>2025-07-14 00:00:00</td><td>1016/25</td><td>Material de reparación vario para el BRASS.</td></tr><tr><td>25DPD-166</td><td>Félix Sánchez Pimentel</td><td>2025-06-17 00:00:00</td><td>1016/25</td><td>DESARROLLO DEL RSC DEL BRASS DE LA ARMADA FASE VII</td></tr></tbody></table></div><div class='section'><h2>Facturas visadas pendientes orden de pago</h2><table class='data-table'><thead><tr><th>NFactura</th><th>NDOCUMENTO</th><th>DPD</th><th>PETICIONARIO</th><th>EXPEDIENTE</th><th>DESCRIPCIÓN</th><th>IMPORTE SIN IVA</th><th>SUMINISTRADOR</th><th>IMPORTE FACTURA</th></tr></thead><tbody><tr><td>V1250615146</td><td>5114150230</td><td>23DPD-009</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td> Soporte técnico del software y las controladoras Aruba de la RAPNA</td><td>605000.00 EUR</td><td>TELEFÓNICA SOLUCIONES</td><td>7539.67 EUR</td></tr><tr><td>2025001782</td><td>5114063491</td><td>24DPD-159</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>	Servicios para la gerencia de Ingeniería de Defensa y Seguridad [1MAY24-30ABR25]</td><td>290484.00 EUR</td><td>TELEFONICA INGENIERIA DE SEGURIDAD</td><td>2151.50 EUR</td></tr><tr><td>250690</td><td>5114159574</td><td>24DPD-268</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Suministro, instalación y certificación de material tempestizado para DISEGINFO</td><td>70691.38 EUR</td><td>CONSUEGRA,S.COOP.LTDA.</td><td>69600.00 EUR</td></tr><tr><td>25DST1803</td><td>5114039045</td><td>24DPD-387</td><td>María Dolores Carrasco Moreno</td><td>PAQUETERIA/24</td><td>Servicios de logística integral MENSAJERIA año 2024</td><td>50079.78 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>123.65 EUR</td></tr><tr><td>25.06.1070</td><td>5114153473</td><td>25DPD-002</td><td>Julio Benedicto Vicario Mancho</td><td>1559/24</td><td>Mantenimiento Preventivo Sistema AA Torrejón (ESATAL)</td><td>3851.08 EUR</td><td>CALIQUA, S.A.</td><td>962.77 EUR</td></tr><tr><td>25.06.1071</td><td>5114153474</td><td>25DPD-003</td><td>Julio Benedicto Vicario Mancho</td><td>1559/24</td><td>Mantenimiento Preventivo Sistemas AA Bermeja (ESATAL) por 6 meses (01/01/2025-30/06-2025)</td><td>2558.04 EUR</td><td>CALIQUA, S.A.</td><td>1279.02 EUR</td></tr><tr><td>25.06.1162</td><td>5114156809</td><td>25DPD-085</td><td>Julio Benedicto Vicario Mancho</td><td>1559/24</td><td>Suministro Equipo AA-1 Sala Microondas Bermeja (Valdilecha)</td><td>3776.25 EUR</td><td>CALIQUA, S.A.</td><td>3776.25 EUR</td></tr><tr><td>25.06.1163</td><td>5114156808</td><td>25DPD-086</td><td>Julio Benedicto Vicario Mancho</td><td>1559/24</td><td>Suministro Equipo AA-2 para la Sala de Microondas de Bermeja (Valdilecha)</td><td>3776.25 EUR</td><td>CALIQUA, S.A.</td><td>3776.25 EUR</td></tr><tr><td>25.06.1164</td><td>5114156810</td><td>25DPD-087</td><td>Julio Benedicto Vicario Mancho</td><td>1559/24</td><td>Instalación de dos equipos de AA en la Sala de Microondas de Bermeja (Valdilecha)</td><td>3844.54 EUR</td><td>CALIQUA, S.A.</td><td>3844.54 EUR</td></tr><tr><td>2025002051</td><td>5114087627</td><td>25DPD-095</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Apoyo en Permanencia [9ABR25-31DIC25]</td><td>3419465.40 EUR</td><td>TELEFONICA INGENIERIA DE SEGURIDAD</td><td>32572.81 EUR</td></tr><tr><td>2025002941</td><td>5114173886</td><td>25DPD-095</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Apoyo en Permanencia [9ABR25-31DIC25]</td><td>3419465.40 EUR</td><td>TELEFONICA INGENIERIA DE SEGURIDAD</td><td>381643.92 EUR</td></tr><tr><td>25ADU561</td><td>5114150665</td><td>25DPD-096</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Mensajeria [9ABR25-31DIC25]</td><td>39150.00 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>323.31 EUR</td></tr><tr><td>25ADU562</td><td>5114150602</td><td>25DPD-096</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Mensajeria [9ABR25-31DIC25]</td><td>39150.00 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>22.47 EUR</td></tr><tr><td>25DST3916</td><td>5114174059</td><td>25DPD-096</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Mensajeria [9ABR25-31DIC25]</td><td>39150.00 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>1182.71 EUR</td></tr><tr><td>25CDST495</td><td>5114174060</td><td>25DPD-096</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Mensajeria [9ABR25-31DIC25]</td><td>39150.00 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>13.19 EUR</td></tr><tr><td>25DST3915</td><td>5114174078</td><td>25DPD-096</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Mensajeria [9ABR25-31DIC25]</td><td>39150.00 EUR</td><td>TELEFONICA SERV. INTEGRALES DISTRIBUCIÓN S.A.U.</td><td>5393.14 EUR</td></tr><tr><td>912091998</td><td>5114160107</td><td>25DPD-099</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Reparaciones [9ABR25-31DIC25]</td><td>44370.00 EUR</td><td>ANOVO Ibérica Madrid S.L.</td><td>1737.62 EUR</td></tr><tr><td>721825603525</td><td>5114143732</td><td>25DPD-100</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Apoyo en Permanencia [9ABR25-31DIC25]</td><td>696602.47 EUR</td><td>INDRA SISTEMAS, S.A.</td><td>79833.20 EUR</td></tr><tr><td>3000425261</td><td>5114174556</td><td>25DPD-103</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Apoyo Logístico a la I3D. Soporte SW [9ABR25-31DIC25]</td><td>154117.60 EUR</td><td>NOKIA SPAIN S.A..</td><td>51372.53 EUR</td></tr><tr><td>3919</td><td>5114146461</td><td>25DPD-106</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>Suministro de 21 Sonda PULSensor 1000 de 10Gbps</td><td>65940.00 EUR</td><td>EACOM SYSTEMS, S.L.</td><td>65940.00 EUR</td></tr><tr><td>131765</td><td>5114172398</td><td>25DPD-132</td><td>Félix Sánchez Pimentel</td><td>3083/24</td><td>Fabricación de dos mangueras de cable de pares para control de TX para Chiclana.</td><td>286.64 EUR</td><td>EPIRSA</td><td>286.64 EUR</td></tr><tr><td>984930</td><td>5114174564</td><td>25DPD-197</td><td>María Dolores Carrasco Moreno</td><td>0070/21</td><td>SERVICIO DE TRANSPORTE URGENTE DE RADOMO DE ANTENA HP12</td><td>700.00 EUR</td><td>JOJACAR TELECOMUNICACIONES S.L.</td><td>700.00 EUR</td></tr></tbody></table></div></div>
+<div class="footer">
+<p>Este es un mensaje generado por el servicio automatizado del departamento.</p>
+<p>Correo desatendido - no responda a este mensaje.</p>
+</div>
+</body>
+</html>

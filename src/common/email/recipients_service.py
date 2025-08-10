@@ -36,6 +36,18 @@ class EmailRecipientsService:
         emails_str = _utils.get_quality_emails_string(app_id, self.config, self.logger, self.db_connection)
         return self._split(emails_str)
 
+    def get_economy_emails(self) -> List[str]:
+        """Destinatarios de Economía.
+
+        Usa utilidades existentes; si falla retorna lista vacía.
+        """
+        try:
+            emails_str = _utils.get_economy_emails_string(self.config, self.logger)
+            return self._split(emails_str)
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"Error obteniendo emails economía: {e}")
+            return []
+
     # --- Utilidades internas ---------------------------------------------
     @staticmethod
     def _split(emails_str: str) -> List[str]:
