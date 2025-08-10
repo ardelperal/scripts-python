@@ -33,14 +33,9 @@ class TestCorreoTareasManager:
         return Mock()
 
     @pytest.fixture
-    @patch('src.correo_tareas.correo_tareas_manager.AccessDatabase')
-    @patch('src.correo_tareas.correo_tareas_manager.config')
-    def correo_tareas_manager(self, mock_config_module, mock_access_db, mock_config, mock_db_conn):
-        """Instancia de CorreoTareasManager con mocks"""
-        mock_config_module.return_value = mock_config
-        mock_access_db.return_value = mock_db_conn
-        
-        return CorreoTareasManager()
+    def correo_tareas_manager(self, mock_config, mock_db_conn):
+        """Instancia de CorreoTareasManager con inyección de dependencias mockeadas"""
+        return CorreoTareasManager(config_obj=mock_config, db_pool=mock_db_conn)
     
     def test_init(self, correo_tareas_manager, mock_config):
         """Test de inicialización del manager"""

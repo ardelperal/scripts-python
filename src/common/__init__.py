@@ -8,8 +8,6 @@ from .utils import (
     is_workday,
     is_night_time,
     load_css_content,
-    generate_html_header,
-    generate_html_footer,
     safe_str,
     format_date,
     get_admin_users,
@@ -27,6 +25,12 @@ from .utils import (
     should_execute_task,
     should_execute_quality_task
 )
+from .utils import (
+    get_technical_emails_string,
+    get_quality_emails_string,
+    get_admin_emails_string,
+    register_email_in_database,
+)
 
 __all__ = [
     'config',
@@ -37,7 +41,5 @@ __all__ = [
     'is_workday',
     'is_night_time',
     'load_css_content',
-    'generate_html_header',
-    'generate_html_footer',
     'safe_str'
 ]

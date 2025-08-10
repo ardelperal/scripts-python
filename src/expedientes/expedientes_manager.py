@@ -10,9 +10,9 @@ import logging
 import json
 from datetime import datetime
 
-from src.common.database import AccessDatabase
-from src.common.html_report_generator import HTMLReportGenerator
-from src.common.reporting.table_builder import build_table_html
+from common.database import AccessDatabase
+from common.html_report_generator import HTMLReportGenerator
+from common.reporting.table_builder import build_table_html
 
 
 def safe_str(value) -> str:
@@ -357,6 +357,16 @@ class ExpedientesManager:
                     'metric_value': len(non_empty),
                     'total_rows': total_rows,
                     'html_length': len(html),
+                    'app': 'EXPEDIENTES'
+                }
+            )
+            # Métrica adicional de longitud total del HTML para compatibilidad con tests
+            self.logger.info(
+                "Longitud reporte expedientes",
+                extra={
+                    'event': 'expedientes_report_length',
+                    'metric_name': 'expedientes_report_length_chars',
+                    'metric_value': len(html),
                     'app': 'EXPEDIENTES'
                 }
             )

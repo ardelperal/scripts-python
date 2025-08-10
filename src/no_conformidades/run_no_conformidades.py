@@ -1,62 +1,53 @@
+"""Script de entrada refactorizado para tarea No Conformidades (parcial).
+
+Usa argparse + --force y patrón execute_specific_logic como Brass/Expedientes.
 """
-Punto de entrada para la ejecución de la tarea de No Conformidades
-"""
-import logging
-import os
+from __future__ import annotations
+
 import sys
+import logging
+import argparse
 from pathlib import Path
 
-# Agregar el directorio src al path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.dirname(current_dir)
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
-
-# Importar utilidades comunes
 from common.utils import setup_logging
-
-# Configurar logging usando la función estándar
-project_root = Path(src_dir).parent
-log_file = project_root / "logs" / "no_conformidades.log"
-setup_logging(log_file=log_file)
-
-logger = logging.getLogger(__name__)
-
-from no_conformidades.no_conformidades_task import NoConformidadesTask
+from .no_conformidades_task import NoConformidadesTask
 
 
 def main():
-    """
-    Función principal para ejecutar la tarea de No Conformidades
-    """
-    task = None
+    parser = argparse.ArgumentParser(description="Ejecuta la tarea de No Conformidades (parcial refactor).")
+    parser.add_argument('--force', action='store_true', help='Fuerza la ejecución, ignorando planificación.')
+    args = parser.parse_args()
+
+    log_file = Path('logs/no_conformidades.log')
+    setup_logging(log_file=log_file)
+    logger = logging.getLogger()
+
+    logger.info("===============================================")
+    logger.info("=    INICIANDO TAREA NO CONFORMIDADES (NC)    =")
+    logger.info("===============================================")
+    if args.force:
+        logger.warning("-> MODO FORZADO ACTIVADO <-")
+
+    exit_code = 0
     try:
-        logger.info("=== INICIANDO TAREA NO CONFORMIDADES ===")
-        
-        # Crear y ejecutar la tarea
-        task = NoConformidadesTask()
-        success = task.execute()
-        
-        if success:
-            logger.info("=== TAREA NO CONFORMIDADES COMPLETADA EXITOSAMENTE ===")
-            return 0
-        else:
-            logger.error("=== ERROR EN LA EJECUCIÓN DE LA TAREA NO CONFORMIDADES ===")
-            return 1
-            
-    except Exception as e:
-        logger.error(f"Error crítico en la tarea No Conformidades: {e}")
-        return 1
-    finally:
-        # Cerrar conexiones
-        if task:
-            try:
-                task.close_connections()
-                logger.info("Conexiones cerradas correctamente")
-            except Exception as e:
-                logger.warning(f"Error cerrando conexiones: {e}")
+        with NoConformidadesTask() as task:
+            if args.force or task.debe_ejecutarse():
+                if task.execute_specific_logic():
+                    if not args.force:
+                        task.marcar_como_completada()
+                    logger.info("Tarea NC finalizada con éxito.")
+                else:
+                    logger.error("La lógica específica de la tarea NC falló.")
+                    exit_code = 1
+            else:
+                logger.info("La tarea NC no requiere ejecución hoy.")
+    except Exception as e:  # pragma: no cover
+        logger.critical(f"Error fatal no controlado en tarea NC: {e}", exc_info=True)
+        exit_code = 1
 
-
-if __name__ == "__main__":
-    exit_code = main()
+    logger.info("Finalizada la ejecución de la tarea NC.")
     sys.exit(exit_code)
+
+
+if __name__ == '__main__':
+    main()

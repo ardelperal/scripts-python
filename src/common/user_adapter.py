@@ -87,28 +87,75 @@ def get_quality_users_alternative(app_id: str, config, logger) -> List[Dict[str,
     Returns:
         Lista de usuarios de calidad
     """
+    # Estrategia: intentar con filtro numérico, si mismatch (-3030) probar con filtro entre comillas,
+    # si vuelve a fallar, quitar filtro IDAplicacion y devolver todos los de calidad.
+    base_select = (
+        "SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario "
+        "FROM TbUsuariosAplicaciones ua "
+        "INNER JOIN TbUsuariosAplicacionesPermisos uap ON ua.CorreoUsuario = uap.CorreoUsuario "
+        "WHERE ua.ParaTareasProgramadas = True "
+        "AND ua.FechaBaja IS NULL "
+        "AND uap.EsUsuarioCalidad = 'Sí' "
+    )
+    attempts = []
     try:
-        from .database import AccessDatabase
-        
-        # Usar la conexión de tareas para obtener usuarios
-        db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-        
-        query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-            FROM TbUsuariosAplicaciones ua 
-            INNER JOIN TbUsuariosAplicacionesPermisos uap ON ua.CorreoUsuario = uap.CorreoUsuario 
-            WHERE ua.ParaTareasProgramadas = True 
-            AND ua.FechaBaja IS NULL 
-            AND uap.EsUsuarioCalidad = 'Sí'
-            AND uap.IDAplicacion = ?
-        """
-        
-        result = db_connection.execute_query(query, [app_id])
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error obteniendo usuarios de calidad para {app_id} (alternativo): {e}")
-        return []
+        app_id_int = int(app_id) if app_id is not None else int(getattr(config, 'app_id_agedys', 3))
+    except Exception:
+        app_id_int = int(getattr(config, 'app_id_agedys', 3))
+    # 1) Filtro numérico inline
+    attempts.append((f"{base_select}AND uap.IDAplicacion = {app_id_int}", 'numeric'))
+    # 2) Filtro quoted
+    attempts.append((f"{base_select}AND uap.IDAplicacion = '{app_id_int}'", 'quoted'))
+    # 3) Sin filtro
+    attempts.append((base_select, 'nofilter'))
+
+    from .database import AccessDatabase
+    db_connection = AccessDatabase(config.get_db_tareas_connection_string())
+
+    selected_mode = None
+    selected_rows = []
+    for sql, mode in attempts:
+        try:
+            res = db_connection.execute_query(sql)
+            logger.info(
+                f"Intento usuarios calidad modo={mode} filas={len(res)}",
+                extra={'event': 'quality_users_attempt', 'mode': mode, 'rows': len(res)}
+            )
+            if res:  # devolver primera opción exitosa con resultados
+                selected_mode = mode
+                selected_rows = res
+                break
+            # Si no hay resultados seguimos intentando (excepto nofilter que ya es último)
+            if mode == 'nofilter':
+                logger.warning(
+                    "Sin usuarios de calidad tras modo nofilter",
+                    extra={'event': 'quality_users_empty', 'modes_tried': [m for _, m in attempts]}
+                )
+        except Exception as e:
+            if '-3030' in str(e) or 'No coinciden los tipos de datos' in str(e):
+                logger.warning(
+                    f"Data type mismatch modo={mode} intentando siguiente variante",
+                    extra={'event': 'quality_users_type_mismatch', 'mode': mode}
+                )
+                continue
+            logger.error(
+                f"Error consulta usuarios calidad modo={mode}: {e}",
+                extra={'event': 'quality_users_error', 'mode': mode, 'error': str(e)}
+            )
+            continue
+
+    if selected_mode:
+        logger.info(
+            f"Usuarios de calidad seleccionados modo={selected_mode} total={len(selected_rows)}",
+            extra={'event': 'quality_users_selected', 'mode': selected_mode, 'rows': len(selected_rows)}
+        )
+        return selected_rows
+
+    logger.info(
+        "Sin usuarios de calidad tras todos los intentos",
+        extra={'event': 'quality_users_all_attempts_failed', 'modes_tried': [m for _, m in attempts]}
+    )
+    return []
 
 
 def get_economy_users_alternative(config, logger) -> List[Dict[str, str]]:
@@ -129,18 +176,19 @@ def get_economy_users_alternative(config, logger) -> List[Dict[str, str]]:
         # Usar la conexión de tareas para obtener usuarios
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
         
-        # Para usuarios de economía, usamos la tabla de permisos con ID de aplicación
-        query = """
+        # Para usuarios de economía, usamos la tabla de permisos con ID de aplicación (boolean o texto)
+        app_id_int = getattr(config, 'app_id_agedys', 3)
+        query = f"""
             SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
             FROM TbUsuariosAplicaciones ua 
             INNER JOIN TbUsuariosAplicacionesPermisos uap ON ua.CorreoUsuario = uap.CorreoUsuario 
             WHERE ua.ParaTareasProgramadas = True 
             AND ua.FechaBaja IS NULL 
-            AND uap.EsEconomia = 'Sí'
-            AND uap.IDAplicacion = ?
+            AND (uap.EsEconomia = True OR uap.EsEconomia = 'Sí')
+            AND uap.IDAplicacion = {app_id_int}
         """
         
-        result = db_connection.execute_query(query, [config.app_id_agedys])
+        result = db_connection.execute_query(query)
         return result
         
     except Exception as e:

@@ -223,36 +223,8 @@ def load_css_content(css_file_path: Path) -> str:
     """
 
 
-def generate_html_header(title: str, css_content: str) -> str:
-    """
-    Genera el header HTML con CSS incorporado
-    
-    Args:
-        title: Título de la página
-        css_content: Contenido CSS
-        
-    Returns:
-        Header HTML como string
-    """
-    return f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-    <title>{title}</title>
-    <meta charset="UTF-8" />
-    <style type="text/css">
-        {css_content}
-    </style>
-</head>
-<body>
-"""
-
-
-def generate_html_footer() -> str:
-    """Genera el footer HTML"""
-    return """
-</body>
-</html>
-"""
+## Eliminados definitivamente generate_html_header / generate_html_footer (wrappers legacy) 
+## Usar directamente HTMLReportGenerator en nuevo código.
 
 
 def safe_str(value, default: str = "&nbsp;") -> str:
@@ -359,17 +331,11 @@ def get_technical_emails_string(db_connection, config, logger) -> str:
         return ""
 
 def get_quality_emails_string(app_id, config, logger, db_connection) -> str:
-    """
-    Obtiene una cadena con los emails de los usuarios de calidad separados por punto y coma
-    
-    Args:
-        app_id: ID de la aplicación
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-        db_connection: Conexión a la base de datos de tareas
-        
-    Returns:
-        Cadena de emails
+    """Devuelve emails de usuarios de Calidad.
+
+    app_id debe ser numérico (IDAplicacion en permisos). Antes se pasaba la cadena
+    "AGEDYS" provocando error de tipo en Access. Esta función acepta str/int pero
+    se normaliza a entero en user_adapter.
     """
     try:
         from .user_adapter import get_users_with_fallback

@@ -1,52 +1,55 @@
 """
-Script principal para ejecutar la tarea BRASS
+Script de entrada para la ejecución de la Tarea BRASS.
 """
-import logging
-import os
 import sys
+import logging
+import argparse
+from pathlib import Path
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Añadir el directorio src al path
+SRC_DIR = Path(__file__).resolve().parent.parent / 'src'
+sys.path.append(str(SRC_DIR))
 
-# Agregar el directorio src al path para imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.dirname(current_dir)
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
-
+from common.utils import setup_logging
 from brass.brass_task import BrassTask
 
 def main():
-    """Función principal"""
-    logger = logging.getLogger(__name__)
-    
+    parser = argparse.ArgumentParser(description="Ejecuta la tarea de BRASS.")
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Fuerza la ejecución de la tarea, ignorando la planificación.'
+    )
+    args = parser.parse_args()
+
+    setup_logging(log_file=Path('logs/brass.log'))
+    logger = logging.getLogger()
+
+    logger.info("===============================================")
+    logger.info("=         INICIANDO TAREA DE BRASS            =")
+    logger.info("===============================================")
+    if args.force:
+        logger.warning("-> MODO FORZADO ACTIVADO <-")
+
+    exit_code = 0
     try:
-        logger.info("Iniciando ejecución de BRASS")
-        
-        # Crear y ejecutar la tarea
-        task = BrassTask()
-        success = task.execute()
-        
-        if success:
-            logger.info("BRASS ejecutado correctamente")
-            return 0
-        else:
-            logger.error("Error en la ejecución de BRASS")
-            return 1
-            
+        with BrassTask() as task:
+            if args.force or task.debe_ejecutarse():
+                if task.execute_specific_logic():
+                    if not args.force:
+                        task.marcar_como_completada()
+                    logger.info("Tarea BRASS finalizada con éxito.")
+                else:
+                    logger.error("La lógica específica de la tarea BRASS falló.")
+                    exit_code = 1
+            else:
+                logger.info("La tarea BRASS no requiere ejecución hoy.")
     except Exception as e:
-        logger.error(f"Error crítico en BRASS: {e}")
-        return 1
-    finally:
-        # Cerrar conexiones
-        try:
-            task.close_connections()
-        except:
-            pass
+        logger.critical(f"Error fatal no controlado en la tarea BRASS: {e}", exc_info=True)
+        exit_code = 1
+
+    logger.info("Finalizada la ejecución de la tarea BRASS.")
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    main()

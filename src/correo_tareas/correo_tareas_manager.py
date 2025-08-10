@@ -21,24 +21,32 @@ logger = logging.getLogger(__name__)
 
 class CorreoTareasManager:
     """Gestor para el módulo de tareas"""
-    
-    def __init__(self):
-        """Inicializar el gestor de tareas"""
-        self.config = config
-        self.smtp_server = config.smtp_server
-        self.smtp_port = config.smtp_port
-        self.smtp_user = config.smtp_user
-        self.smtp_password = getattr(config, 'smtp_password', None)
-        self.smtp_tls = getattr(config, 'smtp_tls', False)
-        
-        # Usar pool de conexiones thread-safe para Access
-        connection_string = config.get_db_connection_string('tareas')
-        self.db_pool = get_tareas_connection_pool(connection_string)
-        
+
+    def __init__(self, config_obj=None, db_pool=None):
+        """Inicializar el gestor de tareas
+
+        Args:
+            config_obj: Permite inyectar una configuración mockeada en tests.
+            db_pool: Permite inyectar un pool/objeto con interface execute_query/update_record (facilita mocks).
+        """
+        self.config = config_obj or config
+        self.smtp_server = self.config.smtp_server
+        self.smtp_port = self.config.smtp_port
+        self.smtp_user = self.config.smtp_user
+        self.smtp_password = getattr(self.config, 'smtp_password', None)
+        self.smtp_tls = getattr(self.config, 'smtp_tls', False)
+
+        # Usar pool de conexiones thread-safe para Access (o mock inyectado)
+        if db_pool is not None:
+            self.db_pool = db_pool
+        else:
+            connection_string = self.config.get_db_connection_string('tareas')
+            self.db_pool = get_tareas_connection_pool(connection_string)
+
         # Mantener compatibilidad con código existente
         self.db_conn = self.db_pool
-        
-        logger.info("CorreoTareasManager inicializado con pool de conexiones thread-safe")
+
+        logger.info("CorreoTareasManager inicializado con pool de conexiones thread-safe (inyectable)")
     
     def _enviar_correo_individual(self, correo: Dict[str, Any]) -> bool:
         """

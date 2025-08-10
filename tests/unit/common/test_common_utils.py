@@ -15,8 +15,6 @@ from common.utils import (
     is_workday,
     is_night_time,
     safe_str,
-    generate_html_header,
-    generate_html_footer,
     load_css_content
 )
 
@@ -101,33 +99,11 @@ class TestSafeStr:
         assert safe_str(None, "N/A") == "N/A"
 
 
-class TestHTMLGeneration:
-    """Tests para generación de HTML"""
-    
-    def test_html_header_generation(self):
-        """Test generación de header HTML"""
-        title = "Test Title"
-        css = "body { margin: 0; }"
-        
-        header = generate_html_header(title, css)
-        
-        assert "<!DOCTYPE html>" in header
-        assert f"<title>{title}</title>" in header
-        assert css in header
-        assert 'charset="UTF-8"' in header
-    
-    def test_html_footer_generation(self):
-        """Test generación de footer HTML"""
-        footer = generate_html_footer()
-        
-        assert "</body>" in footer
-        assert "</html>" in footer
-    
+class TestCSSLoad:
+    """Tests para carga CSS"""
+
     @patch("builtins.open", mock_open(read_data="body { color: red; }"))
     def test_load_css_content(self):
-        """Test carga de contenido CSS"""
         css_file = Path("test.css")
-        
         content = load_css_content(css_file)
-        
         assert "body { color: red; }" in content
