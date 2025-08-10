@@ -2,7 +2,7 @@
 Paquete común con utilidades compartidas
 """
 from .config import config
-from .database import AccessDatabase, DemoDatabase, get_database_instance
+from .database import AccessDatabase
 from .utils import (
     setup_logging,
     is_workday,
@@ -25,18 +25,11 @@ from .utils import (
     should_execute_task,
     should_execute_quality_task
 )
-from .utils import (
-    get_technical_emails_string,
-    get_quality_emails_string,
-    get_admin_emails_string,
-    register_email_in_database,
-)
+# Limpieza: se eliminan importaciones duplicadas previamente listadas
 
 __all__ = [
     'config',
     'AccessDatabase',
-    'DemoDatabase',
-    'get_database_instance',
     'setup_logging',
     'is_workday',
     'is_night_time',

@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+SRC_ROOT = Path(__file__).parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from src.common.database_adapter import AccessAdapter
+from src.common.database import AccessDatabase
 from src.common.config import config
 
 def main():
-    with AccessAdapter(Path(config.db_correos_path), config.db_password) as db:
+    conn_str = config.get_db_correos_connection_string()
+    db = AccessDatabase(conn_str)
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
         # Verificar todos los correos de Riesgos
-        query_riesgos = """
-        SELECT IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio, LEN(Cuerpo) as CuerpoLength
-        FROM TbCorreosEnviados 
-        WHERE Aplicacion = 'Riesgos'
-        ORDER BY IDCorreo DESC
-        """
-        result_riesgos = db.execute_query(query_riesgos)
+        query_riesgos = (
+            "SELECT IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio, LEN(Cuerpo) as CuerpoLength "
+            "FROM TbCorreosEnviados WHERE Aplicacion = 'Riesgos' ORDER BY IDCorreo DESC"
+        )
+        cursor.execute(query_riesgos)
+        columns = [c[0] for c in cursor.description]
+        result_riesgos = [dict(zip(columns, r)) for r in cursor.fetchall()]
         
         if result_riesgos:
             print("=== Correos de Riesgos ===")
@@ -31,12 +36,14 @@ def main():
             print("No se encontraron correos de Riesgos")
         
         # Verificar el último correo registrado independientemente de la aplicación
-        query_last = """
-        SELECT TOP 1 IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio
-        FROM TbCorreosEnviados 
-        ORDER BY IDCorreo DESC
-        """
-        result_last = db.execute_query(query_last)
+        query_last = (
+            "SELECT TOP 1 IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio "
+            "FROM TbCorreosEnviados ORDER BY IDCorreo DESC"
+        )
+        cursor.execute(query_last)
+        columns2 = [c[0] for c in cursor.description]
+        rows2 = cursor.fetchall()
+        result_last = [dict(zip(columns2, r)) for r in rows2]
         
         if result_last:
             print("\n=== Último correo registrado ===")

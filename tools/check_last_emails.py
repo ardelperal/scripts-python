@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+SRC_ROOT = Path(__file__).parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from src.common.database_adapter import AccessAdapter
+from src.common.database import AccessDatabase
 from src.common.config import config
 
 def main():
-    with AccessAdapter(Path(config.db_correos_path), config.db_password) as db:
-        query = """
-        SELECT TOP 5 IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio 
-        FROM TbCorreosEnviados 
-        ORDER BY IDCorreo DESC
-        """
-        result = db.execute_query(query)
+    conn_str = config.get_db_correos_connection_string()
+    db = AccessDatabase(conn_str)
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        query = (
+            "SELECT TOP 5 IDCorreo, Aplicacion, Asunto, Destinatarios, FechaEnvio "
+            "FROM TbCorreosEnviados ORDER BY IDCorreo DESC"
+        )
+        cursor.execute(query)
+        columns = [c[0] for c in cursor.description]
+        result = [dict(zip(columns, r)) for r in cursor.fetchall()]
         if result:
             print("=== Últimos 5 correos registrados ===")
             for row in result:

@@ -2,6 +2,7 @@
 
 from common.base_task import TareaDiaria
 from common.database import AccessDatabase
+from common.access_connection_pool import get_expedientes_connection_pool
 from common.utils import register_email_in_database, get_admin_emails_string
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
@@ -20,10 +21,12 @@ class ExpedientesTask(TareaDiaria):
         )
         # Conexión específica expedientes
         try:
-            self.db_expedientes = AccessDatabase(self.config.get_db_expedientes_connection_string())
-            self.logger.debug("Conexión BD Expedientes inicializada")
+            conn_str = self.config.get_db_expedientes_connection_string()
+            pool = get_expedientes_connection_pool(conn_str)
+            self.db_expedientes = AccessDatabase(conn_str, pool=pool)
+            self.logger.debug("Pool Expedientes inicializado")
         except Exception as e:
-            self.logger.error(f"Error inicializando BD Expedientes: {e}")
+            self.logger.error(f"Error inicializando pool Expedientes: {e}")
             self.db_expedientes = None
 
     def execute_specific_logic(self) -> bool:

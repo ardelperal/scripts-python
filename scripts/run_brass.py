@@ -9,11 +9,15 @@ from pathlib import Path
 
 # Añadir el directorio raíz del proyecto al path para importaciones
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+src_dir = project_root / 'src'
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
 
 from src.common.config import config
 from src.common.utils import setup_logging
-from src.brass.brass_manager import BrassManager
+from src.brass.brass_task import BrassTask
 
 def main():
     """Función principal"""
@@ -26,33 +30,31 @@ def main():
     args = parser.parse_args()
     
     # Configurar logging
-    setup_logging(config.log_level, config.log_file)
+    # setup_logging espera primero el archivo y luego el nivel
+    setup_logging(log_file=config.log_file, level=config.log_level)
     
     try:
-        # Crear instancia del gestor BRASS
-        brass_manager = BrassManager()
-        
-        if args.dry_run:
-            print("Modo simulación - verificando si la tarea debe ejecutarse...")
-            should_run = brass_manager.should_execute_task()
-            print(f"¿Debe ejecutarse la tarea BRASS? {'Sí' if should_run else 'No'}")
-            return 0
-        
-        if args.force:
-            print("Modo forzado - ejecutando tarea BRASS...")
-            success = brass_manager.ejecutar_logica_especifica()
+        with BrassTask() as task:
+            if args.dry_run:
+                print("Modo simulación - verificando si la tarea debe ejecutarse...")
+                should_run = task.debe_ejecutarse()
+                print(f"¿Debe ejecutarse la tarea BRASS? {'Sí' if should_run else 'No'}")
+                return 0
+
+            if args.force:
+                print("Modo forzado - ejecutando tarea BRASS...")
+                success = task.execute_specific_logic()
+                if success:
+                    task.marcar_como_completada()
+            else:
+                success = task.run()
+
             if success:
-                brass_manager.marcar_como_completada()
-        else:
-            # Ejecución normal con verificación de horarios
-            success = brass_manager.run()
-        
-        if success:
-            print("Tarea BRASS ejecutada exitosamente")
-            return 0
-        else:
-            print("Error en la ejecución de la tarea BRASS")
-            return 1
+                print("Tarea BRASS ejecutada exitosamente")
+                return 0
+            else:
+                print("Error en la ejecución de la tarea BRASS")
+                return 1
             
     except Exception as e:
         print(f"Error crítico: {e}")

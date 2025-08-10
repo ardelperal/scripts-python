@@ -219,6 +219,32 @@ class AccessConnectionPool:
             rows_affected = cursor.rowcount
             logger.debug(f"Consulta ejecutada: {rows_affected} filas afectadas")
             return rows_affected
+
+    def insert_record(self, table: str, data: Dict[str, Any]) -> bool:
+        """Inserta un registro usando el pool (thread-safe)."""
+        try:
+            fields = list(data.keys())
+            placeholders = ', '.join(['?'] * len(fields))
+            columns = ', '.join(fields)
+            query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+            values = tuple(data.values())
+            rows = self.execute_non_query(query, values)
+            return rows > 0
+        except Exception as e:  # pragma: no cover - defensivo
+            logger.error(f"Error insert_record pool {table}: {e}")
+            return False
+
+    def get_max_id(self, table: str, id_field: str) -> int:
+        """Obtiene MAX(id_field) de forma thread-safe usando el pool."""
+        try:
+            query = f"SELECT MAX({id_field}) as MaxID FROM {table}"
+            rows = self.execute_query(query)
+            if rows and rows[0].get('MaxID') is not None:
+                return rows[0]['MaxID']
+            return 0
+        except Exception as e:  # pragma: no cover
+            logger.error(f"Error get_max_id pool {table}.{id_field}: {e}")
+            return 0
     
     def update_record(self, table: str, data: Dict[str, Any], where_condition: str, where_params: Optional[List] = None) -> bool:
         """Actualiza registros de forma thread-safe con lock adicional para operaciones críticas"""
@@ -278,8 +304,14 @@ class AccessConnectionPool:
             logger.info("Todas las conexiones cerradas")
 
 
-# Instancia global del pool para la base de datos de tareas
+# Instancias globales de pools por tipo de BD
 _tareas_pool: Optional[AccessConnectionPool] = None
+_brass_pool: Optional[AccessConnectionPool] = None
+_expedientes_pool: Optional[AccessConnectionPool] = None
+_agedys_pool: Optional[AccessConnectionPool] = None
+_nc_pool: Optional[AccessConnectionPool] = None
+_riesgos_pool: Optional[AccessConnectionPool] = None
+_correos_pool: Optional[AccessConnectionPool] = None
 _pool_lock = threading.Lock()
 
 
@@ -319,3 +351,34 @@ def close_tareas_pool():
             _tareas_pool.close_all()
             _tareas_pool = None
             logger.info("Pool de conexiones de tareas cerrado")
+
+
+# ------------------------- Generic helpers por BD -------------------------
+def _get_pool(existing_ref: Optional[AccessConnectionPool], set_attr_name: str, connection_string: str, max_conn: int = 2) -> AccessConnectionPool:
+    global _tareas_pool, _brass_pool, _expedientes_pool, _agedys_pool, _nc_pool, _riesgos_pool, _correos_pool
+    with _pool_lock:
+        if existing_ref is None:
+            pool = AccessConnectionPool(connection_string=connection_string, max_connections=max_conn, timeout=30)
+            # asignar en el diccionario global correctamente
+            globals()[set_attr_name] = pool
+            logger.info(f"Pool de conexiones {set_attr_name} inicializado")
+            return pool
+        return existing_ref
+
+def get_brass_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_brass_pool, '_brass_pool', connection_string)
+
+def get_expedientes_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_expedientes_pool, '_expedientes_pool', connection_string)
+
+def get_agedys_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_agedys_pool, '_agedys_pool', connection_string)
+
+def get_nc_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_nc_pool, '_nc_pool', connection_string)
+
+def get_riesgos_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_riesgos_pool, '_riesgos_pool', connection_string)
+
+def get_correos_connection_pool(connection_string: str) -> AccessConnectionPool:
+    return _get_pool(_correos_pool, '_correos_pool', connection_string)

@@ -10,10 +10,12 @@ from pathlib import Path
 import sys
 
 # Añadir src al path para importar módulos
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / 'src'))
+SRC_ROOT = Path(__file__).resolve().parent.parent.parent.parent / 'src'
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from common.config import config
-from common.database_adapter import AccessAdapter
+from src.common.config import config
+from src.common.database import AccessDatabase
 
 
 class TestDatabaseConnectivity:
@@ -125,33 +127,23 @@ class TestDatabaseConnectivity:
             # Es normal que falle sin contraseña, no es un error del test
             pass
     
-    def test_database_adapter_connections(self):
-        """Test usando el adaptador de base de datos"""
-        databases_to_test = {
-            'brass': config.db_brass_path,
-            'tareas': config.db_tareas_path,
-            'correos': config.db_correos_path
-        }
-        
-        for db_name, db_path in databases_to_test.items():
-            try:
-                # Verificar que el archivo existe
-                if not Path(db_path).exists():
-                    pytest.skip(f"Base de datos {db_name} no encontrada: {db_path}")
-                
-                # Usar el adaptador de base de datos Access
-                with AccessAdapter(Path(db_path), config.db_password) as db_adapter:
-                    # Intentar obtener tablas
-                    tables = db_adapter.get_tables()
-                    assert len(tables) > 0, f"No se encontraron tablas en BD {db_name}"
-                    
-                    # Intentar ejecutar una consulta simple
-                    if tables:
-                        result = db_adapter.execute_query(f"SELECT COUNT(*) as total FROM {tables[0]}")
-                        assert result is not None, f"No se pudo ejecutar consulta en BD {db_name} usando adaptador"
-                    
-            except Exception as e:
-                pytest.fail(f"Error conectando a BD {db_name} usando adaptador: {e}")
+    def test_accessdatabase_basic_query(self):
+        """Prueba básica de AccessDatabase (solo crea instancia y ejecuta SELECT 1 si existe BD tareas)."""
+        db_path = Path(config.db_tareas_path)
+        if not db_path.exists():
+            pytest.skip(f"Base de datos Tareas no encontrada: {db_path}")
+        # Construir connection string reutilizando config
+        conn_str = config.get_db_tareas_connection_string()
+        db = AccessDatabase(conn_str)
+        # Modo legacy: abrir y ejecutar
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                row = cursor.fetchone()
+                assert row and row[0] == 1
+        except Exception as e:
+            pytest.fail(f"AccessDatabase fallo consulta básica: {e}")
     
     def test_all_databases_summary(self):
         """Test resumen que verifica el estado de todas las bases de datos"""

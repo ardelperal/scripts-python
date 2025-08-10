@@ -11,6 +11,7 @@ Fecha: 2024
 import os
 import shutil
 import logging
+import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import win32com.client
@@ -25,14 +26,30 @@ log_file = project_root / 'logs' / 'setup_local_environment.log'
 # Asegurar que el directorio de logs existe
 log_file.parent.mkdir(parents=True, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+class _JsonFormatter(logging.Formatter):
+    def format(self, record):  # pragma: no cover - formato trivial
+        data = {
+            'ts': self.formatTime(record, datefmt='%Y-%m-%dT%H:%M:%S'),
+            'level': record.levelname,
+            'msg': record.getMessage(),
+            'logger': record.name
+        }
+        return json.dumps(data, ensure_ascii=False)
+
+json_mode = os.getenv('SETUP_LOCAL_JSON_LOG', '0') == '1'
+handlers = []
+if os.getenv('SETUP_LOCAL_FILE_LOG', '1') == '1':  # permitir desactivar fichero si se centraliza
+    fh = logging.FileHandler(log_file, encoding='utf-8')
+    if json_mode:
+        fh.setFormatter(_JsonFormatter())
+    handlers.append(fh)
+sh = logging.StreamHandler()
+if json_mode:
+    sh.setFormatter(_JsonFormatter())
+handlers.append(sh)
+
+logging.basicConfig(level=logging.INFO, handlers=handlers,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class LocalEnvironmentSetup:
@@ -1550,7 +1567,7 @@ class LocalEnvironmentSetup:
                 return os.getenv(office_var, '')
         return ''
 
-    def setup_environment(self, force_links_only: bool = False) -> bool:
+    def setup_environment(self, force_links_only: bool = False, fast: bool = False) -> bool:
         """
         Ejecuta el proceso completo de configuración del entorno local
         
@@ -1586,6 +1603,9 @@ class LocalEnvironmentSetup:
                 
                 if not copy_success:
                     self.logger.warning("[!] Algunas copias fallaron, continuando con actualizacion de vinculos...")
+                if fast:
+                    self.logger.info("[FAST] Modo rápido activado - terminando tras copia (simulada)")
+                    return True
             elif empty_correos_only:
                 self.logger.info("[EMPTY] Modo 'correos vacíos' activado - saltando verificación de red")
                 # Paso 1: Crear solo la base de correos vacía
@@ -1628,7 +1648,9 @@ Ejemplos de uso:
   python setup_local_environment.py                    # Proceso completo
   python setup_local_environment.py --links-only       # Solo actualizar vínculos
   python setup_local_environment.py --check-network    # Solo verificar red
-  python setup_local_environment.py --empty-correos    # Crear base de correos vacía
+    python setup_local_environment.py --empty-correos    # Crear base de correos vacía
+    python setup_local_environment.py --fast             # Modo rápido (salta pasos pesados)
+    python setup_local_environment.py --json-log         # Salida JSON (para Loki/Grafana)
         """
     )
     
@@ -1649,6 +1671,16 @@ Ejemplos de uso:
         action='store_true',
         help='Crear la base de datos de correos completamente vacía (sin registros)'
     )
+    parser.add_argument(
+        '--fast',
+        action='store_true',
+        help='Modo rápido: salta operaciones pesadas tras validaciones iniciales'
+    )
+    parser.add_argument(
+        '--json-log',
+        action='store_true',
+        help='Forzar salida de logs en JSON por consola (equivalente a SETUP_LOCAL_JSON_LOG=1)'
+    )
     
     args = parser.parse_args()
     
@@ -1658,17 +1690,19 @@ Ejemplos de uso:
     print()
     
     try:
+        if args.json_log:
+            os.environ['SETUP_LOCAL_JSON_LOG'] = '1'
         setup = LocalEnvironmentSetup()
-        
+
         # Configurar la opción de correos vacíos si se especificó
         if args.empty_correos:
             setup.empty_correos = True
-        
+
         if args.check_network:
             # Solo verificar red y mostrar configuración
             setup.show_configuration()
             network_ok = setup._check_network_accessibility()
-            
+
             print()
             print("=" * 80)
             if network_ok:
@@ -1678,12 +1712,12 @@ Ejemplos de uso:
                 print("[X] PROBLEMAS DE CONECTIVIDAD DE RED")
                 print("Algunas ubicaciones no son accesibles")
             print("=" * 80)
-            
+
             return 0 if network_ok else 1
-        
+
         # Ejecutar configuración completa o solo vínculos
-        success = setup.setup_environment(force_links_only=args.links_only)
-        
+        success = setup.setup_environment(force_links_only=args.links_only, fast=args.fast)
+
         print()
         print("=" * 60)
         if success:
@@ -1696,7 +1730,7 @@ Ejemplos de uso:
             print("[!] PROCESO COMPLETADO CON ERRORES")
             print("Revisa el log para mas detalles")
         print("=" * 60)
-        
+
         return 0 if success else 1
         
     except KeyboardInterrupt:

@@ -12,6 +12,7 @@ import os
 import logging
 from common.base_task import TareaDiaria
 from common.database import AccessDatabase
+from common.access_connection_pool import get_nc_connection_pool
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
 from common.utils import get_admin_emails_string
@@ -27,9 +28,11 @@ class NoConformidadesTask(TareaDiaria):
             frequency_days=int(os.getenv('NC_FRECUENCIA_DIAS', '1') or 1)
         )
         try:
-            self.db_nc = AccessDatabase(self.config.get_db_no_conformidades_connection_string())
+            conn_str = self.config.get_db_no_conformidades_connection_string()
+            pool = get_nc_connection_pool(conn_str)
+            self.db_nc = AccessDatabase(conn_str, pool=pool)
         except Exception as e:  # pragma: no cover
-            self.logger.error(f"Error inicializando BD NC: {e}")
+            self.logger.error(f"Error inicializando pool NC: {e}")
             self.db_nc = None
 
     def execute_specific_logic(self) -> bool:

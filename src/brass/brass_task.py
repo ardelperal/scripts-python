@@ -3,6 +3,7 @@ import logging
 import os
 from common.base_task import TareaDiaria
 from common.database import AccessDatabase
+from common.access_connection_pool import get_brass_connection_pool
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
 from common.utils import get_admin_emails_string
@@ -12,18 +13,22 @@ from .brass_manager import BrassManager
 class BrassTask(TareaDiaria):
     """Orquesta obtención de equipos fuera de calibración y registro de correo."""
 
-    def __init__(self):
+    def __init__(self, recipients_service_class=EmailRecipientsService):
         super().__init__(
             name="BRASS",
             script_filename="run_brass.py",
             task_names=["BRASSDiario"],
             frequency_days=int(os.getenv('BRASS_FRECUENCIA_DIAS', '1') or 1)
         )
+        # Permite inyección en tests o futuras extensiones (DI)
+        self.recipients_service_class = recipients_service_class
         try:
-            self.db_brass = AccessDatabase(self.config.get_db_brass_connection_string())
-            self.logger.debug("Conexión BD BRASS inicializada")
+            conn_str = self.config.get_db_brass_connection_string()
+            pool = get_brass_connection_pool(conn_str)
+            self.db_brass = AccessDatabase(conn_str, pool=pool)
+            self.logger.debug("Pool BRASS inicializado")
         except Exception as e:  # pragma: no cover
-            self.logger.error(f"Error inicializando BD BRASS: {e}")
+            self.logger.error(f"Error inicializando pool BRASS: {e}")
             self.db_brass = None
 
     def execute_specific_logic(self) -> bool:
@@ -45,7 +50,7 @@ class BrassTask(TareaDiaria):
 
             # Recipients service con fallback
             try:
-                recipients_service = EmailRecipientsService(self.db_tareas, self.config, self.logger)
+                recipients_service = self.recipients_service_class(self.db_tareas, self.config, self.logger)
                 recipients = recipients_service.get_admin_emails_string() or "ADMIN"
             except Exception:  # pragma: no cover
                 recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"

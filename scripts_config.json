@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "correos": {"file": "run_correos.py", "type": "continuous"},
+    "tareas": {"file": "run_correo_tareas.py", "type": "continuous"},
+    "brass": {"file": "run_brass.py", "type": "daily", "task_name": "BRASSDiario"},
+    "expedientes": {"file": "run_expedientes.py", "type": "daily", "task_name": "ExpedientesDiario"},
+    "no_conformidades": {"file": "run_no_conformidades.py", "type": "daily", "task_name": ["NoConformidadesCalidad", "NoConformidadesTecnica"]},
+    "riesgos": {"file": "run_riesgos.py", "type": "daily", "task_name": ["RiesgosDiariosTecnicos", "RiesgosSemanalesCalidad", "RiesgosMensualesCalidad"]},
+    "agedys": {"file": "run_agedys.py", "type": "daily", "task_name": "AGEDYSDiario"}
+  }
+}

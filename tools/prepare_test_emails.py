@@ -5,10 +5,12 @@ Limpia FechaEnvio de algunos registros para que se envíen en la próxima ejecuc
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+SRC_ROOT = Path(__file__).parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from common.database_adapter import AccessAdapter
-from common.config import config
+from src.common.database import AccessDatabase
+from src.common.config import config
 import logging
 
 # Configurar logging
@@ -21,10 +23,17 @@ def prepare_correos_data():
     logger.info(f"Preparando datos de prueba en: {db_path}")
     
     try:
-        with AccessAdapter(db_path, config.db_password) as db:
+        # Construir connection string reutilizando métodos de config
+        conn_str = config.get_db_correos_connection_string()
+        db = AccessDatabase(conn_str)
+        with db.get_connection() as conn:
+            from pyodbc import ProgrammingError
+            cursor = conn.cursor()
             # Verificar correos existentes
             query = "SELECT TOP 5 IDCorreo, Aplicacion, Asunto, FechaEnvio FROM TbCorreosEnviados ORDER BY IDCorreo DESC"
-            correos = db.execute_query(query)
+            cursor.execute(query)
+            columns = [c[0] for c in cursor.description]
+            correos = [dict(zip(columns, r)) for r in cursor.fetchall()]
             
             if not correos:
                 logger.warning("No hay correos en la base de datos")
@@ -41,15 +50,17 @@ def prepare_correos_data():
                 
                 update_query = f"UPDATE TbCorreosEnviados SET FechaEnvio = NULL WHERE IDCorreo = {id_correo}"
                 try:
-                    db.execute_query(update_query)
+                    cursor.execute(update_query)
+                    conn.commit()
                     logger.info(f"✓ Correo ID {id_correo} actualizado correctamente")
                 except Exception as e:
                     logger.error(f"Error actualizando correo ID {id_correo}: {e}")
             
             # Verificar cambios
             query_check = "SELECT COUNT(*) as Total FROM TbCorreosEnviados WHERE FechaEnvio IS NULL"
-            result = db.execute_query(query_check)
-            total_pendientes = result[0]['Total'] if result else 0
+            cursor.execute(query_check)
+            row = cursor.fetchone()
+            total_pendientes = row[0] if row else 0
             
             logger.info(f"Total de correos pendientes de envío: {total_pendientes}")
             
@@ -62,10 +73,15 @@ def prepare_tareas_data():
     logger.info(f"Preparando datos de prueba en: {db_path}")
     
     try:
-        with AccessAdapter(db_path, config.db_password) as db:
+        conn_str = config.get_db_tareas_connection_string()
+        db = AccessDatabase(conn_str)
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
             # Verificar correos existentes
             query = "SELECT TOP 5 IDCorreo, Aplicacion, Asunto, FechaEnvio FROM TbCorreosEnviados ORDER BY IDCorreo DESC"
-            correos = db.execute_query(query)
+            cursor.execute(query)
+            columns = [c[0] for c in cursor.description]
+            correos = [dict(zip(columns, r)) for r in cursor.fetchall()]
             
             if not correos:
                 logger.warning("No hay correos en la base de datos de tareas")
@@ -82,15 +98,17 @@ def prepare_tareas_data():
                 
                 update_query = f"UPDATE TbCorreosEnviados SET FechaEnvio = NULL WHERE IDCorreo = {id_correo}"
                 try:
-                    db.execute_query(update_query)
+                    cursor.execute(update_query)
+                    conn.commit()
                     logger.info(f"✓ Correo ID {id_correo} actualizado correctamente")
                 except Exception as e:
                     logger.error(f"Error actualizando correo ID {id_correo}: {e}")
             
             # Verificar cambios
             query_check = "SELECT COUNT(*) as Total FROM TbCorreosEnviados WHERE FechaEnvio IS NULL"
-            result = db.execute_query(query_check)
-            total_pendientes = result[0]['Total'] if result else 0
+            cursor.execute(query_check)
+            row = cursor.fetchone()
+            total_pendientes = row[0] if row else 0
             
             logger.info(f"Total de correos pendientes de envío en tareas: {total_pendientes}")
             

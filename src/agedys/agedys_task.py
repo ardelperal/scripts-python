@@ -5,6 +5,7 @@ Responsabilidad: decidir ejecución (frecuencia) y registrar correo estándar si
 import os
 from common.base_task import TareaDiaria
 from common.database import AccessDatabase
+from common.access_connection_pool import get_agedys_connection_pool
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report  # fallback temporal
 from .agedys_manager import AgedysManager
@@ -19,10 +20,12 @@ class AgedysTask(TareaDiaria):
             frequency_days=int(os.getenv('AGEDYS_FRECUENCIA_DIAS', '1') or 1)
         )
         try:
-            self.db_agedys = AccessDatabase(self.config.get_db_agedys_connection_string())
-            self.logger.debug("Conexión BD AGEDYS inicializada")
+            conn_str = self.config.get_db_agedys_connection_string()
+            pool = get_agedys_connection_pool(conn_str)
+            self.db_agedys = AccessDatabase(conn_str, pool=pool)
+            self.logger.debug("Pool AGEDYS inicializado")
         except Exception as e:  # pragma: no cover
-            self.logger.error(f"Error inicializando BD AGEDYS: {e}")
+            self.logger.error(f"Error inicializando pool AGEDYS: {e}")
             self.db_agedys = None
 
     def execute_specific_logic(self) -> bool:
