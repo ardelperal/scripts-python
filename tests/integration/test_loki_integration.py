@@ -5,7 +5,7 @@ Adaptado al signature actual: setup_logging(log_file: Path, level=...).
 from pathlib import Path
 import logging
 
-from src.common.utils import setup_logging
+from common.utils import setup_logging
 
 
 def _leer_contenido(path: Path) -> str:

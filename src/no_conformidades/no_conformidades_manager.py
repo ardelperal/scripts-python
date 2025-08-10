@@ -390,6 +390,20 @@ class NoConformidadesManager(TareaDiaria):
             log_context="vencidas"
         )
 
+    def get_technical_report_data_for_user(self, tecnico: str) -> Dict[str, List[ARTecnicaRecord]]:
+        """Devuelve en una sola llamada los datasets técnicos para un usuario.
+
+        Retorna dict con claves:
+            - ars_15_dias: ARs que caducan en 8-15 días
+            - ars_7_dias: ARs que caducan en 1-7 días
+            - ars_vencidas: ARs ya vencidas (<=0 días)
+        """
+        return {
+            'ars_15_dias': self.get_ars_tecnico_por_vencer(tecnico, 8, 15, AVISO_15_DIAS),
+            'ars_7_dias': self.get_ars_tecnico_por_vencer(tecnico, 1, 7, AVISO_7_DIAS),
+            'ars_vencidas': self.get_ars_tecnico_vencidas(tecnico, AVISO_CADUCADAS)
+        }
+
     # -------------------------------------------------------------
     #  MÉTODO GENÉRICO UNIFICADO PARA OBTENER ARs POR TÉCNICO
     # -------------------------------------------------------------

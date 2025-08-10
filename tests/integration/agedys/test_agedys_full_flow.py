@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
-from src.agedys.agedys_manager import AgedysManager
+from agedys.agedys_manager import AgedysManager
 
 class StubDB:
     def __init__(self, data_map):

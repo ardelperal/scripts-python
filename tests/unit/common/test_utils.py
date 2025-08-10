@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, mock_open, MagicMock
 import tempfile
 import os
 
-from src.common.utils import (
+from common.utils import (
     setup_logging,
     is_workday,
     is_night_time,

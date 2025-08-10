@@ -14,8 +14,8 @@ SRC_ROOT = Path(__file__).resolve().parent.parent.parent.parent / 'src'
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from src.common.config import config
-from src.common.database import AccessDatabase
+from common.config import config
+from common.database import AccessDatabase
 
 
 class TestDatabaseConnectivity:

@@ -1,6 +1,6 @@
 import datetime
 import pytest
-from src.common.html_report_generator import HTMLReportGenerator
+from common.html_report_generator import HTMLReportGenerator
 
 
 def test_header_footer_basic():

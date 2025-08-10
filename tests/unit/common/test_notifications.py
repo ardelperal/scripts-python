@@ -4,7 +4,7 @@ Tests unitarios para el módulo de notificaciones.
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from src.common.notifications import NotificationManager, send_notification
+from common.notifications import NotificationManager, send_notification
 
 
 class TestNotificationManager:

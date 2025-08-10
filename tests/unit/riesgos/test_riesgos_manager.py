@@ -9,8 +9,8 @@ from pathlib import Path
 # Agregar el directorio src al path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from src.common.config import Config
-from src.riesgos.riesgos_manager import RiesgosManager
+from common.config import Config
+from riesgos.riesgos_manager import RiesgosManager
 
 
 class TestRiesgosManager(unittest.TestCase):

@@ -12,10 +12,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), 'src')
 sys.path.insert(0, src_dir)
 
-from src.expedientes.expedientes_manager import ExpedientesManager
-from src.expedientes.expedientes_task import ExpedientesTask
-from src.common.config import Config
-from src.common.database import AccessDatabase
+from expedientes.expedientes_manager import ExpedientesManager
+from expedientes.expedientes_task import ExpedientesTask
+from common.config import Config
+from common.database import AccessDatabase
 
 
 class TestExpedientesIntegration(unittest.TestCase):

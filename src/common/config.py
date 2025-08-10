@@ -1,7 +1,6 @@
-"""
-Configuración del proyecto para manejo de diferentes entornos Windows con Access
-"""
+"""\nConfiguración del proyecto para manejo de diferentes entornos Windows con Access\n"""
 import os
+import warnings
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -214,34 +213,69 @@ class Config:
 
     # --- Métodos legacy específicos (compatibilidad). Delegan al genérico ---
     def get_db_agedys_connection_string(self):  # pragma: no cover - simple delegación
+        warnings.warn(
+            "get_db_agedys_connection_string está obsoleto; usa get_db_connection_string('agedys')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_db_connection_string('agedys')
 
     def get_db_brass_connection_string(self):  # pragma: no cover
         # Compatibilidad: usar atributo mutable db_brass_path si ha sido sobreescrito en tests
+        warnings.warn(
+            "get_db_brass_connection_string está obsoleto; usa get_db_connection_string('brass')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path = getattr(self, 'db_brass_path', self.get_database_path('brass'))
         if self.db_password:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={self.db_password};"
         return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};"
 
     def get_db_tareas_connection_string(self):  # pragma: no cover
+        warnings.warn(
+            "get_db_tareas_connection_string está obsoleto; usa get_db_connection_string('tareas')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path = getattr(self, 'db_tareas_path', self.get_database_path('tareas'))
         if self.db_password:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={self.db_password};"
         return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};"
 
     def get_db_correos_connection_string(self, with_password=True):  # pragma: no cover
+        warnings.warn(
+            "get_db_correos_connection_string está obsoleto; usa get_db_connection_string('correos')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path = getattr(self, 'db_correos_path', self.get_database_path('correos'))
         if with_password and self.db_password:
             return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={self.db_password};"
         return f"Driver={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};"
 
     def get_db_riesgos_connection_string(self):  # pragma: no cover
+        warnings.warn(
+            "get_db_riesgos_connection_string está obsoleto; usa get_db_connection_string('riesgos')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_db_connection_string('riesgos')
 
     def get_db_expedientes_connection_string(self):  # pragma: no cover
+        warnings.warn(
+            "get_db_expedientes_connection_string está obsoleto; usa get_db_connection_string('expedientes')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_db_connection_string('expedientes')
 
     def get_db_no_conformidades_connection_string(self):  # pragma: no cover
+        warnings.warn(
+            "get_db_no_conformidades_connection_string está obsoleto; usa get_db_connection_string('no_conformidades')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_db_connection_string('no_conformidades')
 
     # --- Compatibilidad: método legacy usado en tests/integración ---

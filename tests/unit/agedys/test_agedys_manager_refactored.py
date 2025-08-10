@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.agedys.agedys_manager import AgedysManager
+from agedys.agedys_manager import AgedysManager
 
 @pytest.fixture
 def logger():

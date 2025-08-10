@@ -1,54 +1,38 @@
-#!/usr/bin/env python3
-"""
-Script de ejecución para el módulo de Tareas
-Adaptación del script original EnviarCorreoTareas.vbs
-"""
+"""Runner estandarizado para notificaciones de tareas (correo_tareas)."""
+from __future__ import annotations
 
 import sys
+import argparse
 import logging
 from pathlib import Path
 
-# Agregar el directorio src al path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
 
-from correo_tareas import CorreoTareasManager
-
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(Path(__file__).parent.parent / "logs" / "run_correo_tareas.log", encoding='utf-8')
-    ]
-)
-
-logger = logging.getLogger(__name__)
+from correo_tareas.correo_tareas_task import CorreoTareasTask  # type: ignore
+from common.utils import execute_task_with_standard_boilerplate  # type: ignore
 
 
-def main():
-    """Función principal"""
-    logger.info("=== Iniciando script de Tareas ===")
-    
-    try:
-        # Crear instancia del manager
-        tareas_manager = CorreoTareasManager()
-        
-        # Ejecutar tarea de envío de correos
-        success = tareas_manager.execute_continuous_task()
-        
-        if success:
-            logger.info("Script de Tareas completado exitosamente")
-            return 0
-        else:
-            logger.error("Script de Tareas completado con errores")
-            return 1
-            
-    except Exception as e:
-        logger.error(f"Error crítico en script de Tareas: {e}")
-        return 1
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Ejecuta notificaciones de correo de tareas.")
+    parser.add_argument(
+        "--force", action="store_true", help="(Reservado) Fuerza ejecución incluso sin criterios.",
+    )
+    return parser.parse_args(argv)
 
 
-if __name__ == "__main__":
-    exit_code = main()
+def main(argv: list[str] | None = None):  # pragma: no cover
+    _ = parse_args(argv)
+    task = CorreoTareasTask()
+    exit_code = execute_task_with_standard_boilerplate(
+        "CORREO_TAREAS", task_obj=task
+    )
     sys.exit(exit_code)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

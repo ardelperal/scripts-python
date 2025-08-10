@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class CorreoTareasManager:
-    """Gestor para el módulo de tareas"""
+    """Gestor para el módulo de tareas.
+
+    Método público principal: process_pending_emails() (unifica envío de pendientes).
+    """
 
     def __init__(self, config_obj=None, db_pool=None):
         """Inicializar el gestor de tareas
@@ -206,17 +209,12 @@ class CorreoTareasManager:
             logger.error(f"Error obteniendo correos pendientes: {e}")
             return []
     
-    def enviar_correos_no_enviados(self) -> int:
-        """
-        Enviar todos los correos pendientes de la base de datos de tareas.
-        
-        Returns:
-            Número de correos enviados exitosamente
-        """
+    def process_pending_emails(self) -> int:
+        """Enviar todos los correos pendientes de la base de datos de tareas."""
         correos_enviados = 0
         
         try:
-            logger.info("Iniciando envío de correos de tareas no enviados")
+            logger.info("Iniciando envío de correos de tareas pendientes")
             
             # Obtener correos pendientes
             correos_pendientes = self.obtener_correos_pendientes()
@@ -244,7 +242,7 @@ class CorreoTareasManager:
             return correos_enviados
             
         except Exception as e:
-            logger.error(f"Error en enviar_correos_no_enviados: {e}")
+            logger.error(f"Error en process_pending_emails: {e}")
             return correos_enviados
     
     def registrar_correo_enviado(self, id_correo: int) -> bool:
@@ -264,44 +262,9 @@ class CorreoTareasManager:
             logger.error(f"Error registrando correo enviado ID {id_correo}: {e}")
             return False
     
-    def execute_daily_task(self) -> bool:
-        """
-        Ejecutar la tarea diaria de envío de correos de tareas
-        
-        Returns:
-            True si se ejecutó correctamente, False en caso contrario
-        """
-        try:
-            logger.info("Iniciando tarea diaria de envío de correos de tareas")
-            
-            # Enviar correos pendientes
-            enviados = self.enviar_correos_no_enviados()
-            
-            logger.info(f"Tarea diaria de tareas completada. Total de correos enviados: {enviados}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error ejecutando tarea diaria de tareas: {e}")
-            return False
-    
-    def execute_continuous_task(self) -> bool:
-        """
-        Ejecutar la tarea continua de envío de correos de tareas
-        
-        Returns:
-            True si se ejecutó correctamente, False en caso contrario
-        """
-        try:
-            logger.info("Iniciando tarea continua de envío de correos de tareas")
-            
-            # Enviar correos pendientes
-            enviados = self.enviar_correos_no_enviados()
-            
-            if enviados > 0:
-                logger.info(f"Tarea continua de tareas completada. Correos enviados: {enviados}")
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error ejecutando tarea continua de tareas: {e}")
-            return False
+    # Alias retrocompatibilidad (deprecados)
+    enviar_correos_no_enviados = process_pending_emails  # type: ignore
+    def execute_daily_task(self):  # type: ignore
+        self.process_pending_emails()
+        return True
+    execute_continuous_task = execute_daily_task  # type: ignore

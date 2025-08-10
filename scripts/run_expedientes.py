@@ -16,8 +16,15 @@ import logging
 import argparse
 from pathlib import Path
 
-from src.common.utils import setup_logging
-from src.expedientes.expedientes_task import ExpedientesTask
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
+
+from common.utils import execute_task_with_standard_boilerplate  # type: ignore
+from expedientes.expedientes_task import ExpedientesTask  # type: ignore
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -30,42 +37,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None):
+def main(argv: list[str] | None = None):  # pragma: no cover
     args = parse_args(argv)
-
-    setup_logging(log_file=Path("logs/expedientes.log"))
-    logger = logging.getLogger()
-
-    logger.info("=== INICIO TAREA EXPEDIENTES ===", extra={'event': 'task_start', 'task': 'EXPEDIENTES', 'app': 'EXPEDIENTES'})
-
-    exit_code = 0
-
-    try:
-        with ExpedientesTask() as task:
-            if args.force:
-                logger.info("Ejecución forzada (--force) ignorando planificación. No se marcará como completada.")
-                if not task.execute_specific_logic():
-                    logger.error("La ejecución forzada de la tarea de Expedientes falló.")
-                    exit_code = 1
-            else:
-                if task.debe_ejecutarse():
-                    logger.info("La tarea de Expedientes requiere ejecución.")
-                    if task.execute_specific_logic():
-                        task.marcar_como_completada()
-                        logger.info("Tarea de Expedientes completada y marcada exitosamente.")
-                    else:
-                        logger.error("La lógica específica de la tarea de Expedientes falló.")
-                        exit_code = 1
-                else:
-                    logger.info("La tarea de Expedientes no requiere ejecución hoy.")
-    except Exception as e:  # pragma: no cover (ruta de error global difícil de forzar en smoke tests)
-        logging.getLogger().critical(
-            f"Error fatal no controlado en la ejecución de la tarea de Expedientes: {e}",
-            exc_info=True,
-        )
-        exit_code = 1
-
-    logger.info("=== FIN TAREA EXPEDIENTES ===", extra={'event': 'task_end', 'task': 'EXPEDIENTES', 'exit_code': exit_code, 'app': 'EXPEDIENTES'})
+    task = ExpedientesTask()
+    exit_code = execute_task_with_standard_boilerplate(
+        "EXPEDIENTES", task, force=args.force
+    )
     sys.exit(exit_code)
 
 

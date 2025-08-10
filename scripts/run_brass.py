@@ -1,65 +1,48 @@
-#!/usr/bin/env python3
+"""Runner de la tarea BRASS (estandarizado).
+
+Responsabilidad:
+  - Parsear argumentos (--force, --dry-run)
+  - Configurar logging unificado
+  - Ejecutar la lógica de BrassTask respetando planificación
 """
-Script principal para ejecutar la tarea BRASS
-Adaptación del sistema original VBS a Python
-"""
+from __future__ import annotations
+
 import sys
+import logging
 import argparse
 from pathlib import Path
 
-# Añadir el directorio raíz del proyecto al path para importaciones
-project_root = Path(__file__).parent.parent
-src_dir = project_root / 'src'
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-if str(src_dir) not in sys.path:
-    sys.path.insert(0, str(src_dir))
+# Bootstrap mínimo para poder importar common.utils
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
 
-from src.common.config import config
-from src.common.utils import setup_logging
-from src.brass.brass_task import BrassTask
+from brass.brass_task import BrassTask  # type: ignore
+from common.utils import execute_task_with_standard_boilerplate  # type: ignore
 
-def main():
-    """Función principal"""
-    # Configurar argumentos de línea de comandos
-    parser = argparse.ArgumentParser(description='Ejecutar tarea BRASS')
-    parser.add_argument('--force', '-f', action='store_true', 
-                       help='Forzar ejecución aunque ya se haya ejecutado hoy')
-    parser.add_argument('--dry-run', action='store_true',
-                       help='Modo simulación - no ejecuta la tarea real')
-    args = parser.parse_args()
-    
-    # Configurar logging
-    # setup_logging espera primero el archivo y luego el nivel
-    setup_logging(log_file=config.log_file, level=config.log_level)
-    
-    try:
-        with BrassTask() as task:
-            if args.dry_run:
-                print("Modo simulación - verificando si la tarea debe ejecutarse...")
-                should_run = task.debe_ejecutarse()
-                print(f"¿Debe ejecutarse la tarea BRASS? {'Sí' if should_run else 'No'}")
-                return 0
 
-            if args.force:
-                print("Modo forzado - ejecutando tarea BRASS...")
-                success = task.execute_specific_logic()
-                if success:
-                    task.marcar_como_completada()
-            else:
-                success = task.run()
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Ejecuta la tarea BRASS")
+    parser.add_argument(
+        "--force", "-f", action="store_true", help="Fuerza la ejecución ignorando planificación",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simula la ejecución sin marcar ni registrar.",
+    )
+    return parser.parse_args(argv)
 
-            if success:
-                print("Tarea BRASS ejecutada exitosamente")
-                return 0
-            else:
-                print("Error en la ejecución de la tarea BRASS")
-                return 1
-            
-    except Exception as e:
-        print(f"Error crítico: {e}")
-        return 1
 
-if __name__ == "__main__":
-    exit_code = main()
+def main(argv: list[str] | None = None):  # pragma: no cover
+    args = parse_args(argv)
+    task = BrassTask()
+    exit_code = execute_task_with_standard_boilerplate(
+        "BRASS", task, force=args.force, dry_run=args.dry_run
+    )
     sys.exit(exit_code)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

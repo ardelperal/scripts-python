@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, Mock
 
-from src.common.email.registration_service import register_standard_report
+from common.email.registration_service import register_standard_report
 
 
 class TestRegistrationService(unittest.TestCase):

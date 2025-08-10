@@ -2,7 +2,7 @@
 import os
 import pytest
 
-from src.common.task_registry import TaskRegistry
+from common.task_registry import TaskRegistry
 
 
 def test_registry_default_counts():

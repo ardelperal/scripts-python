@@ -1,5 +1,8 @@
 # Sistema de Gestión de Tareas Empresariales
 
+[![CI](https://github.com/ardelperal/scripts-python/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/ardelperal/scripts-python/actions/workflows/python-ci.yml)
+[![Coverage](https://codecov.io/gh/ardelperal/scripts-python/branch/main/graph/badge.svg)](https://codecov.io/gh/ardelperal/scripts-python)
+
 Sistema de **monitoreo continuo** para la gestión automatizada de tareas empresariales desarrollado en Python. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
 
 ## 🎯 Objetivo Principal
@@ -85,6 +88,47 @@ class MiTarea(TareaDiaria):
 registry = TaskRegistry(extra_daily=[MiTarea()])
 ```
 
+### Helper de Ejecución Unificada
+
+Para reducir boilerplate en los `run_*.py`, todas las tareas se ejecutan mediante `execute_task_with_standard_boilerplate` (`common.utils`).
+
+Características:
+* Logging estándar con fichero dedicado `logs/<tarea>.log`.
+* Banners `=== INICIO TAREA X ===` / `=== FIN TAREA X ===`.
+* Modos soportados: normal, `--force` (ignora planificación y NO marca completada) y `--dry-run` (sólo evalúa planificación).
+* Detección automática del método de lógica: `execute_specific_logic` > `execute_logic` > `execute`.
+* Invoca `initialize()` si existe antes de la lógica.
+* Marca completada sólo en tareas diarias exitosas (y no en `--force`).
+
+Ejemplo de runner minimalista:
+
+```python
+import sys
+from common.utils import execute_task_with_standard_boilerplate
+from correos.correos_task import CorreosTask
+
+def main():
+   task = CorreosTask()
+   code = execute_task_with_standard_boilerplate("CORREOS", task_obj=task)
+   sys.exit(code)
+
+if __name__ == "__main__":
+   main()
+```
+
+Para lógica puntual sin clase se puede usar `custom_logic=callable`, pero se recomienda migrar a clases `TareaDiaria` / `TareaContinua` para uniformidad y testabilidad.
+
+#### Añadir una nueva tarea
+1. Crear clase `TareaDiaria` o `TareaContinua` con `execute_specific_logic`.
+2. Registrar en `TaskRegistry` o pasar como `extra_*`.
+3. Crear `run_<tarea>.py` que sólo instancie y llame al helper.
+4. Añadir tests (mock de planificación y lógica).
+
+#### ensure_project_root_in_path
+
+Los runners llaman a `ensure_project_root_in_path()` (en `common.utils`) para insertar `src` en `sys.path` de forma idempotente, eliminando bloques repetidos de manipulación manual.
+
+
 ### Acceso unificado a BD
 
 ```python
@@ -150,6 +194,8 @@ El sistema ajusta automáticamente los tiempos de espera entre ciclos según el 
 - [Testing](#testing)
 - [Variables de Entorno Principales](#variables-de-entorno-principales)
 - [Arquitectura](#arquitectura)
+- [Arquitectura](#arquitectura)
+- [Arquitectura de Tareas](#arquitectura-de-tareas)
 
 ## Estructura del Proyecto
 
@@ -1493,6 +1539,113 @@ docker-compose down -v
 | `MASTER_SCRIPT_TIMEOUT` | Timeout scripts (seg) | `1800` |
 
 ## Arquitectura
+
+### Arquitectura de Tareas
+
+Esta sección describe cómo se estructuran y colaboran los componentes que permiten ejecutar cada módulo de negocio de forma consistente, testeable y extensible.
+
+#### 1. Componentes Principales
+
+| Componente | Responsabilidad | Código típico |
+|------------|-----------------|---------------|
+| Script Runner (`scripts/run_x.py`) | Punto de entrada ejecutable: parsea argumentos CLI, inicializa logging y delega en la Task | `scripts/run_no_conformidades.py` |
+| Task (`BaseTask`, `TareaDiaria`, `TareaContinua`) | Orquestación de la lógica: decide si ejecutar, encapsula medición, logging estructurado y control de errores | `src/no_conformidades/no_conformidades_task.py` |
+| Manager | Lógica de dominio y acceso a datos (queries, composición de datos, generación de HTML) | `no_conformidades_manager.py` / `*_manager.py` |
+| TaskRegistry | Registro central de instancias de tareas para el script maestro | `common/task_registry.py` |
+| Master Runner (`run_master.py`) | Bucle continuo que consulta el `TaskRegistry` y lanza tareas según frecuencia / tipo | `scripts/run_master.py` |
+
+Separar estas capas reduce acoplamiento: los runners quedan triviales, las Tasks son testeables aislando sus métodos de decisión y ejecución con mocks, y los Managers concentran la lógica SQL / dominio reutilizable.
+
+#### 2. Flujo General (Runner Individual)
+
+```
+parse_args()
+setup_logging()
+with Task() as task:
+   if args.force_flags:
+      task.ejecutar_forzado(sub-selección)
+   elif task.debe_ejecutarse():
+      task.ejecutar()
+   else:
+      log("skip")
+```
+
+La Task maneja internamente:
+1. Registro de inicio (`event=task_start`).
+2. Llamada a `execute_specific_logic()` (implementación concreta).
+3. Marcado de completitud (`marcar_como_completada()`) sólo si la ejecución fue efectiva.
+4. Registro de fin (`event=task_end`, `exit_code`).
+5. Captura y log estructurado de excepciones sin comprometer el proceso principal.
+
+#### 3. Flujo General (Master Runner)
+
+1. Crea / reutiliza instancia de `TaskRegistry`.
+2. Obtiene listas: `get_daily_tasks()` y `get_continuous_tasks()`.
+3. Para cada tarea diaria: evalúa `debe_ejecutarse()` (frecuencia + horario + festivos) antes de lanzar.
+4. Para cada tarea continua: se ejecuta en cada ciclo.
+5. Aplica timeouts y registra resultados agregados para observabilidad.
+
+#### 4. Contrato Simplificado de una Task
+
+| Método | Propósito |
+|--------|-----------|
+| `debe_ejecutarse()` | Decide si corresponde ejecutar (diarias) |
+| `execute_specific_logic()` | Lógica principal; devuelve bool éxito |
+| `marcar_como_completada()` | Actualiza estado persistente (última ejecución) |
+
+Errores lanzados en `execute_specific_logic()` se capturan en el wrapper de `BaseTask` para asegurar logging uniforme y evitar caída del ciclo maestro.
+
+#### 5. Caso Específico: `NoConformidadesTask`
+
+La tarea combina dos sub-tareas independientes: Calidad y Técnica. Para maximizar testabilidad se dividió en métodos discretos:
+
+| Método | Rol |
+|--------|-----|
+| `debe_ejecutar_tarea_calidad()` | Evalúa si hay NC de calidad que justifiquen envío |
+| `debe_ejecutar_tarea_tecnica()` | Evalúa si hay AR técnicas pendientes |
+| `ejecutar_logica_calidad()` | Construye datos + HTML y registra envío (usa `NoConformidadesManagerPure`) |
+| `ejecutar_logica_tecnica()` | Agrega datos técnicos por usuario mediante `get_technical_report_data_for_user()` |
+| `execute_specific_logic()` | Orquesta decisiones, ejecuta subtareas y consolida resultado (éxito parcial permitido) |
+
+Características clave:
+* Separación de decisión vs ejecución -> tests unitarios rápidos (mocks sobre cada rama).
+* Agregación técnica: una sola llamada por técnico en vez de 3 queries separadas (eficiencia y menor riesgo de inconsistencia temporal).
+* Tolerancia a fallos: excepción en una sub-tarea no detiene la otra; se reporta resultado combinado.
+* Flags de forzado (`--force-calidad`, `--force-tecnica`, `--force-all`) saltan las evaluaciones de `debe_ejecutar_*`.
+
+Secuencia simplificada (técnica + calidad):
+
+```
+execute_specific_logic():
+  resultados = []
+  if forzar_calidad or debe_ejecutar_tarea_calidad():
+     try: resultados.append(ejecutar_logica_calidad())
+     except Exception: log(error)
+  if forzar_tecnica or debe_ejecutar_tarea_tecnica():
+     try: resultados.append(ejecutar_logica_tecnica())
+     except Exception: log(error)
+  return any(resultados)  # éxito si al menos una rama hizo trabajo
+```
+
+#### 6. Beneficios de la Arquitectura de Tareas
+
+| Beneficio | Explicación |
+|-----------|-------------|
+| Testabilidad | Métodos pequeños permiten mocks específicos y alta cobertura |
+| Observabilidad | Eventos start/end homogéneos y exit codes previsibles |
+| Evolutividad | Añadir una nueva Task sólo requiere implementarla y registrarla |
+| Aislamiento de fallos | Una Task con error no compromete el ciclo maestro |
+| Reutilización | Managers compartidos entre múltiples Tasks o runners futuros |
+| Rendimiento | Reducción de queries duplicadas y posibilidad futura de caching |
+
+#### 7. Próximos Mejoras Potenciales
+
+* Persistir métricas (duración, número de registros procesados) para dashboards.
+* Sistema de descubrimiento dinámico de Tasks (entry points / plugin folder).
+* Instrumentación opcional (trazas / spans) para tareas de larga duración.
+* Caching de resultados intermedios entre subtareas (cuando comparten dataset base).
+
+---
 
 ### Módulos Comunes (`src/common/`)
 

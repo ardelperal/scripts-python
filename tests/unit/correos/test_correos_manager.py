@@ -9,7 +9,7 @@ from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-from src.correos.correos_manager import CorreosManager
+from correos.correos_manager import CorreosManager
 
 
 class TestCorreosManager:
@@ -99,8 +99,8 @@ class TestCorreosManager:
             
             assert result is False
     
-    def test_enviar_correos_no_enviados_success(self, correos_manager, mock_access_db):
-        """Test enviar correos no enviados exitoso"""
+    def test_process_pending_emails_success(self, correos_manager, mock_access_db):
+        """Test process_pending_emails exitoso"""
         # Mock de datos de correos desde Access
         mock_correos = [
             {
@@ -120,14 +120,14 @@ class TestCorreosManager:
             
             mock_enviar.side_effect = [True, True]
             
-            result = correos_manager.enviar_correos_no_enviados()
+            result = correos_manager.process_pending_emails()
             
             assert result == 2
             assert mock_enviar.call_count == 2
             assert mock_marcar.call_count == 2
     
-    def test_enviar_correos_no_enviados_partial_success(self, correos_manager, mock_access_db):
-        """Test enviar correos no enviados con éxito parcial"""
+    def test_process_pending_emails_partial_success(self, correos_manager, mock_access_db):
+        """Test process_pending_emails con éxito parcial"""
         mock_correos = [
             {
                 'IDCorreo': 1, 'Destinatarios': 'test1@example.com', 
@@ -146,25 +146,21 @@ class TestCorreosManager:
             
             mock_enviar.side_effect = [True, False]
             
-            result = correos_manager.enviar_correos_no_enviados()
+            result = correos_manager.process_pending_emails()
             
             assert result == 1
             assert mock_marcar.call_count == 1
     
-    def test_enviar_correos_no_enviados_no_emails(self, correos_manager, mock_access_db):
-        """Test enviar correos no enviados sin emails"""
+    def test_process_pending_emails_no_emails(self, correos_manager, mock_access_db):
+        """Test process_pending_emails sin emails"""
         mock_access_db.execute_query.return_value = []
-        
-        result = correos_manager.enviar_correos_no_enviados()
-        
+        result = correos_manager.process_pending_emails()
         assert result == 0
-    
-    def test_enviar_correos_no_enviados_exception(self, correos_manager, mock_access_db):
-        """Test enviar correos no enviados con excepción"""
+
+    def test_process_pending_emails_exception(self, correos_manager, mock_access_db):
+        """Test process_pending_emails con excepción"""
         mock_access_db.connect.side_effect = Exception("DB Error")
-        
-        result = correos_manager.enviar_correos_no_enviados()
-        
+        result = correos_manager.process_pending_emails()
         assert result == 0
     
     def test_adjuntar_archivo_success(self, correos_manager):
@@ -270,25 +266,6 @@ class TestCorreosManager:
         
         # El método no retorna nada, solo loggea el error
         correos_manager._marcar_correo_enviado(1, fecha_envio)
-    
-    def test_execute_daily_task_success(self, correos_manager):
-        """Test ejecución de tarea diaria exitosa"""
-        with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar:
-            mock_enviar.return_value = 5
-            
-            result = correos_manager.execute_daily_task()
-            
-            assert result is True
-            mock_enviar.assert_called_once()
-    
-    def test_execute_daily_task_exception(self, correos_manager):
-        """Test ejecución de tarea diaria con excepción general"""
-        with patch.object(correos_manager, 'enviar_correos_no_enviados') as mock_enviar:
-            mock_enviar.side_effect = Exception("General error")
-            
-            result = correos_manager.execute_daily_task()
-            
-            assert result is False
 
     def test_insertar_correo_success(self, correos_manager, mock_access_db):
         """Test insertar correo exitoso"""

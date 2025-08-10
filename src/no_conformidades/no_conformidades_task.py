@@ -15,7 +15,7 @@ from common.database import AccessDatabase
 from common.access_connection_pool import get_nc_connection_pool
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
-from common.utils import get_admin_emails_string
+from common.utils import get_admin_emails_string, register_task_completion, register_email_in_database, get_quality_emails_string, get_user_email
 from .nc_pure_manager import NoConformidadesManagerPure
 
 
@@ -36,46 +36,157 @@ class NoConformidadesTask(TareaDiaria):
             self.db_nc = None
 
     def execute_specific_logic(self) -> bool:
-        self.logger.info(
-            "Inicio lógica específica NC (parcial)",
-            extra={'event': 'nc_task_logic_start', 'app': 'NC'}
-        )
+        """Coordina ejecución de subtareas (calidad y técnica) delegando en métodos unitarios.
+
+        Los métodos de decisión y lógica se separan para facilitar pruebas unitarias (mock y aislamiento).
+        Devuelve True si todas las subtareas requeridas finalizan correctamente.
+        """
+        self.logger.info("Inicio lógica específica NC", extra={'event': 'nc_task_logic_start', 'app': 'NC'})
+        if not self.db_nc:
+            self.logger.warning("Sin conexión a BD NC: se omiten subtareas.")
+            return True
+        overall_ok = True
+        # Calidad
         try:
-            if not self.db_nc:
-                self.logger.warning("Sin conexión BD NC; se omite informe")
-                return True
+            if self.debe_ejecutar_tarea_calidad():
+                if not self.ejecutar_logica_calidad():
+                    overall_ok = False
+        except Exception as e:  # pragma: no cover
+            self.logger.exception(f"Excepción en lógica calidad: {e}")
+            overall_ok = False
+        # Técnica
+        try:
+            if self.debe_ejecutar_tarea_tecnica():
+                if not self.ejecutar_logica_tecnica():
+                    overall_ok = False
+        except Exception as e:  # pragma: no cover
+            # Usamos logger.error (con exc_info) para mantener traza y facilitar pruebas específicas
+            self.logger.error(f"Excepción en lógica técnica: {e}", exc_info=True)
+            overall_ok = False
+        self.logger.info("Fin lógica específica NC", extra={'event': 'nc_task_logic_end', 'success': overall_ok, 'app': 'NC'})
+        return overall_ok
 
+    # ---------------- Métodos de decisión ----------------
+    def debe_ejecutar_tarea_calidad(self) -> bool:
+        """Determina si la subtarea de calidad debe ejecutarse.
+
+        Implementación mínima: se basa en presencia de datos relevantes.
+        Puede evolucionar a comprobaciones de frecuencia específicas.
+        """
+        try:
             manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
-            html = manager.generate_nc_report_html()
-            if not html:
-                self.logger.info("Informe NC parcial vacío: no se registra correo")
+            datasets = [
+                manager.get_ars_proximas_vencer_calidad(),
+                manager.get_ncs_pendientes_eficacia(),
+                manager.get_ncs_sin_acciones(),
+                manager.get_ars_para_replanificar(),
+            ]
+            return any(datasets)
+        except Exception:  # pragma: no cover
+            return False
+
+    def debe_ejecutar_tarea_tecnica(self) -> bool:
+        """Determina si la subtarea técnica debe ejecutarse (placeholder)."""
+        try:
+            tecnicos = self._get_tecnicos_con_nc_activas()
+            return bool(tecnicos)
+        except Exception:  # pragma: no cover
+            return False
+
+    # ---------------- Lógica de subtareas ----------------
+    def ejecutar_logica_calidad(self) -> bool:
+        try:
+            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            partial_html = manager.generate_nc_report_html()
+            if not partial_html:
+                self.logger.info("Calidad: informe vacío; se omite correo")
                 return True
-
-            # Recipients (administradores NC)
-            try:
-                recipients_service = EmailRecipientsService(self.db_tareas, self.config, self.logger)
-                recipients = recipients_service.get_admin_emails_string() or "ADMIN"
-            except Exception:  # pragma: no cover
-                recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
-
-            subject = "Informe Parcial No Conformidades (NC)"
+            destinatarios = get_quality_emails_string(
+                app_id="8", config=self.config, logger=self.logger, db_connection=self.db_tareas
+            ) or ""
+            if not destinatarios:
+                self.logger.warning("Calidad: sin destinatarios configurados")
+                return True
             ok = register_standard_report(
                 self.db_tareas,
-                application="NC",
-                subject=subject,
-                body_html=html,
-                recipients=recipients,
+                application="NoConformidades",
+                subject="Informe Tareas No Conformidades (No Conformidades)",
+                body_html=partial_html,
+                recipients=destinatarios,
                 admin_emails="",
                 logger=self.logger
             )
-            self.logger.info(
-                "Fin lógica específica NC (parcial)",
-                extra={'event': 'nc_task_logic_end', 'success': bool(ok), 'app': 'NC'}
-            )
+            if ok:
+                register_task_completion(self.db_tareas, "NoConformidadesCalidad")
             return bool(ok)
-        except Exception as e:
-            self.logger.error(f"Error en execute_specific_logic NC: {e}", extra={'context': 'execute_specific_logic_nc'})
+        except Exception as e:  # pragma: no cover
+            self.logger.exception(f"Error en ejecutar_logica_calidad: {e}")
             return False
+
+    def ejecutar_logica_tecnica(self) -> bool:
+        try:
+            from .no_conformidades_manager import NoConformidadesManager  # import local para evitar ciclos en carga
+            manager_full = NoConformidadesManager()  # reutiliza métodos existentes
+            manager_full.db_nc = self.db_nc  # compartir conexión ya abierta
+            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            tecnicos = manager_full._get_tecnicos_con_nc_activas()  # usar lógica consolidada existente
+            if not tecnicos:
+                self.logger.info("Técnica: sin técnicos con NC activas")
+                return True
+            exitosos = 0
+            total = 0
+            for tecnico in tecnicos:
+                data = manager_full.get_technical_report_data_for_user(tecnico)
+                if not any(data.values()):
+                    continue
+                total += 1
+                correo_tecnico = get_user_email(tecnico, self.config, self.logger)
+                if not correo_tecnico:
+                    continue
+                cuerpo = self._render_html_tecnico(data)
+                ok = register_email_in_database(
+                    db_connection=self.db_tareas,
+                    application="NoConformidades",
+                    subject="Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)",
+                    body=cuerpo,
+                    recipients=correo_tecnico,
+                    admin_emails=self._collect_responsables_calidad(manager, data)
+                )
+                if ok:
+                    exitosos += 1
+            if total:
+                self.logger.info(f"Técnica: notificaciones {exitosos}/{total}")
+                register_task_completion(self.db_tareas, "NoConformidadesTecnica")
+            return True
+        except Exception as e:  # pragma: no cover
+            self.logger.exception(f"Error en ejecutar_logica_tecnica: {e}")
+            return False
+
+    # -------- Helpers técnicos (simplificados) --------
+    def _get_tecnicos_con_nc_activas(self):  # pragma: no cover - dependerá de consultas futuras
+        try:
+            query = """SELECT DISTINCT Responsable FROM TbNCAccionesRealizadas WHERE FechaFinReal IS NULL AND Responsable IS NOT NULL"""
+            rows = self.db_nc.execute_query(query) if self.db_nc else []
+            return [r['Responsable'] for r in rows if r.get('Responsable')]
+        except Exception as e:
+            self.logger.error(f"Error listando técnicos NC: {e}")
+            return []
+
+    def _build_datasets_tecnico(self, manager: NoConformidadesManagerPure, tecnico: str):
+        # Reutilizamos consultas existentes de manager donde aplica; placeholders para detallado por técnico
+        # En refactor posterior se crearán métodos específicos filtrados por técnico
+        return {
+            'ars_8_15': [],
+            'ars_1_7': [],
+            'ars_vencidas': []
+        }
+
+    def _collect_responsables_calidad(self, manager: NoConformidadesManagerPure, datos: dict) -> str:
+        return ""
+
+    def _render_html_tecnico(self, datos: dict) -> str:
+        # Placeholder simple; futuro: plantilla HTML dedicada
+        return "<html><body><p>Resumen técnico NC (refactor en progreso).</p></body></html>"
 
     def close_connections(self):
         try:

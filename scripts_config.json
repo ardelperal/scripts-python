@@ -9,3 +9,4 @@
     "agedys": {"file": "run_agedys.py", "type": "daily", "task_name": "AGEDYSDiario"}
   }
 }
+

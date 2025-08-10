@@ -9,9 +9,9 @@ from pathlib import Path
 # Agregar el directorio raíz del proyecto al path para importaciones
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.common.config import Config
-from src.common.utils import setup_logging
-from src.riesgos.riesgos_manager import RiesgosManager
+from common.config import Config
+from common.utils import setup_logging
+from riesgos.riesgos_manager import RiesgosManager
 
 
 def main():

@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from src.expedientes.expedientes_task import ExpedientesTask
-from src.common.database import AccessDatabase
+from expedientes.expedientes_task import ExpedientesTask
+from common.database import AccessDatabase
 
 
 class TestExpedientesTask(unittest.TestCase):

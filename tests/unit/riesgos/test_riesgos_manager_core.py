@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.riesgos.riesgos_manager import RiesgosManager
+from riesgos.riesgos_manager import RiesgosManager
 
 
 class DummyConfig:
@@ -64,9 +64,11 @@ class TestRiesgosManagerCore:
         db1.disconnect.assert_called_once(); db2.disconnect.assert_called_once()
 
     def test_connect_to_database_failure(self, monkeypatch):
-        from src.riesgos import riesgos_manager as rm
+        from riesgos import riesgos_manager as rm
+
         def boom(conn):
             raise Exception("conn err")
+
         monkeypatch.setattr(rm, 'AccessDatabase', lambda conn: boom(conn))
         with pytest.raises(Exception):
             self.mgr.connect_to_database()

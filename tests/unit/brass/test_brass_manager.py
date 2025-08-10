@@ -1,7 +1,7 @@
 """Tests unitarios para BrassManager refactorizado"""
 import pytest
 from unittest.mock import MagicMock, patch
-from src.brass.brass_manager import BrassManager
+from brass.brass_manager import BrassManager
 
 
 @pytest.fixture

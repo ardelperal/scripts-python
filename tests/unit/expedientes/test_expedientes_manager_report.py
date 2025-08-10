@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from src.expedientes.expedientes_manager import ExpedientesManager
-from src.common.database import AccessDatabase
+from expedientes.expedientes_manager import ExpedientesManager
+from common.database import AccessDatabase
 
 
 class TestExpedientesManagerReport(unittest.TestCase):

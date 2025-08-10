@@ -895,6 +895,141 @@ def should_execute_quality_task(db_connection, task_name: str, preferred_weekday
         return True
 
 
+def execute_task_with_standard_boilerplate(
+    task_name: str,
+    task_obj=None,
+    *,
+    force: bool = False,
+    dry_run: bool = False,
+    log_level: int = logging.INFO,
+    custom_logic=None,
+    log_file: Path | None = None,
+    logger: logging.Logger | None = None,
+):
+    """Ejecuta una tarea con banners y convenciones unificadas.
+
+    Args:
+        task_name: Nombre lógico (ej. 'BRASS').
+        task_obj: Instancia de la tarea (si se usa lógica interna de la clase).
+        force: Ignorar planificación.
+        dry_run: Sólo comprobar planificación.
+        log_level: Nivel de logging inicial.
+        custom_logic: Callable(logger)->bool para lógica externa (omite task_obj).
+        log_file: Ruta archivo log (por defecto logs/<task>.log).
+        logger: Logger existente (si None se configura uno nuevo).
+
+    Returns:
+        exit_code (0 éxito, 1 fallo)
+    """
+    from pathlib import Path as _Path
+    from contextlib import nullcontext
+
+    task_upper = task_name.upper()
+    log_path = log_file or _Path(f"logs/{task_upper.lower()}.log")
+
+    if logger is None:
+        try:
+            setup_logging(log_file=log_path, level=log_level)  # type: ignore
+        except Exception:  # pragma: no cover
+            logging.basicConfig(level=log_level)
+        logger = logging.getLogger()
+    else:
+        logger.setLevel(log_level)
+
+    logger.info(
+        f"=== INICIO TAREA {task_upper} ===",
+        extra={'event': 'task_start', 'task': task_upper, 'app': task_upper}
+    )
+    exit_code = 0
+
+    def _select_logic(obj):
+        for attr in ("execute_specific_logic", "execute_logic", "execute"):
+            if hasattr(obj, attr) and callable(getattr(obj, attr)):
+                return getattr(obj, attr)
+        raise AttributeError(f"No se encontró método de ejecución en {obj!r}")
+
+    try:
+        if custom_logic is not None:
+            ok = custom_logic(logger)
+            if ok is False:
+                exit_code = 1
+        else:
+            if task_obj is None:
+                raise ValueError("Se requiere task_obj si no se proporciona custom_logic")
+            cm = task_obj if hasattr(task_obj, "__enter__") else nullcontext(task_obj)
+            with cm as t:
+                if hasattr(t, "initialize"):
+                    try:
+                        init_ok = t.initialize()
+                        if init_ok is False:
+                            logger.error("Inicialización de la tarea falló")
+                            return 1
+                    except Exception as init_exc:  # pragma: no cover
+                        logger.error(f"Excepción inicializando tarea: {init_exc}", exc_info=True)
+                        return 1
+                exec_method = _select_logic(t)
+                if dry_run:
+                    logger.info("Modo DRY-RUN: comprobando planificación sin ejecutar lógica.")
+                    should = False
+                    if hasattr(t, "debe_ejecutarse"):
+                        try:
+                            should = t.debe_ejecutarse()
+                        except Exception as plan_exc:  # pragma: no cover
+                            logger.error(f"Error comprobando planificación: {plan_exc}")
+                    logger.info(f"Resultado planificación: {'EJECUTAR' if should else 'OMITIR'}")
+                elif force:
+                    logger.info("Ejecución forzada (--force) ignorando planificación (NO marca completada).")
+                    ok = exec_method()
+                    if not ok:
+                        logger.error("La ejecución forzada falló.")
+                        exit_code = 1
+                else:
+                    should_run = True
+                    if hasattr(t, "debe_ejecutarse"):
+                        try:
+                            should_run = t.debe_ejecutarse()
+                        except Exception as plan_exc:  # pragma: no cover
+                            logger.error(f"Error evaluando planificación: {plan_exc}")
+                            should_run = False
+                    if should_run:
+                        ok = exec_method()
+                        if ok:
+                            if hasattr(t, "marcar_como_completada"):
+                                t.marcar_como_completada()
+                        else:
+                            logger.error("Error en la lógica específica de la tarea.")
+                            exit_code = 1
+                    else:
+                        logger.info(f"La tarea {task_upper} no requiere ejecución hoy.")
+    except Exception as e:  # pragma: no cover
+        logger.critical(f"Error fatal en tarea {task_upper}: {e}", exc_info=True)
+        exit_code = 1
+
+    logger.info(
+        f"=== FIN TAREA {task_upper} ===",
+        extra={'event': 'task_end', 'task': task_upper, 'exit_code': exit_code, 'app': task_upper}
+    )
+    return exit_code
+
+
+def ensure_project_root_in_path():
+    """Garantiza que la ruta raíz del proyecto (que contiene 'src') esté en sys.path.
+
+    Idempotente: sólo inserta si no existe ya. No lanza excepciones al fallar.
+    """
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        current_file = _Path(__file__).resolve()
+        # Estructura esperada: <root>/src/common/utils.py -> root = parent.parent.parent
+        project_root = current_file.parent.parent.parent
+        if str(project_root / 'src') not in _sys.path:
+            _sys.path.insert(0, str(project_root / 'src'))
+    except Exception:  # pragma: no cover
+        # Silencioso: evitar romper importaciones si algo inesperado ocurre
+        pass
+
+
 def get_first_workday_of_week(reference_date: Optional[date] = None, holidays_file: Optional[Path] = None) -> date:
     """
     Obtiene el primer día laborable de la semana

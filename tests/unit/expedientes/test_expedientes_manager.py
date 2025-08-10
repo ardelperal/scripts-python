@@ -8,8 +8,8 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.absp
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from src.expedientes.expedientes_manager import ExpedientesManager
-from src.common.database import AccessDatabase
+from expedientes.expedientes_manager import ExpedientesManager
+from common.database import AccessDatabase
 
 
 class TestExpedientesManager(unittest.TestCase):

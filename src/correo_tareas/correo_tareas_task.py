@@ -10,60 +10,47 @@ logger = logging.getLogger(__name__)
 
 
 class CorreoTareasTask(TareaContinua):
-    """Tarea continua para envío de correos de tareas"""
-    
-    def __init__(self):
+    """Tarea continua para notificaciones de tareas pendientes."""
+
+    def __init__(self, manager_cls=CorreoTareasManager):
         super().__init__(
             name="CorreoTareas",
             script_filename="run_correo_tareas.py"
         )
+        self.manager_cls = manager_cls
         self.manager = None
-    
-    def initialize(self):
-        """Inicializar el manager de correo de tareas"""
+
+    def initialize(self):  # pragma: no cover - simple
         try:
-            logger.info("Inicializando CorreoTareasTask")
-            self.manager = CorreoTareasManager()
-            logger.info("CorreoTareasTask inicializado correctamente")
+            logger.debug("Inicializando CorreoTareasTask")
+            self.manager = self.manager_cls()
             return True
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.error(f"Error inicializando CorreoTareasTask: {e}")
             return False
-    
-    def execute(self) -> bool:
-        """
-        Ejecutar la tarea de envío de correos de tareas
-        
-        Returns:
-            True si se ejecutó correctamente, False en caso contrario
-        """
+
+    def execute_specific_logic(self) -> bool:
         try:
             if not self.manager:
-                logger.error("Manager no inicializado")
+                self.manager = self.manager_cls()
+            enviados = self.manager.process_pending_emails()
+            if enviados < 0:
+                logger.error("Error ejecutando envío de correos de tareas")
                 return False
-            
-            logger.info("Ejecutando tarea de correo de tareas")
-            
-            # Ejecutar la tarea continua
-            success = self.manager.execute_continuous_task()
-            
-            if success:
-                logger.info("Tarea de correo de tareas completada exitosamente")
-                self.mark_as_completed()
-            else:
-                logger.error("Error ejecutando tarea de correo de tareas")
-            
-            return success
-            
+            return True
         except Exception as e:
-            logger.error(f"Error ejecutando CorreoTareasTask: {e}")
+            logger.error(f"Error en execute_specific_logic CorreoTareasTask: {e}")
             return False
-    
-    def close_connections(self):
-        """Cerrar conexiones del manager"""
+
+    def execute(self) -> bool:  # pragma: no cover - alias retrocompatibilidad
+        return self.execute_specific_logic()
+
+    def close_connections(self):  # pragma: no cover - defensivo
         try:
             if self.manager and hasattr(self.manager, 'db_pool'):
-                self.manager.db_pool.close_all_connections()
-                logger.info("Conexiones de CorreoTareasTask cerradas")
-        except Exception as e:
-            logger.error(f"Error cerrando conexiones de CorreoTareasTask: {e}")
+                try:
+                    self.manager.db_pool.close_all_connections()
+                except Exception:
+                    pass
+        finally:
+            self.manager = None

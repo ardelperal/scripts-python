@@ -1,53 +1,38 @@
-#!/usr/bin/env python3
-"""
-Script para enviar correos no enviados
-Adaptación del script original EnviarCorreoNoEnviado.vbs
-"""
+"""Runner estandarizado para envío de correos pendientes."""
+from __future__ import annotations
+
 import sys
 import logging
+import argparse
 from pathlib import Path
 
-# Añadir el directorio raíz del proyecto al path para importaciones
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
 
-from src.common.config import config
-from src.common.utils import setup_logging
-from src.correos.correos_manager import CorreosManager
-
-
-def main():
-    """Función principal"""
-    # Configurar logging
-    setup_logging(config.log_level, config.log_file)
-    logger = logging.getLogger(__name__)
-    
-    logger.info("Iniciando script de envío de correos no enviados")
-    
-    try:
-        # Verificar que existe la base de datos de correos
-        if not Path(config.db_correos_path).exists():
-            logger.error(f"No se encuentra la base de datos de correos: {config.db_correos_path}")
-            return 1
-        
-        # Crear instancia del gestor de correos
-        correos_manager = CorreosManager()
-        
-        # Ejecutar el envío de correos pendientes
-        correos_enviados = correos_manager.enviar_correos_no_enviados()
-        
-        if correos_enviados >= 0:
-            logger.info(f"Script completado exitosamente. Correos enviados: {correos_enviados}")
-            return 0
-        else:
-            logger.error("Error en la ejecución del script de envío de correos")
-            return 1
-            
-    except Exception as e:
-        logger.error(f"Error crítico: {e}")
-        return 1
+from correos.correos_task import CorreosTask  # type: ignore
+from common.utils import execute_task_with_standard_boilerplate  # type: ignore
 
 
-if __name__ == "__main__":
-    exit_code = main()
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Envía correos no enviados.")
+    parser.add_argument(
+        "--force", action="store_true", help="(Reservado) Fuerza ejecución incluso si no hay criterios adicionales.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):  # pragma: no cover
+    _ = parse_args(argv)
+    task = CorreosTask()
+    exit_code = execute_task_with_standard_boilerplate(
+        "CORREOS", task_obj=task
+    )
     sys.exit(exit_code)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

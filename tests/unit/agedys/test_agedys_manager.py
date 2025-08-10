@@ -2,7 +2,7 @@ import logging
 from unittest.mock import Mock
 import pytest
 
-from src.agedys.agedys_manager import AgedysManager
+from agedys.agedys_manager import AgedysManager
 
 
 @pytest.fixture
@@ -182,7 +182,7 @@ def test_generate_technical_user_report_html_multiple_sections(manager, monkeypa
 
 def test_pretty_headers_transformation(manager):
     """Valida que claves como 'ResponsableCalidad' se transforman a 'Responsable Calidad' en la tabla."""
-    from src.common.reporting.table_builder import build_table_html
+    from common.reporting.table_builder import build_table_html
     sample_rows = [{'ResponsableCalidad': 'Juan'}]
     html = build_table_html('Seccion', sample_rows, pretty_headers=True)
     assert 'Responsable Calidad' in html
@@ -190,7 +190,7 @@ def test_pretty_headers_transformation(manager):
 
 
 def test_pretty_headers_camelcase_split():
-    from src.common.reporting.table_builder import build_table_html
+    from common.reporting.table_builder import build_table_html
     sample_rows = [{'UserName': 'Ana', 'UserEmail': 'ana@x'}]
     html = build_table_html('Seccion', sample_rows, pretty_headers=True)
     assert '<th>User Name</th>' in html

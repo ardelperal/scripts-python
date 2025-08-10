@@ -11,14 +11,27 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from typing import Any, Dict, List
 
-from ..common import config
-from ..common.database import AccessDatabase
+try:  # Permitir ejecución cuando se invoca vía runner añadiendo src al sys.path
+    from common import config  # type: ignore
+    from common.database import AccessDatabase  # type: ignore
+except ImportError:  # pragma: no cover
+    import sys as _sys
+    from pathlib import Path as _Path
+    _PROJECT_ROOT = _Path(__file__).resolve().parent.parent
+    if str(_PROJECT_ROOT) not in _sys.path:
+        _sys.path.insert(0, str(_PROJECT_ROOT))
+    from common import config  # type: ignore
+    from common.database import AccessDatabase  # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
 class CorreosManager:
-    """Gestor para el módulo de correos"""
+    """Gestor para el módulo de correos.
+
+    Método público principal: process_pending_emails().
+    (Antes: enviar_correos_no_enviados + execute_daily_task wrappers.)
+    """
     
     def __init__(self):
         """Inicializar el gestor de correos"""
@@ -69,11 +82,8 @@ class CorreosManager:
             logger.error(f"Error en _enviar_correo_individual: {e}")
             return False
     
-    def enviar_correos_no_enviados(self) -> int:
-        """
-        Función principal equivalente a EnviarCorreosNoEnviados del VBS
-        Retorna número de correos enviados
-        """
+    def process_pending_emails(self) -> int:
+        """Procesa y envía todos los correos pendientes (antes enviar_correos_no_enviados)."""
         correos_enviados = 0
         try:
             self.db_conn.connect()
@@ -105,7 +115,7 @@ class CorreosManager:
             return correos_enviados
             
         except Exception as e:
-            logger.error(f"Error en enviar_correos_no_enviados: {e}")
+            logger.error(f"Error en process_pending_emails: {e}")
             return 0
     
     def _adjuntar_archivo(self, msg: MIMEMultipart, archivo_path: Path):
@@ -202,22 +212,5 @@ class CorreosManager:
         finally:
             self.db_conn.disconnect()
 
-    def execute_daily_task(self) -> bool:
-        """
-        Ejecutar la tarea diaria de envío de correos
-        
-        Returns:
-            True si se ejecutó correctamente, False en caso contrario
-        """
-        try:
-            logger.info("🚀 Iniciando tarea diaria de envío de correos")
-            
-            # Enviar correos pendientes
-            enviados = self.enviar_correos_no_enviados()
-            
-            logger.info(f"✅ Tarea diaria completada exitosamente | Total de correos enviados: {enviados}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error ejecutando tarea diaria de correos: {e}")
-            return False
+    # Alias retrocompatibilidad
+    enviar_correos_no_enviados = process_pending_emails  # type: ignore

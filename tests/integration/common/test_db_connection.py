@@ -3,8 +3,8 @@
 Script temporal para probar la conexión a la base de datos de correos
 """
 
-from src.common.config import config
-from src.common.database import AccessDatabase
+from common.config import config
+from common.database import AccessDatabase
 import os
 
 def test_correos_db():

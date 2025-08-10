@@ -1,7 +1,7 @@
 """Tests unitarios para build_table_html (utilidad común)."""
 import re
 from datetime import datetime, date
-from src.common.reporting.table_builder import build_table_html
+from common.reporting.table_builder import build_table_html
 
 
 def test_build_table_html_empty():

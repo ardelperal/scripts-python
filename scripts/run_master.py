@@ -51,13 +51,12 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Añadir el directorio raíz del proyecto al path para importaciones
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-# Asegurar que 'src' está en el path para imports tipo 'common.*'
 src_path_global = project_root / 'src'
 if str(src_path_global) not in sys.path:
     sys.path.insert(0, str(src_path_global))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
 
 # Configurar logging básico
 logging.basicConfig(

@@ -1,6 +1,6 @@
 import logging
 import pytest
-from src.agedys.agedys_manager import AgedysManager
+from agedys.agedys_manager import AgedysManager
 
 
 class DummyDB:

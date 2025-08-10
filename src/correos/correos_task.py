@@ -1,69 +1,65 @@
+"""Tarea continua de envío de correos pendientes integrada con framework de tareas.
+
+Refactor: adopta el patrón execute_specific_logic utilizado por execute_task_with_standard_boilerplate
+para unificar el flujo (banners, planificación, etc.). Al ser TareaContinua no se marca
+como completada en BD.
 """
-Tarea de Correos
-Adaptación del script original EnviarCorreoNoEnviado.vbs
-"""
+from __future__ import annotations
+
 import logging
-from common.base_task import TareaContinua
-from .correos_manager import CorreosManager
+from pathlib import Path
+from typing import Optional
+
+from common.base_task import TareaContinua  # type: ignore
+from common.config import config  # type: ignore
+from .correos_manager import CorreosManager  # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
 class CorreosTask(TareaContinua):
-    """Tarea continua para envío de correos pendientes"""
-    
-    def __init__(self):
+    """Tarea continua que envía todos los correos pendientes."""
+
+    def __init__(self, manager_cls=CorreosManager):
         super().__init__(
             name="Correos",
-            script_filename="run_correos.py"
+            script_filename="run_correos.py",
         )
-        self.manager = None
-    
-    def initialize(self):
-        """Inicializar el manager de correos"""
+        self.manager_cls = manager_cls
+        self.manager: Optional[CorreosManager] = None
+
+    def initialize(self):  # pragma: no cover - simple
         try:
-            logger.info("Inicializando CorreosTask")
-            self.manager = CorreosManager()
-            logger.info("CorreosTask inicializado correctamente")
+            logger.debug("Inicializando CorreosTask")
+            self.manager = self.manager_cls()
             return True
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.error(f"Error inicializando CorreosTask: {e}")
             return False
-    
-    def execute(self) -> bool:
-        """
-        Ejecutar la tarea de envío de correos
-        
-        Returns:
-            True si se ejecutó correctamente, False en caso contrario
-        """
+
+    def execute_specific_logic(self) -> bool:
         try:
-            if not self.manager:
-                logger.error("Manager no inicializado")
+            if not Path(config.db_correos_path).exists():
+                logger.error(f"BD de correos inexistente: {config.db_correos_path}")
                 return False
-            
-            logger.info("Ejecutando tarea de correos")
-            
-            # Ejecutar la tarea diaria
-            success = self.manager.execute_daily_task()
-            
-            if success:
-                logger.info("Tarea de correos completada exitosamente")
-                self.mark_as_completed()
-            else:
-                logger.error("Error ejecutando tarea de correos")
-            
-            return success
-            
+            if not self.manager:
+                self.manager = self.manager_cls()
+            enviados = self.manager.process_pending_emails()
+            logger.info(f"Correos enviados: {enviados}")
+            return True
         except Exception as e:
-            logger.error(f"Error ejecutando CorreosTask: {e}")
+            logger.error(f"Error en execute_specific_logic CorreosTask: {e}")
             return False
-    
-    def close_connections(self):
-        """Cerrar conexiones del manager"""
+
+    def execute(self) -> bool:  # pragma: no cover - alias retrocompatibilidad
+        return self.execute_specific_logic()
+
+    def close_connections(self):  # pragma: no cover - defensivo
         try:
-            if self.manager and hasattr(self.manager, 'db_conn'):
-                self.manager.db_conn.disconnect()
-                logger.info("Conexiones de CorreosTask cerradas")
-        except Exception as e:
-            logger.error(f"Error cerrando conexiones de CorreosTask: {e}")
+            if self.manager and getattr(self.manager, 'db_conn', None):
+                try:
+                    self.manager.db_conn.disconnect()
+                except Exception:
+                    pass
+        finally:
+            self.manager = None

@@ -1,1 +1,0 @@
-# Tests funcionales de sincronización con Access

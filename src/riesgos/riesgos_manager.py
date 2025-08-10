@@ -17,15 +17,42 @@ from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
-from ..common.database import AccessDatabase
-from ..common import utils  # acceso a funciones para que patch de tests funcione sobre utils.register_email_in_database
-from ..common.utils import (
-    format_date, get_technical_users, get_quality_users, get_admin_users,
-    register_task_completion, load_css_content,
-    get_technical_emails_string, get_quality_emails_string,
-    get_admin_emails_string
-)
-from ..common.html_report_generator import HTMLReportGenerator
+try:  # Prefer prefijo 'src.' para compatibilidad con tests que parchean 'src.common.utils'
+    from src.common.database import AccessDatabase  # type: ignore
+    from src.common import utils  # type: ignore
+    from src.common.utils import (  # type: ignore
+        format_date, get_technical_users, get_quality_users, get_admin_users,
+        register_task_completion, load_css_content,
+        get_technical_emails_string, get_quality_emails_string,
+        get_admin_emails_string
+    )
+    from src.common.html_report_generator import HTMLReportGenerator  # type: ignore
+except Exception:  # Fallback sin prefijo
+    try:
+        from common.database import AccessDatabase  # type: ignore
+        from common import utils  # type: ignore
+        from common.utils import (  # type: ignore
+            format_date, get_technical_users, get_quality_users, get_admin_users,
+            register_task_completion, load_css_content,
+            get_technical_emails_string, get_quality_emails_string,
+            get_admin_emails_string
+        )
+        from common.html_report_generator import HTMLReportGenerator  # type: ignore
+    except ImportError:  # pragma: no cover
+        import sys as _sys
+        from pathlib import Path as _Path
+        _PROJECT_ROOT = _Path(__file__).resolve().parent.parent
+        if str(_PROJECT_ROOT) not in _sys.path:
+            _sys.path.insert(0, str(_PROJECT_ROOT))
+        from common.database import AccessDatabase  # type: ignore
+        from common import utils  # type: ignore
+        from common.utils import (  # type: ignore
+            format_date, get_technical_users, get_quality_users, get_admin_users,
+            register_task_completion, load_css_content,
+            get_technical_emails_string, get_quality_emails_string,
+            get_admin_emails_string
+        )
+        from common.html_report_generator import HTMLReportGenerator  # type: ignore
 from .table_configurations import TABLE_CONFIGURATIONS
 
 

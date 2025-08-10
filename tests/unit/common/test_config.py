@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch, Mock
 from dotenv import load_dotenv
 
-from src.common.config import Config, config, reload_config
+from common.config import Config, config, reload_config
 
 
 def get_current_env_config():

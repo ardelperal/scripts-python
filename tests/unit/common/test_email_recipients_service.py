@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, Mock
 
-from src.common.email.recipients_service import EmailRecipientsService
+from common.email.recipients_service import EmailRecipientsService
 
 
 class TestEmailRecipientsService(unittest.TestCase):

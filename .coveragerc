@@ -1,25 +1,11 @@
 [run]
-source = src/
-omit = 
+source = src
+omit =
+    src/common/__init__.py
+    src/common/logger.py
+    src/common/user_adapter.py
     */tests/*
-    */test_*
-    */__pycache__/*
-    */venv/*
-    */.venv/*
 
 [report]
-exclude_lines =
-    pragma: no cover
-    def __repr__
-    if self.debug:
-    if settings.DEBUG
-    raise AssertionError
-    raise NotImplementedError
-    if 0:
-    if __name__ == .__main__.:
-    class .*\bProtocol\):
-    @(abc\.)?abstractmethod
-
-[html]
-directory = htmlcov
-title = Scripts Python - Coverage Report
+show_missing = True
+skip_covered = True

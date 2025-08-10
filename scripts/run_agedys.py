@@ -1,56 +1,35 @@
-"""
-Script de entrada para la ejecución de la Tarea AGEDYS.
-"""
+"""Runner estandarizado para la tarea AGEDYS."""
+from __future__ import annotations
+
 import sys
-import logging
 import argparse
 from pathlib import Path
 
-# Añadir el directorio src al path
-SRC_DIR = Path(__file__).resolve().parent.parent / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _PROJECT_ROOT / 'src'
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from common.utils import ensure_project_root_in_path  # type: ignore
+ensure_project_root_in_path()
 
-from common.utils import setup_logging
-from agedys.agedys_task import AgedysTask
+from common.utils import execute_task_with_standard_boilerplate  # type: ignore
+from agedys.agedys_task import AgedysTask  # type: ignore
 
-def main():
-    parser = argparse.ArgumentParser(description="Ejecuta la tarea de AGEDYS.")
-    parser.add_argument(
-        '--force',
-        action='store_true',
-        help='Fuerza la ejecución de la tarea, ignorando la planificación.'
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Ejecuta la tarea AGEDYS")
+    parser.add_argument('--force', action='store_true', help='Fuerza la ejecución ignorando planificación (no marca completada).')
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):  # pragma: no cover
+    args = parse_args(argv)
+    task = AgedysTask()
+    exit_code = execute_task_with_standard_boilerplate(
+        "AGEDYS", task, force=args.force
     )
-    args = parser.parse_args()
-
-    setup_logging(log_file=Path('logs/agedys.log'))
-    logger = logging.getLogger()
-
-    logger.info("===============================================")
-    logger.info("=         INICIANDO TAREA DE AGEDYS           =")
-    logger.info("===============================================")
-    if args.force:
-        logger.warning("-> MODO FORZADO ACTIVADO <-")
-
-    exit_code = 0
-    try:
-        with AgedysTask() as task:
-            if args.force or task.debe_ejecutarse():
-                if task.execute_specific_logic():
-                    if not args.force:
-                        task.marcar_como_completada()
-                    logger.info("Tarea AGEDYS finalizada con éxito.")
-                else:
-                    logger.error("La lógica específica de la tarea AGEDYS falló.")
-                    exit_code = 1
-            else:
-                logger.info("La tarea AGEDYS no requiere ejecución hoy.")
-    except Exception as e:
-        logger.critical(f"Error fatal no controlado en la tarea AGEDYS: {e}", exc_info=True)
-        exit_code = 1
-
-    logger.info("Finalizada la ejecución de la tarea AGEDYS.")
     sys.exit(exit_code)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':  # pragma: no cover
     main()

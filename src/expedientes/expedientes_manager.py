@@ -30,7 +30,7 @@ class ExpedientesManager:
         self.db_tareas = db_tareas
         self.logger = logger or logging.getLogger(__name__)
         self.html_generator = HTMLReportGenerator()
-    from src.common.reporting.table_builder import build_table_html
+    # (El import anterior a través de 'src.' se eliminó; ya se importa arriba.)
 
     def get_expedientes_tsol_sin_cod_s4h(self) -> List[Dict]:
         """Obtiene expedientes TSOL adjudicados sin código S4H"""

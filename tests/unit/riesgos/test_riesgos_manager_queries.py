@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
-from src.riesgos.riesgos_manager import RiesgosManager
+from riesgos.riesgos_manager import RiesgosManager
 
 
 @pytest.fixture
