@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+SRC_ROOT = Path(__file__).parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from common.database_adapter import AccessAdapter
-from common.config import config
+from src.common.database import AccessDatabase
+from src.common.config import config
 
 # Verificar la estructura de la tabla y los correos pendientes
-with AccessAdapter(Path(config.db_correos_path), config.db_password) as db:
-    # Ver correos pendientes con todos los campos
+conn_str = config.get_db_correos_connection_string()
+db = AccessDatabase(conn_str)
+with db.get_connection() as conn:
+    cursor = conn.cursor()
     query = "SELECT * FROM TbCorreosEnviados WHERE FechaEnvio IS NULL"
-    result = db.execute_query(query)
+    cursor.execute(query)
+    columns = [c[0] for c in cursor.description]
+    result = [dict(zip(columns, r)) for r in cursor.fetchall()]
     
     if result:
         print("Correos pendientes encontrados:")
@@ -24,7 +30,10 @@ with AccessAdapter(Path(config.db_correos_path), config.db_password) as db:
         
     # Ver el último correo insertado
     query2 = "SELECT TOP 1 * FROM TbCorreosEnviados ORDER BY IDCorreo DESC"
-    result2 = db.execute_query(query2)
+    cursor.execute(query2)
+    columns2 = [c[0] for c in cursor.description]
+    rows2 = cursor.fetchall()
+    result2 = [dict(zip(columns2, r)) for r in rows2]
     
     if result2:
         print("Último correo en la base de datos:")

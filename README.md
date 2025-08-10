@@ -28,6 +28,76 @@ El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza a
 6. **Correos** (`run_correos.py`): Sistema de envío de correos
 7. **Correo Tareas** (`run_correo_tareas.py`): Sistema de gestión de correos que interactúa con la base de datos de tareas
 
+### 🆕 Cambios Arquitectónicos Recientes (Refactor 2025)
+
+Refactor integral para simplificar arquitectura, mejorar testabilidad y eliminar código legacy.
+
+Principales mejoras:
+1. Capa de datos unificada:
+   - Eliminados `AccessAdapter` y `DemoDatabase`.
+   - Nueva clase única `AccessDatabase` con soporte opcional de pool.
+   - Introducido `AccessConnectionPool` (gestiona instancias reutilizables por cadena de conexión).
+2. Gestión de tareas:
+   - Reemplazo de funciones globales por clase `TaskRegistry` (extensible, inyectable, test-friendly).
+   - API: `get_daily_tasks()`, `get_continuous_tasks()`, `get_all_tasks()`, `summary()`, filtros y extensión por parámetros `extra_daily/extra_continuous`.
+   - Backwards compatibility: funciones wrapper conservadas para código legado.
+3. Script maestro (`run_master.py`):
+   - Consolidado antiguo `run_master_new.py` (eliminado).
+   - Añadido modo `--simple` sobre `TaskRegistry` con resumen estructurado.
+   - Fast-path en tests (`MASTER_DRY_SUBPROCESS=1`) evitando importaciones pesadas.
+4. Riesgos y No Conformidades: parametrización explícita de frecuencias vía variables de entorno para subtareas.
+5. Limpieza y cobertura:
+   - Eliminado definitivamente archivo legacy `database_adapter.py` y su test.
+   - Stub ligero de `RiesgosTask` para unit tests cuando el módulo completo no es necesario.
+6. Documentación actualizada: ejemplos de extensión de tareas, uso de pools y guía de migración.
+
+Pendiente futuro (no implementado aún):
+- Sistema de plugins de tareas (descubrimiento dinámico).
+- Persistencia de métricas de ejecución (duración/estado) para observabilidad.
+- Reducción selectiva de coste de importación en módulos grandes (lazy loading adicional).
+
+### Uso de TaskRegistry
+
+```python
+from common.task_registry import TaskRegistry
+
+registry = TaskRegistry()
+for task in registry.get_daily_tasks():
+   if task.debe_ejecutarse():
+      task.ejecutar()
+      task.marcar_como_completada()
+```
+
+Extender con tareas personalizadas:
+
+```python
+from common.base_task import TareaDiaria
+from common.task_registry import TaskRegistry
+
+class MiTarea(TareaDiaria):
+   def __init__(self):
+      super().__init__(name="MiTarea", script_filename="run_mi_tarea.py", task_names=["MiTareaDiaria"], frequency_days=1)
+   def debe_ejecutarse(self):
+      return True
+   def marcar_como_completada(self):
+      pass
+
+registry = TaskRegistry(extra_daily=[MiTarea()])
+```
+
+### Acceso unificado a BD
+
+```python
+from common.database import AccessDatabase
+from common.access_connection_pool import get_tareas_connection_pool
+from common.config import config
+
+conn_str = config.get_db_tareas_connection_string()
+pool = get_tareas_connection_pool(conn_str)
+db = AccessDatabase(conn_str, pool=pool)
+rows = db.execute_query("SELECT TOP 1 * FROM TbTareas")
+```
+
 ### 🚀 Modo Verbose del Script Maestro
 
 El script maestro incluye un **modo verbose** para debugging y monitoreo detallado:
@@ -135,7 +205,6 @@ scripts-python/
 │   ├── run_correos.py           # Script para módulo correos
 │   ├── run_expedientes.py       # Script para módulo expedientes
 │   ├── run_master.py            # Script maestro - daemon principal con modo verbose
-│   ├── run_master_new.py        # Nueva versión del script maestro
 │   ├── run_no_conformidades.py  # Script para no conformidades
 │   └── run_riesgos.py           # Script para módulo de riesgos
 ├── src/                         # Código fuente
@@ -155,12 +224,11 @@ scripts-python/
 │   │   ├── base_email_manager.py # Gestor base para emails
 │   │   ├── base_task.py         # Clase base para tareas
 │   │   ├── config.py            # Configuración multi-entorno
-│   │   ├── database.py          # Capa abstracción bases datos Access
-│   │   ├── database_adapter.py  # Adaptador de bases de datos
+│   │   ├── database.py          # Capa unificada Access (AccessDatabase + pools)
 │   │   ├── html_report_generator.py # Generador reportes HTML
 │   │   ├── logger.py            # Sistema de logging
 │   │   ├── notifications.py     # Sistema de notificaciones
-│   │   ├── task_registry.py     # Registro de tareas
+│   │   ├── task_registry.py     # Registro de tareas (TaskRegistry OO)
 │   │   ├── user_adapter.py      # Adaptador de usuarios
 │   │   └── utils.py             # Utilidades HTML, logging, fechas
 │   ├── correo_tareas/           # Módulo de gestión de correos que interactúa con la base de datos de tareas
@@ -611,7 +679,7 @@ El sistema soporta dos configuraciones SMTP:
 |--------|-----------|-------|
 | `src/common/config.py` | 88% | ✅ |
 | `src/common/database.py` | 55% | ✅ |
-| `src/common/database_adapter.py` | 95% | ✅ |
+| `src/common/task_registry.py` | 64% | ✅ |
 | `src/common/notifications.py` | 100% | ✅ |
 | `src/common/utils.py` | 49% | ✅ |
 | `src/correos/correos_manager.py` | 91% | ✅ |
@@ -1015,7 +1083,7 @@ python tools/setup_local_environment.py --empty-correos
 
 4. **Actualización de Vínculos**: Actualiza automáticamente todas las tablas vinculadas para que apunten a las bases de datos locales
 
-5. **Logging Detallado**: Genera un log completo del proceso en `setup_local_environment.log`
+5. **Logging Detallado**: Genera un log completo del proceso en `logs/setup_local_environment.log` (directorio de logs central). Si usas stack Grafana/Loki, puedes desactivar este archivo estableciendo la variable de entorno `SETUP_LOCAL_FILE_LOG=0` y capturando stdout.
 
 **📋 Casos de Uso Típicos:**
 
@@ -1430,7 +1498,7 @@ docker-compose down -v
 
 - **config.py**: Gestión centralizada de configuración
 - **database.py**: Abstracción para bases de datos Access con ODBC  
-- **database_adapter.py**: Adaptador de conexiones de base de datos
+- (Eliminado) `database_adapter.py` sustituido por `AccessDatabase`
 - **utils.py**: Utilidades compartidas (HTML, fechas, logging)
 
 ### Mejoras vs VBS Original

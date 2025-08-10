@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional, List
 
 from .config import Config
 from .database import AccessDatabase
+from .access_connection_pool import get_tareas_connection_pool, AccessConnectionPool
 from .utils import should_execute_task, register_task_completion
 
 
@@ -49,12 +50,15 @@ class BaseTask(ABC):
             raise FileNotFoundError(f"Script no encontrado: {self.script_path}")
     
     def _init_database_connection(self):
-        """Inicializa la conexión a la base de datos de tareas"""
+        """Inicializa la conexión a la base de datos de tareas usando pool global."""
         try:
-            self.db_tareas = AccessDatabase(self.config.get_db_tareas_connection_string())
-            self.logger.debug(f"Conexión a BD de tareas inicializada para {self.name}")
+            conn_str = self.config.get_db_tareas_connection_string()
+            pool: AccessConnectionPool = get_tareas_connection_pool(conn_str)
+            # Crear wrapper AccessDatabase que delega en pool
+            self.db_tareas = AccessDatabase(conn_str, pool=pool)
+            self.logger.debug(f"Pool de BD tareas inicializado para {self.name}")
         except Exception as e:
-            self.logger.error(f"Error inicializando conexión a BD para {self.name}: {e}")
+            self.logger.error(f"Error inicializando pool BD tareas para {self.name}: {e}")
             self.db_tareas = None
     
     @abstractmethod
@@ -133,11 +137,12 @@ class BaseTask(ABC):
     def close_connections(self):
         """Cierra las conexiones de la tarea"""
         if hasattr(self, 'db_tareas') and self.db_tareas is not None:
-            try:
+            try:  # Con pool no se requiere disconnect; se deja por compatibilidad
                 self.db_tareas.disconnect()
+            except Exception:
+                pass
+            finally:
                 self.db_tareas = None
-            except Exception as e:
-                self.logger.warning(f"Error cerrando conexión: {e}")
 
 
 class TareaDiaria(BaseTask):

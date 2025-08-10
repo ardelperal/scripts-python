@@ -28,6 +28,13 @@ Uso:
 
 Autor: Sistema de Automatización
 Fecha: 2024
+
+Modos de funcionamiento (consolidado):
+1. Modo clásico (por ciclos continuos) -> por defecto (clase MasterRunner)
+2. Modo simple / nueva arquitectura de tareas (ejecución única de tareas diarias + continuas
+    registradas mediante el registro de BaseTask) -> usar flag --simple
+
+El antiguo script run_master_new.py ha sido consolidado aquí y eliminado.
 """
 
 import argparse
@@ -42,11 +49,15 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # Añadir el directorio raíz del proyecto al path para importaciones
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+# Asegurar que 'src' está en el path para imports tipo 'common.*'
+src_path_global = project_root / 'src'
+if str(src_path_global) not in sys.path:
+    sys.path.insert(0, str(src_path_global))
 
 # Configurar logging básico
 logging.basicConfig(
@@ -55,6 +66,127 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+############################################################
+# MODO SIMPLE (Nueva arquitectura de tareas - ejecución única)
+############################################################
+
+class SimpleMasterTaskRunner:
+    """Ejecutor maestro simplificado usando el registro de BaseTask.
+
+    Ejecuta:
+    - Tareas diarias (solo si es día laborable) evaluando debe_ejecutarse()
+    - Tareas continuas siempre
+    """
+
+    def __init__(self):
+        # Asegurar que 'src' esté en sys.path ANTES de importar
+        src_path = Path(__file__).parent.parent / 'src'
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+        dry = os.getenv('MASTER_DRY_SUBPROCESS') == '1'
+        try:
+            from common.logger import setup_logger  # type: ignore
+            self.logger = setup_logger('master_runner_simple')
+            if dry:
+                # Fast path para tests: no construir TaskRegistry ni tareas reales
+                self.logger.info("⚡ Modo dry subprocess detectado - inicialización ligera de tareas (listas vacías)")
+                self.task_registry = None  # type: ignore
+                self.daily_tasks = []
+                self.continuous_tasks = []
+            else:
+                from common.task_registry import TaskRegistry  # runtime import
+                self.task_registry = TaskRegistry()
+                self.daily_tasks = self.task_registry.get_daily_tasks()
+                self.continuous_tasks = self.task_registry.get_continuous_tasks()
+        except Exception as e:  # pragma: no cover - fallback defensivo
+            import logging as _logging
+            self.logger = _logging.getLogger('master_runner_simple_fallback')
+            self.logger.warning(f"Fallo cargando registro de tareas, usando listas vacías: {e}")
+            self.daily_tasks = []
+            self.continuous_tasks = []
+        self.logger.info("🚀 Iniciando Simple Master Task Runner (nueva arquitectura)")
+        self.logger.info(f"📋 Tareas diarias registradas: {len(self.daily_tasks)}")
+        self.logger.info(f"🔄 Tareas continuas registradas: {len(self.continuous_tasks)}")
+
+    def run_daily_tasks(self) -> Tuple[int, int]:
+        from common.utils import is_workday  # type: ignore
+        from datetime import date as _date
+        if not is_workday(_date.today()):
+            self.logger.info("📅 Hoy no es día laborable, omitiendo tareas diarias")
+            return 0, len(self.daily_tasks)
+        ejecutadas = 0
+        total = len(self.daily_tasks)
+        for task in self.daily_tasks:
+            try:
+                self.logger.info(f"🔍 Verificando tarea: {task.name}")
+                if task.debe_ejecutarse():
+                    self.logger.info(f"▶️  Ejecutando tarea: {task.name}")
+                    if task.ejecutar():
+                        self.logger.info(f"✅ Tarea {task.name} ejecutada exitosamente")
+                        task.marcar_como_completada()
+                        ejecutadas += 1
+                    else:
+                        self.logger.error(f"❌ Error ejecutando tarea: {task.name}")
+                else:
+                    self.logger.info(f"⏭️  Tarea {task.name} no necesita ejecutarse")
+            except Exception as e:  # pragma: no cover - defensivo
+                self.logger.error(f"💥 Error procesando tarea {task.name}: {e}")
+        return ejecutadas, total
+
+    def run_continuous_tasks(self) -> Tuple[int, int]:
+        self.logger.info("🔄 Ejecutando tareas continuas...")
+        ejecutadas = 0
+        total = len(self.continuous_tasks)
+        for task in self.continuous_tasks:
+            try:
+                self.logger.info(f"▶️  Ejecutando tarea continua: {task.name}")
+                if task.ejecutar():
+                    self.logger.info(f"✅ Tarea continua {task.name} ejecutada exitosamente")
+                    ejecutadas += 1
+                else:
+                    self.logger.error(f"❌ Error ejecutando tarea continua: {task.name}")
+            except Exception as e:  # pragma: no cover - defensivo
+                self.logger.error(f"💥 Error procesando tarea continua {task.name}: {e}")
+        return ejecutadas, total
+
+    def run(self):
+        inicio = datetime.now()
+        self.logger.info(f"🎯 Iniciando ejecución (modo simple) - {inicio.strftime('%Y-%m-%d %H:%M:%S')}")
+        try:
+            d_exec, d_total = self.run_daily_tasks()
+            c_exec, c_total = self.run_continuous_tasks()
+            total_exec = d_exec + c_exec
+            total = d_total + c_total
+            duracion = datetime.now() - inicio
+            self.logger.info("=" * 60)
+            self.logger.info("📊 RESUMEN (MODO SIMPLE)")
+            self.logger.info("=" * 60)
+            self.logger.info(f"📅 Tareas diarias: {d_exec}/{d_total}")
+            self.logger.info(f"🔄 Tareas continuas: {c_exec}/{c_total}")
+            self.logger.info(f"🎯 Total ejecutadas: {total_exec}/{total}")
+            self.logger.info(f"⏱️  Duración: {duracion}")
+            tasa = (total_exec/total*100) if total else 0
+            self.logger.info(f"📈 Tasa de éxito: {tasa:.1f}%")
+            if total_exec == total:
+                self.logger.info("🎉 Todas las tareas se ejecutaron exitosamente")
+            else:
+                self.logger.warning(f"⚠️  {total - total_exec} tareas no se ejecutaron correctamente")
+        except Exception as e:  # pragma: no cover - defensivo
+            self.logger.error(f"💥 Error crítico en modo simple: {e}")
+            raise
+        finally:
+            # Cierre de conexiones si las tareas lo soportan
+            for task in self.daily_tasks + self.continuous_tasks:
+                try:
+                    task.close_connections()
+                except Exception as e:  # pragma: no cover - defensivo
+                    self.logger.warning(f"⚠️  Error cerrando conexiones de {task.name}: {e}")
+
+
+############################################################
+# MODO CLÁSICO (ciclos continuos)
+############################################################
 
 class MasterRunner:
     """Script maestro que ejecuta todos los scripts del sistema según horarios específicos"""
@@ -88,34 +220,40 @@ class MasterRunner:
         self.max_workers = int(os.getenv('MASTER_MAX_WORKERS', '3'))  # Máximo 3 hilos por defecto
         self.thread_lock = threading.Lock()  # Para sincronizar acceso a estadísticas
         
-        # Scripts disponibles y sus configuraciones
-        self.available_scripts = {
-            'correos': 'run_correos.py',
-            'brass': 'run_brass.py', 
-            'expedientes': 'run_expedientes.py',
-            'riesgos': 'run_riesgos.py',
-            'no_conformidades': 'run_no_conformidades.py',
-            'agedys': 'run_agedys.py',
-            'tareas': 'run_correo_tareas.py'
-        }
-        
-        # Scripts de tareas diarias (orden de ejecución) con sus nombres de tarea en BD
-        self.daily_scripts = ['riesgos', 'brass', 'expedientes', 'no_conformidades', 'agedys']
-        
-        # Mapeo de scripts a nombres de tareas en la base de datos
-        self.script_to_task_name = {
-            'agedys': 'AGEDYSDiario',
-            'brass': 'BRASSDiario', 
-            'expedientes': 'ExpedientesDiario',
-            'no_conformidades': ['NoConformidadesCalidad', 'NoConformidadesTecnica'],
-            'riesgos': ['RiesgosDiariosTecnicos', 'RiesgosSemanalesCalidad', 'RiesgosMensualesCalidad']
-        }
-        
-        # Scripts de tareas continuas
-        self.continuous_scripts = ['correos', 'tareas']
+        # Cargar configuración de scripts desde scripts_config.json
+        self.available_scripts = {}
+        self.daily_scripts: List[str] = []
+        self.continuous_scripts: List[str] = []
+        self.script_to_task_name: Dict[str, str | List[str]] = {}
+
+        config_file = self.project_root / 'scripts_config.json'
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            scripts_cfg = data.get('scripts', {})
+            for name, meta in scripts_cfg.items():
+                file_name = meta.get('file')
+                tipo = meta.get('type')
+                task_name = meta.get('task_name')
+                if not file_name or not tipo:
+                    continue
+                self.available_scripts[name] = file_name
+                if tipo == 'daily':
+                    self.daily_scripts.append(name)
+                    if task_name:
+                        self.script_to_task_name[name] = task_name
+                elif tipo == 'continuous':
+                    self.continuous_scripts.append(name)
+            preferred_order = ['riesgos', 'brass', 'expedientes', 'no_conformidades', 'agedys']
+            self.daily_scripts.sort(key=lambda x: (preferred_order.index(x) if x in preferred_order else 999, x))
+        except Exception as e:  # pragma: no cover - defensivo
+            logger.error(f"❌ Error cargando scripts_config.json: {e}")
         
         # Inicializar conexión a base de datos de tareas
-        self._init_database_connection()
+        if os.getenv('MASTER_DRY_SUBPROCESS') == '1':
+            self.db_tareas = None
+        else:
+            self._init_database_connection()
         
         # Mostrar información de inicialización
         mode_info = "MODO VERBOSE" if self.verbose_mode else "MODO NORMAL"
@@ -154,63 +292,6 @@ class MasterRunner:
         except Exception as e:
             logger.error(f"❌ Error inicializando conexión a base de datos: {e}")
             self.db_tareas = None
-    
-    def _is_task_completed_today(self, task_name: str) -> bool:
-        """
-        Verifica si una tarea debe ejecutarse basándose en su frecuencia configurada
-        
-        Args:
-            task_name: Nombre de la tarea en la base de datos
-            
-        Returns:
-            bool: True si NO debe ejecutarse (ya se ejecutó según su frecuencia), False si debe ejecutarse
-        """
-        if not self.db_tareas:
-            logger.warning(f"⚠️  No hay conexión a BD, no se puede verificar tarea {task_name}")
-            return False
-            
-        try:
-            from datetime import date, timedelta
-            import os
-            
-            # Obtener la frecuencia de la tarea desde configuración
-            frecuencia_dias = self._get_task_frequency(task_name)
-            
-            # Consultar la última ejecución de la tarea
-            query = """
-                SELECT TOP 1 FechaEjecucion 
-                FROM TbTareas 
-                WHERE Tarea = ? 
-                ORDER BY FechaEjecucion DESC
-            """
-            
-            result = self.db_tareas.execute_query(query, [task_name])
-            
-            if not result:
-                logger.info(f"📋 Tarea {task_name} no tiene registros previos - debe ejecutarse")
-                return False
-                
-            last_execution_date = result[0]['FechaEjecucion']
-            
-            # Convertir a date si es datetime
-            if hasattr(last_execution_date, 'date'):
-                last_execution_date = last_execution_date.date()
-            
-            today = date.today()
-            
-            # Calcular días transcurridos desde la última ejecución
-            dias_transcurridos = (today - last_execution_date).days
-            
-            if dias_transcurridos >= frecuencia_dias:
-                logger.info(f"📅 Tarea {task_name} debe ejecutarse - Días transcurridos: {dias_transcurridos}, Frecuencia: {frecuencia_dias}")
-                return False
-            else:
-                logger.info(f"✅ Tarea {task_name} no debe ejecutarse aún - Días transcurridos: {dias_transcurridos}, Frecuencia: {frecuencia_dias}")
-                return True
-                
-        except Exception as e:
-            logger.error(f"❌ Error verificando tarea {task_name}: {e}")
-            return False
     
     def _register_task_completion_for_script(self, script_name: str):
         """
@@ -253,41 +334,7 @@ class MasterRunner:
         except Exception as e:
             self.logger_adapter.error(f"❌ Error registrando finalización de tarea para {script_name}: {e}")
 
-    def _get_task_frequency(self, task_name: str) -> int:
-        """
-        Obtiene la frecuencia en días para una tarea específica
-        
-        Args:
-            task_name: Nombre de la tarea
-            
-        Returns:
-            int: Número de días de frecuencia
-        """
-        # Mapeo de tareas a variables de entorno de frecuencia
-        frequency_map = {
-            'RiesgosDiariosTecnicos': 'RIESGOS_TECNICOS_FRECUENCIA_DIAS',
-            'RiesgosSemanalesCalidad': 'RIESGOS_CALIDAD_SEMANAL_FRECUENCIA_DIAS', 
-            'RiesgosMensualesCalidad': 'RIESGOS_CALIDAD_MENSUAL_FRECUENCIA_DIAS',
-            'NoConformidadesCalidad': 'NO_CONFORMIDADES_DIAS_TAREA_CALIDAD',
-            'NoConformidadesTecnica': 'NO_CONFORMIDADES_DIAS_TAREA_TECNICA',
-            'BRASSDiario': 'BRASS_FRECUENCIA_DIAS',
-            'ExpedientesDiario': 'EXPEDIENTES_FRECUENCIA_DIAS',
-            'AGEDYSDiario': 'AGEDYS_FRECUENCIA_DIAS',
-            'CorreoTareas': 'CORREO_TAREAS_FRECUENCIA_DIAS'
-        }
-        
-        # Obtener variable de entorno correspondiente
-        env_var = frequency_map.get(task_name)
-        if env_var:
-            try:
-                return int(os.getenv(env_var, '1'))  # Default 1 día si no está configurado
-            except ValueError:
-                logger.warning(f"⚠️  Valor inválido para {env_var}, usando 1 día por defecto")
-                return 1
-        else:
-            # Para tareas no mapeadas, usar frecuencia diaria por defecto
-            logger.info(f"📋 Tarea {task_name} no tiene frecuencia configurada, usando 1 día por defecto")
-            return 1
+    # Eliminado _get_task_frequency tras refactor (uso mantenido en clases de tarea)
 
     def _load_config(self):
         """Carga la configuración desde archivo .env"""
@@ -464,6 +511,20 @@ class MasterRunner:
             }
 
         try:
+            # Modo rápido para tests: si la variable está definida, no ejecutar realmente el script
+            if os.getenv('MASTER_DRY_SUBPROCESS') == '1':
+                fake_duration = 0.01
+                with self.thread_lock:
+                    self.total_scripts_executed += 1
+                    self.successful_scripts += 1
+                self.logger_adapter.debug(f"(dry-run) Simulando ejecución de {script_name}")
+                return {
+                    'success': True,
+                    'duration': fake_duration,
+                    'output': 'dry-run',
+                    'error': '',
+                    'return_code': 0
+                }
             # Log inicial con información detallada en modo verbose
             if self.verbose_mode:
                 self.logger_adapter.info(f"🔄 INICIANDO SCRIPT: {script_name}")
@@ -611,31 +672,45 @@ class MasterRunner:
             }
     
     def ejecutar_tareas_diarias(self) -> Dict[str, any]:
-        """Ejecuta las tareas que se realizan una vez por día laborable usando threading"""
+        """Ejecuta las tareas diarias consultando la lógica OO de cada TareaDiaria."""
+        # Asegurar path
+        src_path = Path(__file__).parent.parent / 'src'
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+            try:
+                from common.task_registry import TaskRegistry  # import diferido
+                task_instances = TaskRegistry().get_daily_tasks()
+            except Exception as e:  # pragma: no cover - fallback
+                self.logger_adapter.warning(f"No se pudo importar task_registry: {e}. Saltando tareas diarias.")
+                return {}
+        # Mapa filename->key en available_scripts
+        file_to_key = {v: k for k, v in self.available_scripts.items()}
         if self.verbose_mode:
             self.logger_adapter.info("🌅 ===== INICIANDO TAREAS DIARIAS =====")
             self.logger_adapter.info(f"   📅 Fecha: {date.today().strftime('%d/%m/%Y')}")
-            self.logger_adapter.info(f"   📝 Scripts a ejecutar: {self.daily_scripts}")
             self.logger_adapter.info(f"   🧵 Máximo de hilos: {self.max_workers}")
-            self.logger_adapter.info("   " + "="*50)
-        else:
-            self.logger_adapter.info("🌅 ===== INICIANDO TAREAS DIARIAS =====")
-        
-        # Filtrar solo las tareas que no se han ejecutado hoy
-        scripts_a_ejecutar = []
-        for script_name in self.daily_scripts:
-            task_name = self.script_to_task_name.get(script_name)
-            if task_name and not self._is_task_completed_today(task_name):
-                scripts_a_ejecutar.append(script_name)
-            elif self.verbose_mode:
-                self.logger_adapter.info(f"⏭️  Saltando {script_name} - ya ejecutado hoy")
-        
+            self.logger_adapter.info("   Verificando debe_ejecutarse() de cada tarea registrada")
+
+        scripts_a_ejecutar: List[str] = []
+        for task in task_instances:
+            try:
+                if task.debe_ejecutarse():
+                    key = file_to_key.get(task.script_filename)
+                    if key:
+                        scripts_a_ejecutar.append(key)
+                    else:
+                        self.logger_adapter.warning(f"⚠️  No se encontró clave de script para {task.script_filename}")
+                elif self.verbose_mode:
+                    self.logger_adapter.info(f"⏭️  {task.name} no requiere ejecución")
+            except Exception as e:  # pragma: no cover - defensivo
+                self.logger_adapter.error(f"❌ Error evaluando {task.name}: {e}")
+
         if not scripts_a_ejecutar:
-            self.logger_adapter.info("✅ Todas las tareas diarias ya están completadas")
+            self.logger_adapter.info("✅ No hay tareas diarias pendientes (debe_ejecutarse() = False en todas)")
             return {}
-        
+
         if self.verbose_mode:
-            self.logger_adapter.info(f"📋 Scripts pendientes a ejecutar: {scripts_a_ejecutar}")
+            self.logger_adapter.info(f"📋 Scripts a ejecutar: {scripts_a_ejecutar}")
         
         resultados = {}
         tiempo_inicio = datetime.now()
@@ -725,7 +800,7 @@ class MasterRunner:
         with ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="Continuous") as executor:
             # Enviar todas las tareas al pool de hilos
             future_to_script = {
-                executor.submit(self.ejecutar_script, script_name): script_name 
+                    executor.submit(self.ejecutar_script, script_name): script_name
                 for script_name in self.continuous_scripts
             }
             
@@ -806,27 +881,8 @@ class MasterRunner:
                 
                 ciclo_inicio = datetime.now()
                 
-                # Verificar si necesitamos ejecutar tareas diarias
-                # Primero verificar condiciones básicas (día laborable y horario)
-                condiciones_basicas = es_laborable_hoy and hora_actual >= 7
-                
-                if condiciones_basicas:
-                    # Verificar si alguna tarea diaria no se ha ejecutado hoy
-                    tareas_pendientes = []
-                    for script_name in self.daily_scripts:
-                        task_name = self.script_to_task_name.get(script_name)
-                        if task_name and not self._is_task_completed_today(task_name):
-                            tareas_pendientes.append(script_name)
-                    
-                    ejecutar_diarias = len(tareas_pendientes) > 0
-                    
-                    if self.verbose_mode and condiciones_basicas:
-                        if tareas_pendientes:
-                            self.logger_adapter.info(f"📋 Tareas pendientes de ejecutar: {tareas_pendientes}")
-                        else:
-                            self.logger_adapter.info("✅ Todas las tareas diarias ya se ejecutaron hoy")
-                else:
-                    ejecutar_diarias = False
+                # Condiciones básicas para ejecutar tareas diarias: día laborable y hora >= 7
+                ejecutar_diarias = es_laborable_hoy and hora_actual >= 7
                 
                 if ejecutar_diarias:
                     if self.verbose_mode:
@@ -848,9 +904,9 @@ class MasterRunner:
                         elif hora_actual < 7:
                             self.logger_adapter.info(f"   ⏰ Razón: Muy temprano (hora actual: {hora_actual:02d}:00, mínimo: 07:00)")
                         else:
-                            self.logger_adapter.info("   ✅ Razón: Ya ejecutadas hoy")
+                            self.logger_adapter.info("   ✅ Razón: Lógica interna indicó no ejecutar")
                     else:
-                        self.logger_adapter.info("⏭️  Saltando tareas diarias (ya ejecutadas hoy o fuera de horario)")
+                        self.logger_adapter.info("⏭️  Saltando tareas diarias (condiciones no cumplidas)")
                 
                 # Ejecutar tareas continuas (siempre)
                 if self.verbose_mode:
@@ -940,6 +996,35 @@ class MasterRunner:
                 self.logger_adapter.error(f"❌ Error en ciclo principal: {e}", exc_info=True)
         finally:
             self.stop()
+
+    def list_tasks(self) -> int:
+        """Lista tareas diarias y continuas indicando si deben ejecutarse (según lógica OO)."""
+        # Asegurar path
+        src_path = Path(__file__).parent.parent / 'src'
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+        try:
+            from common.task_registry import TaskRegistry
+            registry = TaskRegistry()
+            daily = registry.get_daily_tasks()
+            cont = registry.get_continuous_tasks()
+        except Exception as e:  # pragma: no cover
+            print(f"Error importando registro de tareas: {e}")
+            return 1
+        print("TASK TYPE        SHOULD_RUN  SCRIPT")
+        print("------------------------------------------")
+        # daily
+        file_to_key = {v: k for k, v in self.available_scripts.items()}
+        for t in daily:
+            try:
+                should = t.debe_ejecutarse()
+            except Exception:
+                should = False
+            key = file_to_key.get(t.script_filename, t.script_filename)
+            print(f"DAILY {key:<12} {str(should):<11} {t.script_filename}")
+        for t in cont:
+            print(f"CONT  {t.name:<12} True        {t.script_filename}")
+        return 0
     
     def stop(self):
         """Detiene la ejecución del script maestro"""
@@ -1005,6 +1090,8 @@ Ejemplos de uso:
   python run_master.py -v               # Modo verbose (forma corta)
   python run_master.py --single-cycle   # Ejecutar solo un ciclo y terminar
   python run_master.py -s -v            # Un solo ciclo en modo verbose
+    python run_master.py --simple         # Ejecutar en modo simple (nueva arquitectura) una sola vez
+    python run_master.py --simple -v      # Modo simple con logs verbose
         """
     )
     
@@ -1019,13 +1106,33 @@ Ejemplos de uso:
         action='store_true',
         help='Ejecutar solo un ciclo y terminar (útil para pruebas)'
     )
+    parser.add_argument(
+        '--simple',
+        action='store_true',
+        help='Usar el modo simple (nueva arquitectura de tareas) en lugar del modo clásico'
+    )
+    parser.add_argument(
+        '--list-tasks',
+        action='store_true',
+        help='Listar tareas y si deben ejecutarse según su lógica interna y salir'
+    )
     
     args = parser.parse_args()
     
     try:
-        # Crear y ejecutar el script maestro
-        master = MasterRunner(verbose=args.verbose, single_cycle=args.single_cycle)
-        master.run()
+        if args.list_tasks:
+            master = MasterRunner(verbose=args.verbose, single_cycle=True)
+            code = master.list_tasks()
+            sys.exit(code)
+        if args.simple:
+            # Ignoramos single_cycle porque el modo simple siempre es ejecución única
+            runner = SimpleMasterTaskRunner()
+            if args.verbose:
+                runner.logger.info("(simple) Verbose activo")
+            runner.run()
+        else:
+            master = MasterRunner(verbose=args.verbose, single_cycle=args.single_cycle)
+            master.run()
     except Exception as e:
         logger.error(f"❌ Error fatal en main: {e}", exc_info=True)
         sys.exit(1)
