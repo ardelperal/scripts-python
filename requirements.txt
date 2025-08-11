@@ -15,4 +15,3 @@ python-dotenv>=1.0.0
 # Logging y utilidades
 python-dateutil>=2.8.0
 colorama>=0.4.6
-holidays
