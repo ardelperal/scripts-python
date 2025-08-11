@@ -46,29 +46,28 @@ class NoConformidadesManager(TareaDiaria):
     """Manager de No Conformidades usando la nueva arquitectura"""
     
     def __init__(self):
-        # Inicializar con los parámetros requeridos por TareaDiaria
+        """Inicializa el manager incluyendo atributos legacy usados por tests antiguos."""
         super().__init__(
             name="NoConformidades",
             script_filename="run_no_conformidades.py",
             task_names=["NCTecnico", "NCCalidad"],
             frequency_days=int(os.getenv('NC_FRECUENCIA_DIAS', '1'))
         )
-
         # Configuración específica
         self.dias_alerta_arapc = int(os.getenv('NC_DIAS_ALERTA_ARAPC', '15'))
         self.dias_alerta_nc = int(os.getenv('NC_DIAS_ALERTA_NC', '16'))
-
-        # Conexiones a bases de datos
+        # Conexión NC (diferida hasta primer uso)
         self.db_nc = None
-
-        # Cache para usuarios
+        # Caches usuarios
         self._admin_users = None
         self._admin_emails = None
         self._quality_users = None
         self._quality_emails = None
         self._technical_users = None
-
-        # CSS y generador HTML
+        # Legacy
+        self.id_aplicacion = int(os.getenv('NC_ID_APLICACION', '8'))
+        self.id_aplicacion_nc = self.id_aplicacion
+        # Recursos HTML
         self.css_content = self._load_css_content()
         self.html_generator = HTMLReportGenerator()
     
@@ -515,6 +514,7 @@ class NoConformidadesManager(TareaDiaria):
     # get_nc_pendientes_eficacia legacy eliminado; usar get_ncs_pendientes_eficacia
     
     # get_araps_tecnicas_proximas_a_vencer / get_araps_tecnicas_vencidas legacy eliminados
+
     
     def get_technical_users(self) -> List[Dict[str, Any]]:
         """

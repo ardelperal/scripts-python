@@ -11,7 +11,8 @@ def test_correo_tareas_task_debe_ejecutarse_true():
 
 def test_correo_tareas_task_execute_specific_logic_calls_manager():
     mock_manager_instance = MagicMock()
-    mock_manager_instance.execute_continuous_task.return_value = True
+    # Nuevo flujo usa process_pending_emails que devuelve conteo (>=0)
+    mock_manager_instance.process_pending_emails.return_value = 0
 
     mock_manager_cls = MagicMock(return_value=mock_manager_instance)
 
@@ -21,4 +22,4 @@ def test_correo_tareas_task_execute_specific_logic_calls_manager():
 
     assert ok is True
     mock_manager_cls.assert_called_once()
-    mock_manager_instance.execute_continuous_task.assert_called_once()
+    mock_manager_instance.process_pending_emails.assert_called_once()

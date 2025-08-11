@@ -5,7 +5,7 @@ from common.email.registration_service import register_standard_report
 
 
 class TestRegistrationService(unittest.TestCase):
-    @patch('src.common.email.registration_service._utils.register_email_in_database', return_value=True)
+    @patch('common.email.registration_service._utils.register_email_in_database', return_value=True)
     def test_register_standard_report_success(self, mock_reg):
         logger = Mock()
         ok = register_standard_report(Mock(), application='EXPEDIENTES', subject='Subj', body_html='<html></html>', recipients='user@test', logger=logger)
@@ -13,7 +13,7 @@ class TestRegistrationService(unittest.TestCase):
         mock_reg.assert_called_once()
         logger.info.assert_called()
 
-    @patch('src.common.email.registration_service._utils.register_email_in_database', side_effect=Exception('db fail'))
+    @patch('common.email.registration_service._utils.register_email_in_database', side_effect=Exception('db fail'))
     def test_register_standard_report_exception(self, _mock_reg):
         logger = Mock()
         ok = register_standard_report(Mock(), application='EXPEDIENTES', subject='Subj', body_html='<html></html>', recipients='user@test', logger=logger)

@@ -206,8 +206,8 @@ class TestRiesgosManager(unittest.TestCase):
         
         self.assertFalse(result)
     
-    @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.common.utils.register_email_in_database')
+    @patch('riesgos.riesgos_manager.get_admin_emails_string')
+    @patch('common.utils.register_email_in_database')
     def test_execute_daily_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tareas diarias."""
         # Configurar mocks
@@ -240,7 +240,7 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
         self.manager.disconnect.assert_called_once()
     
-    @patch('src.common.utils.register_email_in_database')
+    @patch('common.utils.register_email_in_database')
     def test_execute_technical_task_success(self, mock_register_email):
         """Prueba ejecución exitosa de tarea técnica."""
         # Configurar usuarios mock
@@ -264,8 +264,8 @@ class TestRiesgosManager(unittest.TestCase):
         
         self.assertFalse(result)
     
-    @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.common.utils.register_email_in_database')
+    @patch('riesgos.riesgos_manager.get_admin_emails_string')
+    @patch('common.utils.register_email_in_database')
     def test_execute_quality_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tarea de calidad."""
         mock_get_emails.return_value = "admin@test.com"
@@ -285,8 +285,8 @@ class TestRiesgosManager(unittest.TestCase):
         
         self.assertFalse(result)
     
-    @patch('src.riesgos.riesgos_manager.get_admin_emails_string')
-    @patch('src.common.utils.register_email_in_database')
+    @patch('riesgos.riesgos_manager.get_admin_emails_string')
+    @patch('common.utils.register_email_in_database')
     def test_execute_monthly_quality_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tarea de calidad mensual."""
         mock_get_emails.return_value = "admin@test.com"

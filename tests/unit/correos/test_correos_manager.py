@@ -18,7 +18,7 @@ class TestCorreosManager:
     @pytest.fixture
     def mock_config(self):
         """Mock de configuración"""
-        with patch('src.correos.correos_manager.config') as mock_config:
+        with patch('correos.correos_manager.config') as mock_config:
             mock_config.smtp_server = "localhost"
             mock_config.smtp_port = 587
             mock_config.smtp_user = "test@example.com"
@@ -30,7 +30,7 @@ class TestCorreosManager:
     @pytest.fixture
     def mock_access_db(self):
         """Mock de AccessDatabase"""
-        with patch('src.correos.correos_manager.AccessDatabase') as mock_db_class:
+        with patch('correos.correos_manager.AccessDatabase') as mock_db_class:
             mock_db = Mock()
             mock_db_class.return_value = mock_db
             yield mock_db

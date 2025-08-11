@@ -14,7 +14,7 @@ class TestNotificationManager:
         """Configuración para cada test."""
         self.manager = NotificationManager()
     
-    @patch('src.common.notifications.smtplib.SMTP')
+    @patch('common.notifications.smtplib.SMTP')
     def test_send_email_success(self, mock_smtp):
         """Test envío exitoso de email."""
         # Configurar mock
@@ -33,7 +33,7 @@ class TestNotificationManager:
         mock_smtp.assert_called_once_with(self.manager.smtp_server, self.manager.smtp_port)
         mock_server.send_message.assert_called_once()
     
-    @patch('src.common.notifications.smtplib.SMTP')
+    @patch('common.notifications.smtplib.SMTP')
     def test_send_email_with_html(self, mock_smtp):
         """Test envío de email con contenido HTML."""
         # Configurar mock
@@ -52,7 +52,7 @@ class TestNotificationManager:
         assert result is True
         mock_server.send_message.assert_called_once()
     
-    @patch('src.common.notifications.smtplib.SMTP')
+    @patch('common.notifications.smtplib.SMTP')
     def test_send_email_failure(self, mock_smtp):
         """Test fallo en envío de email."""
         # Configurar mock para fallar
@@ -102,7 +102,7 @@ class TestNotificationManager:
 class TestSendNotification:
     """Tests para la función send_notification."""
     
-    @patch('src.common.notifications.NotificationManager')
+    @patch('common.notifications.NotificationManager')
     def test_send_notification_info(self, mock_manager_class):
         """Test envío de notificación tipo info."""
         mock_manager = Mock()
@@ -116,7 +116,7 @@ class TestSendNotification:
         assert result is True
         mock_manager.send_email.assert_called_once()
     
-    @patch('src.common.notifications.NotificationManager')
+    @patch('common.notifications.NotificationManager')
     def test_send_notification_error(self, mock_manager_class):
         """Test envío de notificación tipo error."""
         mock_manager = Mock()
@@ -130,7 +130,7 @@ class TestSendNotification:
         assert result is True
         mock_manager.send_error_notification.assert_called_once_with("Test error")
     
-    @patch('src.common.notifications.NotificationManager')
+    @patch('common.notifications.NotificationManager')
     def test_send_notification_success(self, mock_manager_class):
         """Test envío de notificación tipo success."""
         mock_manager = Mock()
