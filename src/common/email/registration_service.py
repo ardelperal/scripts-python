@@ -5,7 +5,7 @@ añade manejo de errores consistente y métrica (via logger.extra).
 """
 from __future__ import annotations
 
-from .. import utils as _utils
+from email_services.email_manager import EmailManager
 
 
 def register_standard_report(
@@ -20,8 +20,9 @@ def register_standard_report(
 ) -> bool:
     """Registra un informe HTML como correo pendiente de envío."""
     try:
-        success = _utils.register_email_in_database(
-            db_connection,
+        # Forzamos uso de pool 'tareas' (registro centralizado)
+        em = EmailManager("tareas")
+        success = em.register_email(
             application=application,
             subject=subject,
             body=body_html,

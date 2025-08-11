@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.abspath("src"))
 from common.config import Config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 # Simple smoke test: latest 5 registros por cada app relevante empiezan con <!DOCTYPE html>
 # (Asume tablas ya pobladas en entorno local.)

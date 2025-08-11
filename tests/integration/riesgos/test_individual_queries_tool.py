@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from common.config import Config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 # Mantener compatibilidad si los tests se ejecutan sin instalar el paquete
 project_root = Path(__file__).resolve().parents[2]

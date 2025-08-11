@@ -37,6 +37,13 @@ class TestNoConformidadesManager(unittest.TestCase):
             self.manager = NoConformidadesManager()
             self.mock_db = mock_db
 
+    def tearDown(self):  # Garantiza cierre de conexiones y evita uso de self fuera de métodos
+        try:
+            if hasattr(self, "manager") and self.manager:
+                self.manager.close_connections()
+        except Exception:
+            pass
+
     def test_init(self):
         """Test de inicialización del manager"""
         self.assertEqual(self.manager.name, "NoConformidades")

@@ -214,8 +214,6 @@ def mock_database_with_realistic_data():
 def mock_utils():
     """Mock de utilidades para tests funcionales"""
     with patch("src.agedys.agedys_manager.load_css_content") as mock_css, patch(
-        "src.agedys.agedys_manager.register_email_in_database"
-    ) as mock_register_email, patch(
         "src.agedys.agedys_manager.should_execute_task"
     ) as mock_should_execute, patch(
         "src.agedys.agedys_manager.register_task_completion"
@@ -232,13 +230,11 @@ def mock_utils():
 
         # Eliminados mocks de generate_html_header / generate_html_footer (wrappers legacy eliminados)
 
-        mock_register_email.return_value = True
         mock_should_execute.return_value = True
         mock_register_task.return_value = True
 
         yield {
             "css": mock_css,
-            "register_email": mock_register_email,
             "should_execute": mock_should_execute,
             "register_task": mock_register_task,
         }

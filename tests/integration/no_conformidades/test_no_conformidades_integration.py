@@ -44,8 +44,7 @@ class TestNoConformidadesIntegration(unittest.TestCase):
     def setUp(self):
         """Configuración para cada test"""
         cfg = self.__class__.config
-        from common.database import AccessDatabase
-
+        from common.db.database import AccessDatabase
         self.db_nc = AccessDatabase(cfg.db_no_conformidades_path)
         self.db_tareas = AccessDatabase(cfg.db_tareas_path)
         self.manager = NoConformidadesManager()

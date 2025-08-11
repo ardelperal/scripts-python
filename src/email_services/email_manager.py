@@ -15,7 +15,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
-from common.access_connection_pool import (
+from common.db.access_connection_pool import (
     get_correos_connection_pool,
     get_tareas_connection_pool,
 )
@@ -218,3 +218,42 @@ class EmailManager:
             self.db_pool.update_record("TbCorreosEnviados", update_data, where_clause)
         except Exception as e:  # pragma: no cover
             logger.error("Error marcando correo no enviado: %s", e)
+
+    # ---------------- Registro directo de correos (unificación) ----------------
+    def register_email(
+        self,
+        application: str,
+        subject: str,
+        body: str,
+        recipients: str,
+        admin_emails: str = "",
+    ) -> bool:
+        """Registra un correo en TbCorreosEnviados.
+
+        Sustituye a common.utils.register_email_in_database.
+        Usa el pool de conexiones interno según email_source.
+        """
+        try:
+            next_id = self.db_pool.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
+            email_data = {
+                "IDCorreo": next_id,
+                "Aplicacion": application,
+                "Asunto": subject,
+                "Cuerpo": body,
+                "Destinatarios": recipients if "@" in recipients else "",
+                "DestinatariosConCopiaOculta": admin_emails,
+                "FechaGrabacion": datetime.now(),
+            }
+            success = self.db_pool.insert_record("TbCorreosEnviados", email_data)
+            if success:
+                logger.info(
+                    "Correo registrado", extra={"event": "email_registered", "app": application}
+                )
+            else:
+                logger.error(
+                    "Error registrando correo", extra={"event": "email_register_error", "app": application}
+                )
+            return success
+        except Exception as e:  # pragma: no cover
+            logger.error("Fallo registrando correo: %s", e)
+            return False

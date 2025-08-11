@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common.html_report_generator import HTMLReportGenerator
+from common.reporting.html_report_generator import HTMLReportGenerator
 from common.reporting.table_builder import build_table_html
 from common.reporting.table_configurations import BRASS_TABLE_CONFIGURATIONS  # type: ignore
 

@@ -10,10 +10,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from .access_connection_pool import AccessConnectionPool, get_tareas_connection_pool
+from .db.access_connection_pool import AccessConnectionPool, get_tareas_connection_pool
 from .config import Config
-from .database import AccessDatabase
-from .utils import register_task_completion, should_execute_task
+from .db.database import AccessDatabase
 
 
 class BaseTask(ABC):
@@ -254,3 +253,117 @@ class TareaContinua(BaseTask):
         porque deben ejecutarse en cada ciclo
         """
         pass
+
+# ---------------------------------------------------------------------------
+# Funciones utilitarias relacionadas con tareas (movidas desde utils.py)
+# ---------------------------------------------------------------------------
+from datetime import datetime, date
+from typing import Optional
+import logging as _logging
+
+def register_task_completion(
+    db_connection, task_name: str, execution_date: Optional[date] = None
+) -> bool:
+    """Registra (o actualiza) la ejecución de una tarea en TbTareas.
+
+    Estrategia:
+      1. UPDATE si existe
+      2. INSERT con columnas estándar; fallback a esquema alternativo si falla
+    """
+    try:
+        if execution_date is None:
+            execution_date = date.today()
+        select_query = "SELECT * FROM TbTareas WHERE Tarea = ?"
+        rows = db_connection.execute_query(select_query, [task_name]) if db_connection else []
+        if rows:
+            try:
+                db_connection.execute_non_query(
+                    "UPDATE TbTareas SET Realizado = 'Sí', Fecha = ? WHERE Tarea = ?",
+                    [execution_date, task_name],
+                )
+            except Exception:
+                db_connection.execute_non_query(
+                    "UPDATE TbTareas SET FechaEjecucion = ? WHERE Tarea = ?",
+                    [datetime.now(), task_name],
+                )
+        else:
+            inserted = False
+            try:
+                db_connection.execute_non_query(
+                    "INSERT INTO TbTareas (Tarea, Realizado, Fecha) VALUES (?, 'Sí', ?)",
+                    [task_name, execution_date],
+                )
+                inserted = True
+            except Exception:
+                try:
+                    db_connection.execute_non_query(
+                        "INSERT INTO TbTareas (Tarea, FechaEjecucion) VALUES (?, ?)",
+                        [task_name, datetime.now()],
+                    )
+                    inserted = True
+                except Exception:
+                    inserted = False
+            if not inserted:
+                return False
+        return True
+    except Exception as e:  # pragma: no cover - defensivo
+        _logging.error(f"Error registrando finalización de tarea {task_name}: {e}")
+        return False
+
+
+def get_last_task_execution_date(db_connection, task_name: str) -> Optional[date]:
+    """Obtiene la última fecha de ejecución de una tarea (o None)."""
+    try:
+        query = """
+            SELECT MAX(COALESCE(FechaEjecucion, Fecha)) as UltimaFecha
+            FROM TbTareas
+            WHERE Tarea = ?
+        """
+        result = db_connection.execute_query(query, [task_name]) if db_connection else []
+        if result and result[0].get("UltimaFecha"):
+            fecha = result[0]["UltimaFecha"]
+            if isinstance(fecha, datetime):
+                return fecha.date()
+            return fecha
+        return None
+    except Exception as e:  # pragma: no cover - defensivo
+        _logging.error(
+            f"Error obteniendo fecha de última ejecución para {task_name}: {e}"
+        )
+        return None
+
+
+def should_execute_task(
+    db_connection, task_name: str, frequency_days: int, logger=None
+) -> bool:
+    """Determina si se debe ejecutar una tarea según frecuencia en días."""
+    try:
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        if last_execution is None:
+            if logger:
+                logger.info(
+                    f"No hay registro previo de tarea {task_name}, se requiere ejecutar"
+                )
+            return True
+        days_since_last = (date.today() - last_execution).days
+        should = days_since_last >= frequency_days
+        if logger:
+            logger.info(
+                f"Última ejecución tarea {task_name}: {last_execution}, días transcurridos: {days_since_last}, requiere: {should}"
+            )
+        return should
+    except Exception as e:  # pragma: no cover - defensivo
+        if logger:
+            logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        else:
+            _logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
+        return True
+
+__all__ = [
+    "BaseTask",
+    "TareaDiaria",
+    "TareaContinua",
+    "register_task_completion",
+    "get_last_task_execution_date",
+    "should_execute_task",
+]

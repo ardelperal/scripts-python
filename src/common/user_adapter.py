@@ -51,7 +51,7 @@ def get_technical_users_alternative(
         Lista de usuarios técnicos
     """
     try:
-        from .database import AccessDatabase
+        from .db.database import AccessDatabase
 
         # Usar la conexión de tareas para obtener usuarios
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
@@ -69,7 +69,6 @@ def get_technical_users_alternative(
 
         result = db_connection.execute_query(query)
         return result
-
     except Exception as e:
         logger.error(
             f"Error obteniendo usuarios técnicos para {app_id} (alternativo): {e}"
@@ -116,7 +115,7 @@ def get_quality_users_alternative(app_id: str, config, logger) -> list[dict[str,
     # 3) Sin filtro
     attempts.append((base_select, "nofilter"))
 
-    from .database import AccessDatabase
+    from .db.database import AccessDatabase
 
     db_connection = AccessDatabase(config.get_db_tareas_connection_string())
 
@@ -193,7 +192,7 @@ def get_economy_users_alternative(config, logger) -> list[dict[str, str]]:
         Lista de usuarios de economía
     """
     try:
-        from .database import AccessDatabase
+        from .db.database import AccessDatabase
 
         # Usar la conexión de tareas para obtener usuarios
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
@@ -269,3 +268,110 @@ def get_users_with_fallback(
             raise e
 
     return []
+
+
+# ---------------------------------------------------------------------------
+# Funciones migradas desde utils.py (retrocompatibilidad)
+# Centralizamos aquí la lógica de obtención de usuarios y cadenas de emails por rol.
+# ---------------------------------------------------------------------------
+
+def get_user_email(username: str, config, logger=None) -> str:
+    """Obtiene el correo electrónico de un usuario (retrocompat)."""
+    try:
+        from .db.database import AccessDatabase
+
+        db_connection = AccessDatabase(config.get_db_tareas_connection_string())
+        query = """
+            SELECT CorreoUsuario
+            FROM TbUsuariosAplicaciones
+            WHERE UsuarioRed = ?
+        """
+        result = db_connection.execute_query(query, [username])
+        if result and len(result) > 0:
+            email = result[0].get("CorreoUsuario", "")
+            return email or ""
+        return ""
+    except Exception as e:  # pragma: no cover
+        (logger or logging).error(f"Error obteniendo email para usuario {username}: {e}")
+        return ""
+
+
+def get_admin_emails_string(db_connection, config, logger) -> str:
+    """Cadena de emails de administradores. (Actualmente se asimilan a técnicos 'admin')."""
+    try:
+        users = get_users_with_fallback(
+            user_type="admin",
+            db_connection=db_connection,
+            config=config,
+            logger=logger,
+            app_id=None,
+        )
+        emails = [u.get("CorreoUsuario") for u in users if u.get("CorreoUsuario")]
+        if not emails:
+            # fallback: reutilizar técnicos si no hay admins explícitos
+            return get_technical_emails_string(db_connection, config, logger)
+        return ";".join(emails)
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Error obteniendo emails administradores: {e}")
+        return ""
+
+def get_technical_emails_string(db_connection, config, logger) -> str:
+    """Cadena de emails de usuarios técnicos (retrocompat)."""
+    try:
+        users = get_users_with_fallback(
+            user_type="technical",
+            db_connection=db_connection,
+            config=config,
+            logger=logger,
+            app_id=getattr(config, "app_id_agedys", None),
+        )
+        emails = [u.get("CorreoUsuario") for u in users if u.get("CorreoUsuario")]
+        return ";".join(emails)
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Error obteniendo emails técnicos: {e}")
+        return ""
+
+
+def get_quality_emails_string(app_id: str, config, logger, db_connection=None) -> str:
+    """Cadena de emails de usuarios de calidad (retrocompat)."""
+    try:
+        users = get_users_with_fallback(
+            user_type="quality",
+            db_connection=db_connection,
+            config=config,
+            logger=logger,
+            app_id=app_id,
+        )
+        emails = [u.get("CorreoUsuario") for u in users if u.get("CorreoUsuario")]
+        return ";".join(emails)
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Error obteniendo emails calidad: {e}")
+        return ""
+
+
+def get_economy_emails_string(config, logger) -> str:
+    """Cadena de emails de usuarios de economía (retrocompat)."""
+    try:
+        users = get_economy_users_alternative(config, logger)
+        emails = [u.get("CorreoUsuario") for u in users if u.get("CorreoUsuario")]
+        return ";".join(emails)
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Error obteniendo emails economía: {e}")
+        return ""
+
+
+__all__ = [
+    # funciones alternativas existentes
+    "get_admin_users_alternative",
+    "get_technical_users_alternative",
+    "get_quality_users_alternative",
+    "get_economy_users_alternative",
+    "get_users_with_fallback",
+    # nuevas migradas
+    "get_user_email",
+    "get_admin_emails_string",
+    "get_technical_emails_string",
+    "get_quality_emails_string",
+    "get_economy_emails_string",
+]
+

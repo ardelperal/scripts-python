@@ -4,7 +4,7 @@
 import pytest
 
 from common.config import config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 
 @pytest.fixture

@@ -59,7 +59,7 @@ NO_CONFORMIDADES_INCLUIR_ESTADISTICAS=true
 El módulo utiliza las siguientes dependencias del proyecto:
 
 - `src.common.config`: Configuración centralizada
-- `src.common.database`: Conexiones a base de datos
+- `src.common.db.database`: Conexiones a base de datos
 - `src.common.email_sender`: Envío de emails
 - `src.common.logger`: Sistema de logging
 

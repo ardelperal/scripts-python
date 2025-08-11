@@ -10,6 +10,7 @@ _SRC_DIR = _PROJECT_ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
+from common.logger import setup_global_logging  # type: ignore
 from common.utils import ensure_project_root_in_path, execute_task_with_standard_boilerplate  # type: ignore
 from agedys.agedys_task import AgedysTask  # type: ignore
 
@@ -28,6 +29,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None):  # pragma: no cover
     args = parse_args(argv)
+    setup_global_logging()
     task = AgedysTask()
     exit_code = execute_task_with_standard_boilerplate("AGEDYS", task, force=args.force)
     sys.exit(exit_code)

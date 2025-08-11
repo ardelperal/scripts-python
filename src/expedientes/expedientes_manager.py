@@ -9,8 +9,8 @@ import json
 import logging
 from datetime import datetime
 
-from common.database import AccessDatabase
-from common.html_report_generator import HTMLReportGenerator
+from common.db.database import AccessDatabase
+from common.reporting.html_report_generator import HTMLReportGenerator
 from common.reporting.table_builder import build_table_html
 
 

@@ -27,9 +27,9 @@ def test_simple_mode_executes(monkeypatch):
     # Si no existen tareas, el runner debe terminar igualmente sin error.
     result = run(["--simple"])
     assert result.returncode == 0, result.stderr
-    out_low = (result.stdout + result.stderr).lower()
-    assert "modo simple" in out_low or "resumen (modo simple" in out_low
-    assert "resumen" in out_low
+    combined = result.stdout + result.stderr
+    # Verificamos específicamente la presencia del resumen de modo simple
+    assert "RESUMEN (MODO SIMPLE)" in combined.upper()
 
 
 def test_classic_single_cycle_mode(monkeypatch):

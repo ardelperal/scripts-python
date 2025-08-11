@@ -18,6 +18,10 @@ def test_scripts_config_exists():
 def test_run_master_loads_config(monkeypatch):
     env = os.environ.copy()
     env["MASTER_DRY_SUBPROCESS"] = "1"  # dry-run rápido
+    # Asegurar que src está en PYTHONPATH para imports de 'common'
+    src_path = str(Path(__file__).parent.parent.parent.parent / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = src_path + (os.pathsep + existing if existing else "")
     proc = subprocess.run(
         [sys.executable, str(SCRIPT), "--single-cycle", "--verbose"],
         capture_output=True,

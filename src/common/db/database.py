@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from .access_connection_pool import AccessConnectionPool
-from .utils import hide_password_in_connection_string
+from ..utils import hide_password_in_connection_string
 
 logger = logging.getLogger(__name__)
 

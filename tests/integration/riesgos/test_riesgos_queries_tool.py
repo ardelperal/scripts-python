@@ -16,7 +16,7 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root / "src"))
 
 from common.config import Config  # noqa: E402
-from common.database import AccessDatabase  # noqa: E402
+from common.db.database import AccessDatabase  # noqa: E402
 
 
 def test_riesgos_queries():

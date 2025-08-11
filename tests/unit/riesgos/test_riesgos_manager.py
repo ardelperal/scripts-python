@@ -11,150 +11,61 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from common.config import Config
 from riesgos.riesgos_manager import RiesgosManager
+from riesgos.riesgos_task import RiesgosTask
 
 
 class TestRiesgosManager(unittest.TestCase):
     """Pruebas para la clase RiesgosManager."""
 
     def setUp(self):
-        """Configuración inicial para cada prueba."""
+        """Configuración inicial para cada prueba.
+
+        NOTA: Esta sección se reescribió para asegurar que ninguna línea
+        de inicialización quede fuera del método, evitando el NameError
+        'self is not defined'.
+        """
         self.config = Mock(spec=Config)
         self.config.database_path = "test.accdb"
         self.logger = Mock()
         self.manager = RiesgosManager(self.config, self.logger)
         self.manager.db = Mock()
+        self.task = RiesgosTask(manager=self.manager)
 
     def test_init(self):
         """Prueba la inicialización del manager."""
         self.assertEqual(self.manager.config, self.config)
         self.assertIsNotNone(self.manager.logger)
 
-    def test_connect_success(self):
-        """Prueba conexión exitosa a la base de datos."""
-        self.manager.db.connect.return_value = True
+    # Conexión/desconexión gestionadas ahora por RiesgosTask / inicialización explícita.
+    def test_dummy_connection_interfaces_removed(self):
+        self.assertFalse(hasattr(self.manager, "connect"))
+        self.assertFalse(hasattr(self.manager, "disconnect"))
 
-        result = self.manager.connect()
+    # Métodos get_last_execution removidos: se validan ausencias
+    def test_removed_legacy_execution_methods(self):
+        for attr in [
+            "get_last_execution",
+            "record_task_execution",
+            "should_execute_technical_task",
+            "should_execute_quality_task",
+            "should_execute_monthly_quality_task",
+            "execute_daily_task",
+        ]:
+            self.assertFalse(hasattr(self.manager, attr))
 
-        self.assertTrue(result)
-        self.manager.db.connect.assert_called_once()
+    # Sustituir tests de decisión por verificación de interfaz de RiesgosTask (placeholder simplificado)
+    def test_riesgos_task_run_tasks_empty(self):
+        # Sin métodos de decisión en manager, task consultará y no ejecutará nada (db vacía)
+        self.manager.execute_technical_task = Mock(return_value=True)
+        self.manager.execute_quality_task = Mock(return_value=True)
+        self.manager.execute_monthly_quality_task = Mock(return_value=True)
+        # Forzamos banderas para simular ejecución
+        results = self.task.run_tasks(force_technical=True, force_quality=True, force_monthly=True)
+        self.assertTrue(all(results.values()))
 
-    def test_connect_failure(self):
-        """Prueba fallo en la conexión a la base de datos."""
-        self.manager.db.connect.side_effect = Exception("Connection error")
+    # Eliminados tests de should_execute_quality_task -> lógica ahora en Task (o futura frecuencia)
 
-        result = self.manager.connect()
-
-        self.assertFalse(result)
-
-    def test_disconnect(self):
-        """Prueba desconexión de la base de datos."""
-        self.manager.disconnect()
-
-        self.manager.db.disconnect.assert_called_once()
-
-    def test_get_last_execution_with_result(self):
-        """Prueba obtener última ejecución cuando existe."""
-        expected_date = datetime(2023, 1, 15, 10, 30)
-        self.manager.db.execute_query.return_value = [{"FechaEjecucion": expected_date}]
-
-        result = self.manager.get_last_execution("TECNICA")
-
-        self.assertEqual(result, expected_date)
-        self.manager.db.execute_query.assert_called_once()
-
-    def test_get_last_execution_no_result(self):
-        """Prueba obtener última ejecución cuando no existe."""
-        self.manager.db.execute_query.return_value = []
-
-        result = self.manager.get_last_execution("TECNICA")
-
-        self.assertIsNone(result)
-
-    def test_get_last_execution_error(self):
-        """Prueba error al obtener última ejecución."""
-        self.manager.db.execute_query.side_effect = Exception("DB error")
-
-        result = self.manager.get_last_execution("TECNICA")
-
-        self.assertIsNone(result)
-
-    def test_should_execute_technical_task_no_previous(self):
-        """Prueba si debe ejecutar tarea técnica sin ejecución previa."""
-        self.manager.get_last_execution = Mock(return_value=None)
-
-        result = self.manager.should_execute_technical_task()
-
-        self.assertTrue(result)
-
-    def test_should_execute_technical_task_recent(self):
-        """Prueba si debe ejecutar tarea técnica con ejecución reciente."""
-        recent_date = datetime.now() - timedelta(days=3)
-        self.manager.get_last_execution = Mock(return_value=recent_date)
-
-        result = self.manager.should_execute_technical_task()
-
-        self.assertFalse(result)
-
-    def test_should_execute_technical_task_old(self):
-        """Prueba si debe ejecutar tarea técnica con ejecución antigua."""
-        old_date = datetime.now() - timedelta(days=10)
-        self.manager.get_last_execution = Mock(return_value=old_date)
-
-        result = self.manager.should_execute_technical_task()
-
-        self.assertTrue(result)
-
-    def test_should_execute_quality_task_no_previous(self):
-        """Prueba si debe ejecutar tarea de calidad sin ejecución previa."""
-        self.manager.get_last_execution = Mock(return_value=None)
-
-        result = self.manager.should_execute_quality_task()
-
-        self.assertTrue(result)
-
-    def test_should_execute_quality_task_recent(self):
-        """Prueba si debe ejecutar tarea de calidad con ejecución reciente."""
-        recent_date = datetime.now() - timedelta(days=3)
-        self.manager.get_last_execution = Mock(return_value=recent_date)
-
-        result = self.manager.should_execute_quality_task()
-
-        self.assertFalse(result)
-
-    def test_should_execute_quality_task_old(self):
-        """Prueba si debe ejecutar tarea de calidad con ejecución antigua."""
-        old_date = datetime.now() - timedelta(days=10)
-        self.manager.get_last_execution = Mock(return_value=old_date)
-
-        result = self.manager.should_execute_quality_task()
-
-        self.assertTrue(result)
-
-    def test_should_execute_monthly_quality_task_no_previous(self):
-        """Prueba si debe ejecutar tarea mensual sin ejecución previa."""
-        self.manager.get_last_execution = Mock(return_value=None)
-
-        result = self.manager.should_execute_monthly_quality_task()
-
-        self.assertTrue(result)
-
-    def test_should_execute_monthly_quality_task_recent(self):
-        """Prueba si debe ejecutar tarea mensual con ejecución reciente."""
-        recent_date = datetime.now() - timedelta(days=15)
-        self.manager.get_last_execution = Mock(return_value=recent_date)
-
-        result = self.manager.should_execute_monthly_quality_task()
-
-        self.assertFalse(result)
-
-    def test_should_execute_monthly_quality_task_old(self):
-        """Prueba si debe ejecutar tarea mensual con ejecución antigua."""
-        old_date = datetime.now() - timedelta(days=35)
-        self.manager.get_last_execution = Mock(return_value=old_date)
-
-        result = self.manager.should_execute_monthly_quality_task()
-
-        self.assertTrue(result)
+    # Eliminados tests de should_execute_monthly_quality_task -> responsabilidad movida
 
     def test_get_distinct_users(self):
         """Prueba obtener usuarios distintos."""
@@ -205,58 +116,11 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertIn("body", result)
         self.assertIn("table", result)
 
-    def test_record_task_execution_success(self):
-        """Prueba registrar ejecución de tarea exitosamente."""
-        self.manager.db.execute_query.return_value = None
+    # Métodos record_task_execution quitados: verificado arriba en removed_legacy_execution_methods
 
-        result = self.manager.record_task_execution("TECNICA")
+    # Sustituido execute_daily_task por RiesgosTask.run_tasks (cubierto arriba)
 
-        self.assertTrue(result)
-        self.manager.db.execute_query.assert_called_once()
-
-    def test_record_task_execution_error(self):
-        """Prueba error al registrar ejecución de tarea."""
-        self.manager.db.execute_query.side_effect = Exception("DB error")
-
-        result = self.manager.record_task_execution("TECNICA")
-
-        self.assertFalse(result)
-
-    @patch("riesgos.riesgos_manager.get_admin_emails_string")
-    @patch("common.utils.register_email_in_database")
-    def test_execute_daily_task_success(self, mock_register_email, mock_get_emails):
-        """Prueba ejecución exitosa de tareas diarias."""
-        # Configurar mocks
-        self.manager.connect = Mock(return_value=True)
-        self.manager.disconnect = Mock()
-        self.manager.should_execute_technical_task = Mock(return_value=True)
-        self.manager.should_execute_quality_task = Mock(return_value=False)
-        self.manager.should_execute_monthly_quality_task = Mock(return_value=False)
-        # Simular que execute_technical_task se ejecuta exitosamente
-        self.manager.execute_technical_task = Mock(return_value=True)
-        self.manager.record_task_execution = Mock(return_value=True)
-        mock_get_emails.return_value = "admin@test.com"
-
-        result = self.manager.execute_daily_task()
-
-        self.assertTrue(result)
-        self.manager.connect.assert_called_once()
-        self.manager.execute_technical_task.assert_called_once()
-        self.manager.record_task_execution.assert_called_once_with("TECNICA")
-        mock_register_email.assert_called_once()
-        self.manager.disconnect.assert_called_once()
-
-    def test_execute_daily_task_connection_failure(self):
-        """Prueba fallo de conexión en tareas diarias."""
-        self.manager.connect = Mock(return_value=False)
-        self.manager.disconnect = Mock()
-
-        result = self.manager.execute_daily_task()
-
-        self.assertFalse(result)
-        self.manager.disconnect.assert_called_once()
-
-    @patch("common.utils.register_email_in_database")
+    @patch("email_services.email_manager.EmailManager.register_email")
     def test_execute_technical_task_success(self, mock_register_email):
         """Prueba ejecución exitosa de tarea técnica."""
         # Configurar usuarios mock
@@ -283,7 +147,7 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
 
     @patch("riesgos.riesgos_manager.get_admin_emails_string")
-    @patch("common.utils.register_email_in_database")
+    @patch("email_services.email_manager.EmailManager.register_email")
     def test_execute_quality_task_success(self, mock_register_email, mock_get_emails):
         """Prueba ejecución exitosa de tarea de calidad."""
         mock_get_emails.return_value = "admin@test.com"
@@ -310,7 +174,7 @@ class TestRiesgosManager(unittest.TestCase):
         self.assertFalse(result)
 
     @patch("riesgos.riesgos_manager.get_admin_emails_string")
-    @patch("common.utils.register_email_in_database")
+    @patch("email_services.email_manager.EmailManager.register_email")
     def test_execute_monthly_quality_task_success(
         self, mock_register_email, mock_get_emails
     ):

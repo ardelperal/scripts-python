@@ -7,7 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from .html_report_generator import HTMLReportGenerator
+# Obsoleto: HTMLReportGenerator movido a common.reporting.html_report_generator (archivo legacy)
 from .utils import send_email, setup_logging
 
 
@@ -69,108 +69,12 @@ class BaseEmailNotificationManager(ABC):
             return resultado
 
         except Exception as e:
-            self.logger.error(f"Error enviando notificación simple: {e}")
-            return False
+            """Archivo legacy (BaseEmailNotificationManager) deprecado.
 
-    def send_html_report(
-        self, to_addresses: list[str], subject: str, html_content: str
-    ) -> bool:
-        """
-        Envía un reporte HTML.
+            Con la introducción de EmailManager y EmailServicesTask este archivo se mantiene
+            solo para evitar errores de import en código antiguo. No usar en nuevo código.
+            """
 
-        Args:
-            to_addresses: Lista de direcciones de email
-            subject: Asunto del email
-            html_content: Contenido HTML del reporte
+            class BaseEmailNotificationManager:  # pragma: no cover - legacy stub
+                pass
 
-        Returns:
-            True si se envió correctamente
-        """
-        return self.send_simple_notification(
-            to_addresses=to_addresses, subject=subject, body=html_content, is_html=True
-        )
-
-    def send_error_notification(
-        self, error_message: str, admin_emails: list[str]
-    ) -> bool:
-        """
-        Envía una notificación de error a los administradores.
-
-        Args:
-            error_message: Mensaje de error
-            admin_emails: Lista de emails de administradores
-
-        Returns:
-            True si se envió correctamente
-        """
-        subject = f"Error en {self.module_name}"
-        body = f"""
-        <h2>Error en {self.module_name}</h2>
-        <p><strong>Fecha:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p><strong>Error:</strong> {error_message}</p>
-        <p>Por favor, revise el sistema lo antes posible.</p>
-        """
-
-        return self.send_html_report(
-            to_addresses=admin_emails, subject=subject, html_content=body
-        )
-
-    def send_success_notification(self, message: str, admin_emails: list[str]) -> bool:
-        """
-        Envía una notificación de éxito a los administradores.
-
-        Args:
-            message: Mensaje de éxito
-            admin_emails: Lista de emails de administradores
-
-        Returns:
-            True si se envió correctamente
-        """
-        subject = f"Operación completada en {self.module_name}"
-        body = f"""
-        <h2>Operación Completada - {self.module_name}</h2>
-        <p><strong>Fecha:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p><strong>Resultado:</strong> {message}</p>
-        <p>La operación se completó exitosamente.</p>
-        """
-
-        return self.send_html_report(
-            to_addresses=admin_emails, subject=subject, html_content=body
-        )
-
-    @abstractmethod
-    def get_admin_emails(self) -> list[str]:
-        """
-        Obtiene la lista de emails de administradores.
-        Debe ser implementado por cada módulo específico.
-
-        Returns:
-            Lista de emails de administradores
-        """
-        raise NotImplementedError("Subclases deben implementar get_admin_emails()")
-
-    @abstractmethod
-    def generate_module_report(self, **kwargs) -> str:
-        """
-        Genera un reporte específico del módulo.
-        Debe ser implementado por cada módulo específico.
-
-        Returns:
-            Contenido HTML del reporte
-        """
-        raise NotImplementedError(
-            "Subclases deben implementar generate_module_report()"
-        )
-
-    def log_email_sent(self, to_addresses: list[str], subject: str, success: bool):
-        """
-        Registra el envío de un email en los logs.
-
-        Args:
-            to_addresses: Destinatarios del email
-            subject: Asunto del email
-            success: Si el envío fue exitoso
-        """
-        status = "exitosamente" if success else "con error"
-        recipients_str = ", ".join(to_addresses)
-        self.logger.info(f"Email '{subject}' enviado {status} a: {recipients_str}")

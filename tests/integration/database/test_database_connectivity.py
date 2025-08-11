@@ -9,7 +9,7 @@ import pyodbc
 import pytest
 
 from common.config import config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 # Añadir src al path para importar módulos
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "src"

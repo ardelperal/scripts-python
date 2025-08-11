@@ -23,8 +23,8 @@ if src_dir not in os.sys.path:
     os.sys.path.insert(0, src_dir)
 
 from common.config import config
-from common.database import AccessDatabase
-from common.html_report_generator import HTMLReportGenerator
+from common.db.database import AccessDatabase
+from common.reporting.html_report_generator import HTMLReportGenerator
 from common.user_adapter import get_users_with_fallback
 # --- TypedDicts integrados (antes en types.py) ---
 class ARTecnicaRecord(TypedDict, total=False):
@@ -72,7 +72,7 @@ class NoConformidadesManager:
         # Conexión BD tareas (legacy: algunos métodos registran correos directamente)
         self.db_tareas = None
         try:  # Inicialización ligera; si falla se deja en None y métodos manejarán
-            from common.access_connection_pool import get_tareas_connection_pool
+            from common.db.access_connection_pool import get_tareas_connection_pool
             from common.config import Config
             cfg = Config()
             conn_str = cfg.get_db_tareas_connection_string()

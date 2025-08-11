@@ -6,7 +6,7 @@ import sys
 import unittest
 
 from common.config import Config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from expedientes.expedientes_manager import ExpedientesManager
 
 # Agregar el directorio src al path

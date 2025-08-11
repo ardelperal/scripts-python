@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from expedientes.expedientes_manager import ExpedientesManager
 
 

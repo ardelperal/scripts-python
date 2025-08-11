@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from agedys.agedys_manager import AgedysManager
 from common import config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from common.utils import (
     register_task_completion,
     should_execute_task,

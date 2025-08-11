@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 # Añadir src al path
 src_path = Path(__file__).parent.parent.parent / "src"
@@ -33,7 +33,7 @@ class TestAccessDatabase:
         assert access_db.connection_string == mock_connection_string
         assert access_db._connection is None
 
-    @patch("common.database.pyodbc.connect")
+    @patch("common.db.database.pyodbc.connect")
     def test_connect_success(self, mock_connect, access_db):
         """Test conexión exitosa"""
         mock_connection = Mock()
@@ -45,7 +45,7 @@ class TestAccessDatabase:
         assert result == mock_connection
         assert access_db._connection == mock_connection
 
-    @patch("common.database.pyodbc.connect")
+    @patch("common.db.database.pyodbc.connect")
     def test_connect_failure(self, mock_connect, access_db):
         """Test fallo en conexión"""
         mock_connect.side_effect = Exception("Connection failed")
@@ -80,7 +80,7 @@ class TestAccessDatabase:
         mock_connect.assert_called_once()
         mock_disconnect.assert_called_once()
 
-    @patch("common.database.pyodbc.connect")
+    @patch("common.db.database.pyodbc.connect")
     def test_execute_query_success(self, mock_connect, access_db):
         """Test ejecución exitosa de consulta"""
         # Mock de conexión y cursor
@@ -99,7 +99,7 @@ class TestAccessDatabase:
         expected = [{"id": 1, "name": "Test"}, {"id": 2, "name": "Test2"}]
         assert result == expected
 
-    @patch("common.database.pyodbc.connect")
+    @patch("common.db.database.pyodbc.connect")
     def test_execute_query_with_params(self, mock_connect, access_db):
         """Test ejecución de consulta con parámetros"""
         mock_conn = Mock()
@@ -120,7 +120,7 @@ class TestAccessDatabase:
         )
         assert result == [{"count": 5}]
 
-    @patch("common.database.pyodbc.connect")
+    @patch("common.db.database.pyodbc.connect")
     def test_execute_non_query_success(self, mock_connect, access_db):
         """Test ejecución exitosa de consulta no-SELECT"""
         mock_conn = Mock()

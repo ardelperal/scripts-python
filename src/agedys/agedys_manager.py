@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common.html_report_generator import HTMLReportGenerator
+from common.reporting.html_report_generator import HTMLReportGenerator
 from common.reporting.table_builder import build_table_html
 from common.reporting.table_configurations import AGEDYS_TABLE_CONFIGURATIONS  # type: ignore
 
@@ -35,7 +35,7 @@ try:  # pragma: no cover - defensivo
 except Exception:  # pragma: no cover
     config = None  # type: ignore
 try:  # pragma: no cover
-    from common.database import AccessDatabase  # type: ignore
+    from common.db.database import AccessDatabase  # type: ignore
 except Exception:  # pragma: no cover
     AccessDatabase = None  # type: ignore
 

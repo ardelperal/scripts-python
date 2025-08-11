@@ -38,7 +38,7 @@ class TestBrassIntegration:
         assert "Tareas_datos1.accdb" in tareas_conn
         assert config.db_password in tareas_conn
 
-    @patch("src.common.database.AccessDatabase")
+    @patch("src.common.db.database.AccessDatabase")
     def test_brass_task_initialization(self, mock_db_class):
         """Test BRASS: inicialización correcta de BrassTask (nuevo patrón)"""
         mock_db = MagicMock()
@@ -46,7 +46,7 @@ class TestBrassIntegration:
         task = BrassTask()
         assert task is not None
 
-    @patch("src.common.database.AccessDatabase")
+    @patch("src.common.db.database.AccessDatabase")
     def test_brass_task_workflow_empty_report(self, mock_db_class):
         """Flujo BrassTask cuando el manager devuelve informe vacío (no registra correo)."""
         mock_db = MagicMock()
@@ -59,7 +59,7 @@ class TestBrassIntegration:
             assert ok is True
             instance.generate_brass_report_html.assert_called_once()
 
-    @patch("src.common.database.AccessDatabase")
+    @patch("src.common.db.database.AccessDatabase")
     def test_brass_task_workflow_with_report(self, mock_db_class):
         """Flujo BrassTask con informe no vacío registra correo estándar."""
         mock_db = MagicMock()

@@ -39,7 +39,7 @@ def test_execute_quality_task_no_users_fallback(manager, monkeypatch):
         lambda *a, **k: "admin@test",
     )
     monkeypatch.setattr(
-        "src.common.utils.register_email_in_database", lambda *a, **k: True
+        "email_services.email_manager.EmailManager.register_email", lambda *a, **k: True
     )
     monkeypatch.setattr(
         "src.common.utils.register_task_completion", lambda *a, **k: True
@@ -56,7 +56,7 @@ def test_execute_monthly_quality_task_admin_fallback(manager, monkeypatch):
         lambda *a, **k: "admin@test",
     )
     monkeypatch.setattr(
-        "src.common.utils.register_email_in_database", lambda *a, **k: True
+        "email_services.email_manager.EmailManager.register_email", lambda *a, **k: True
     )
     monkeypatch.setattr(
         "src.common.utils.register_task_completion", lambda *a, **k: True

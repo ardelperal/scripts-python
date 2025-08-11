@@ -2,7 +2,7 @@ import os
 import re
 import sys
 
-from common.html_report_generator import HTMLReportGenerator
+from common.reporting.html_report_generator import HTMLReportGenerator
 
 # Agregar src al path
 current_dir = os.path.dirname(os.path.abspath(__file__))

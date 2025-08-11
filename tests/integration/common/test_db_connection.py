@@ -8,7 +8,7 @@ import os
 import pytest
 
 from common.config import config
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 
 
 def test_correos_db():

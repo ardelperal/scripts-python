@@ -4,9 +4,9 @@ Responsabilidad: decidir ejecución (frecuencia) y registrar correo estándar si
 """
 import os
 
-from common.access_connection_pool import get_agedys_connection_pool
+from common.db.access_connection_pool import get_agedys_connection_pool
 from common.base_task import TareaDiaria
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import (
     register_standard_report,  # fallback temporal

@@ -16,6 +16,8 @@ El proceso principal se lanza mediante `scripts/run_master.py` y puede trabajar 
 1. Modo continuo (por defecto): bucle infinito que ejecuta tareas según ventanas horarias y tipo de día.
 2. Modo simple (`--simple`): ejecuta una sola pasada (útil para cron, pruebas o diagnósticos rápidos).
 
+<!-- (Sección de cambios avanzados omitida en fase alfa para presentar el proyecto como entrega inicial) -->
+
 Tipos de tareas:
 - Tareas diarias: se ejecutan una vez por día laborable (tras la hora configurada interna, por defecto >= 07:00).
 - Tareas continuas: se ejecutan en cada ciclo (por ejemplo, envío de correos pendientes).
@@ -267,8 +269,8 @@ Los runners llaman a `ensure_project_root_in_path()` (en `common.utils`) para in
 ### Acceso unificado a BD
 
 ```python
-from common.database import AccessDatabase
-from common.access_connection_pool import get_tareas_connection_pool
+from common.db.database import AccessDatabase
+from common.db.access_connection_pool import get_tareas_connection_pool
 from common.config import config
 
 conn_str = config.get_db_tareas_connection_string()
@@ -511,7 +513,7 @@ Automatizar el seguimiento y la comunicación sobre:
 |------------|---------|-----------------------|
 | Runner CLI | `scripts/run_no_conformidades.py` | Orquestación, flags de fuerza / dry-run, logging y registro de tareas. |
 | Manager | `src/no_conformidades/no_conformidades_manager.py` | Lógica de negocio, consultas SQL, flujo de generación interna. |
-| Generador HTML | `src/common/html_report_generator.py` | Header / footer modernos y tablas unificadas. |
+| Generador HTML | `src/common/reporting/html_report_generator.py` | Header / footer modernos y tablas unificadas. |
 | Tipos | Integrados en `no_conformidades_manager.py` | TypedDict para AR técnicas y calidad. |
 | Persistencia Avisos | Tabla `TbNCARAvisos` | Evita correos repetidos por AR y rango (0 / 7 / 15 días). |
 | Registro Email | Tabla `TbCorreosEnviados` (BD Tareas) | Trazabilidad de envíos y cuerpo HTML. |
@@ -1774,8 +1776,9 @@ execute_specific_logic():
 
 - **config.py**: Gestión centralizada de configuración
 - **database.py**: Abstracción para bases de datos Access con ODBC  
-- (Eliminado) `database_adapter.py` sustituido por `AccessDatabase`
+- (Adaptador futuro) simplificación prevista para unificar accesos
 - **utils.py**: Utilidades compartidas (HTML, fechas, logging)
+<!-- Detalles de reporting avanzado se documentarán en una versión posterior -->
 
 ### Mejoras vs VBS Original
 

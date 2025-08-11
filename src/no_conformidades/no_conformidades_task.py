@@ -10,16 +10,13 @@ from __future__ import annotations
 
 import os
 
-from common.access_connection_pool import get_nc_connection_pool
+from common.db.access_connection_pool import get_nc_connection_pool
 from common.base_task import TareaDiaria
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from common.email.registration_service import register_standard_report
-from common.utils import (
-    get_quality_emails_string,
-    get_user_email,
-    register_email_in_database,
-    register_task_completion,
-)
+from common.user_adapter import get_quality_emails_string, get_user_email
+from common.base_task import register_task_completion
+from email_services.email_manager import EmailManager
 
 from .no_conformidades_manager import NoConformidadesManager
 
@@ -171,11 +168,10 @@ class NoConformidadesTask(TareaDiaria):
                 if not correo_tecnico:
                     continue
                 cuerpo = self._render_html_tecnico(data)
-                ok = register_email_in_database(
-                    db_connection=self.db_tareas,
+                em = EmailManager("tareas")
+                ok = em.register_email(
                     application="NoConformidades",
-                    subject="Tareas de Acciones Correctivas a punto de caducar o "
-                    "caducadas (No Conformidades)",
+                    subject="Tareas de Acciones Correctivas a punto de caducar o caducadas (No Conformidades)",
                     body=cuerpo,
                     recipients=correo_tecnico,
                     admin_emails=self._collect_responsables_calidad(manager_full, data),

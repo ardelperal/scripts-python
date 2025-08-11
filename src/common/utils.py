@@ -1,7 +1,48 @@
 """Utilidades comunes para el proyecto
 """
 import logging
-import holidays
+try:  # hacer opcional la dependencia de holidays para entornos de test minimalistas
+    import holidays  # type: ignore
+except Exception:  # pragma: no cover - si no está instalada
+    holidays = None  # type: ignore
+    
+    
+    
+# ---------------------------------------------------------------------------
+# Retrocompatibilidad: re-export de funciones movidas a otros módulos para tests
+# ---------------------------------------------------------------------------
+try:  # pragma: no cover
+    from .base_task import (
+        register_task_completion as register_task_completion,  # noqa: F401
+        should_execute_task as should_execute_task,  # noqa: F401
+        get_last_task_execution_date as get_last_task_execution_date,  # noqa: F401
+    )
+except Exception:  # pragma: no cover
+    pass
+
+# Alias públicos para compatibilidad (tests esperan en common.utils)
+try:  # pragma: no cover
+    from .base_task import (
+        register_task_completion as _rtc,
+        should_execute_task as _set,
+        get_last_task_execution_date as _glt,
+    )
+    register_task_completion = _rtc  # type: ignore
+    should_execute_task = _set  # type: ignore
+    get_last_task_execution_date = _glt  # type: ignore
+except Exception:  # pragma: no cover
+    pass
+
+try:  # pragma: no cover
+    from .user_adapter import (
+        get_quality_emails_string as get_quality_emails_string,  # noqa: F401
+        get_technical_emails_string as get_technical_emails_string,  # noqa: F401
+        get_economy_emails_string as get_economy_emails_string,  # noqa: F401
+        get_user_email as get_user_email,  # noqa: F401
+        get_admin_emails_string as get_admin_emails_string,  # noqa: F401
+    )
+except Exception:  # pragma: no cover
+    pass
 import os
 import re
 from datetime import date, datetime, timedelta
@@ -18,6 +59,45 @@ from queue import Queue
 
 # Importar config para funciones que lo necesitan
 from .config import config
+# Nota: las funciones de tareas (get_last_task_execution_date, etc.) se
+# importan de forma diferida para evitar ciclos con common.db.database.
+
+__all__ = [
+    # scheduling helpers (re-export)
+    "register_task_completion",
+    "should_execute_task",
+    "get_last_task_execution_date",
+    # user/email helpers (re-export)
+    "get_quality_emails_string",
+    "get_technical_emails_string",
+    "get_economy_emails_string",
+    "get_admin_emails_string",
+    "get_user_email",
+]
+
+# Lazy wrappers para compatibilidad si el import temprano de base_task falla.
+def register_task_completion(db_connection, task_name: str):  # type: ignore
+    from .base_task import register_task_completion as _impl
+
+    return _impl(db_connection, task_name)
+
+
+def should_execute_task(db_connection, task_name: str, frequency_days: int, logger=None):  # type: ignore
+    # Implementación inline para respetar monkeypatch en tests sobre get_last_task_execution_date
+    try:
+        last_execution = get_last_task_execution_date(db_connection, task_name)
+        if last_execution is None:
+            return True
+        days_since_last = (date.today() - last_execution).days  # type: ignore[name-defined]
+        return days_since_last >= frequency_days
+    except Exception:
+        return True
+
+
+def get_last_task_execution_date(db_connection, task_name: str):  # type: ignore
+    from .base_task import get_last_task_execution_date as _impl
+
+    return _impl(db_connection, task_name)
 
 
 def hide_password_in_connection_string(connection_string: str) -> str:
@@ -106,13 +186,19 @@ def setup_logging(log_file: Path, level=logging.INFO):
 
 # Inicializa el objeto una sola vez a nivel de módulo para mayor eficiencia
 # 'M' es el código para la Comunidad de Madrid
-try:
-    festivos_madrid = holidays.ES(prov='M')
-    HOLIDAYS_LIB_AVAILABLE = True
-except Exception:
+if holidays is not None:
+    try:
+        festivos_madrid = holidays.ES(prov='M')
+        HOLIDAYS_LIB_AVAILABLE = True
+    except Exception:  # pragma: no cover
+        festivos_madrid = None
+        HOLIDAYS_LIB_AVAILABLE = False
+        logging.warning(
+            "No se pudo inicializar la librería 'holidays'. Se usará el archivo local como fallback."
+        )
+else:  # sin paquete holidays instalado
     festivos_madrid = None
     HOLIDAYS_LIB_AVAILABLE = False
-    logging.warning("No se pudo inicializar la librería 'holidays'. Se usará el archivo local como fallback.")
 
 def es_laborable(fecha: date = None, festivos_file_path: Path = None) -> bool:
     """
@@ -327,85 +413,6 @@ def format_date(date_value, format_str: str = "%d/%m/%Y") -> str:
     return str(date_value)
 
 
-def get_admin_users(db_connection) -> list[dict[str, str]]:
-    """
-    Obtiene la lista de usuarios administradores desde la base de datos
-
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-
-    Returns:
-        Lista de usuarios administradores
-    """
-    try:
-        query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario
-            FROM TbUsuariosAplicaciones ua
-            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario
-            WHERE ua.ParaTareasProgramadas = True
-            AND ua.FechaBaja IS NULL
-            AND uat.EsAdministrador = 'Sí'
-        """
-
-        result = db_connection.execute_query(query)
-        return result
-
-    except Exception as e:
-        logging.error(f"Error obteniendo usuarios administradores: {e}")
-        return []
-
-
-def get_technical_emails_string(app_id: str, config, logger) -> str:
-    """
-    Obtiene la cadena de correos de usuarios técnicos separados por ;
-
-    Args:
-        app_id: ID de la aplicación
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-
-    Returns:
-        String con correos separados por ;
-    """
-    try:
-        technical_users = get_technical_users(app_id, config, logger)
-        emails = [
-            user["CorreoUsuario"] for user in technical_users if user["CorreoUsuario"]
-        ]
-        return ";".join(emails)
-    except Exception as e:
-        logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
-        return ""
-
-
-def get_quality_emails_string(app_id, config, logger, db_connection) -> str:
-    """
-    Devuelve emails de usuarios de Calidad.
-
-    app_id debe ser numérico (IDAplicacion en permisos). Antes se pasaba la cadena
-    "AGEDYS" provocando error de tipo en Access. Esta función acepta str/int pero
-    se normaliza a entero en user_adapter.
-    """
-    try:
-        from .user_adapter import get_users_with_fallback
-
-        quality_users = get_users_with_fallback(
-            user_type="quality",
-            db_connection=db_connection,
-            config=config,
-            logger=logger,
-            app_id=app_id,
-        )
-        return "; ".join(
-            [
-                user["CorreoUsuario"]
-                for user in quality_users
-                if user.get("CorreoUsuario")
-            ]
-        )
-    except Exception as e:
-        logging.error(f"Error obteniendo emails de calidad: {e}")
-        return ""
 
 
 def get_admin_emails_string(db_connection, config, logger) -> str:
@@ -421,7 +428,12 @@ def get_admin_emails_string(db_connection, config, logger) -> str:
         Cadena de emails
     """
     # Por ahora, los administradores son los mismos que los técnicos
-    return get_technical_emails_string("admin", config, logger)
+    try:
+        from .user_adapter import get_admin_emails_string as _gaes
+
+        return _gaes(db_connection, config, logger)
+    except Exception:  # pragma: no cover
+        return ""
 
 
 def get_quality_users(app_id, config, logger) -> list[dict[str, str]]:  # retrocompat
@@ -530,118 +542,9 @@ def send_email(
 # Función send_notification_email eliminada - solo se registran correos en BD
 
 
-def register_email_in_database(
-    db_connection,
-    application: str,
-    subject: str,
-    body: str,
-    recipients: str,
-    admin_emails: str = "",
-) -> bool:
-    """
-    Registra un correo en la base de datos de tareas
-
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        application: Nombre de la aplicación (BRASS, Expedientes, Riesgos, etc.)
-        subject: Asunto del correo
-        body: Cuerpo del correo
-        recipients: Destinatarios del correo
-        admin_emails: Emails de administradores para copia oculta
-
-    Returns:
-        True si se registró correctamente
-    """
-    try:
-        # Obtener próximo ID
-        next_id = db_connection.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
-
-        # Preparar datos del correo
-        email_data = {
-            "IDCorreo": next_id,
-            "Aplicacion": application,
-            "Asunto": subject,
-            "Cuerpo": body,
-            "Destinatarios": recipients if "@" in recipients else "",
-            "DestinatariosConCopiaOculta": admin_emails,
-            "FechaGrabacion": datetime.now(),
-        }
-
-        success = db_connection.insert_record("TbCorreosEnviados", email_data)
-
-        if success:
-            logging.info(f"Correo registrado correctamente para {application}")
-        else:
-            logging.error(f"Error registrando correo para {application}")
-
-        return success
-
-    except Exception as e:
-        logging.error(f"Error registrando correo en base de datos: {e}")
-        return False
+## register_email_in_database movido a EmailManager.register_email (refactor unificación)
 
 
-def register_task_completion(
-    db_connection, task_name: str, execution_date: Optional[date] = None
-) -> bool:
-    """
-    Registra la finalización de una tarea en la base de datos
-    Solo debe haber un registro por nombre de tarea.
-    Si no existe se crea, si existe se actualiza la fecha.
-
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        task_name: Nombre de la tarea
-        execution_date: Fecha de ejecución (por defecto hoy)
-
-    Returns:
-        True si se registró correctamente
-    """
-    try:
-        if execution_date is None:
-            execution_date = date.today()
-
-        # Verificar si ya existe la tarea
-        select_query = "SELECT * FROM TbTareas WHERE Tarea = ?"
-        rows = db_connection.execute_query(select_query, [task_name])
-
-        if rows:
-            # Actualizar registro existente
-            try:
-                db_connection.execute_non_query(
-                    "UPDATE TbTareas SET Realizado = 'Sí', Fecha = ? WHERE Tarea = ?",
-                    [execution_date, task_name],
-                )
-            except Exception:
-                # Fallback si columnas difieren
-                db_connection.execute_non_query(
-                    "UPDATE TbTareas SET FechaEjecucion = ? WHERE Tarea = ?",
-                    [datetime.now(), task_name],
-                )
-        else:
-            # Insertar nuevo registro (probar con esquema estándar primero)
-            inserted = False
-            try:
-                db_connection.execute_non_query(
-                    "INSERT INTO TbTareas (Tarea, Realizado, Fecha) VALUES (?, 'Sí', ?)",
-                    [task_name, execution_date],
-                )
-                inserted = True
-            except Exception:
-                try:
-                    db_connection.execute_non_query(
-                        "INSERT INTO TbTareas (Tarea, FechaEjecucion) VALUES (?, ?)",
-                        [task_name, datetime.now()],
-                    )
-                    inserted = True
-                except Exception:
-                    inserted = False
-            if not inserted:
-                return False
-        return True
-    except Exception as e:
-        logging.error(f"Error registrando finalización de tarea {task_name}: {e}")
-        return False
 
 
 def get_technical_users(app_id: str | int, config, logger) -> list[dict[str, str]]:
@@ -678,7 +581,7 @@ def get_economy_users(config, logger) -> list[dict[str, str]]:
         Lista de usuarios de economía
     """
     try:
-        from .database import AccessDatabase
+        from .db.database import AccessDatabase
 
         # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
@@ -701,127 +604,6 @@ def get_economy_users(config, logger) -> list[dict[str, str]]:
         return []
 
 
-def get_user_email(username: str, config, logger=None) -> str:
-    """
-    Obtiene el correo electrónico de un usuario específico
-    Basado en el script original VBS: busca en TbUsuariosAplicaciones por UsuarioRed
-
-    Args:
-        usuario_red: Nombre de usuario de red
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-
-    Returns:
-        Correo electrónico del usuario o None si no se encuentra
-    """
-    try:
-        from .database import AccessDatabase
-
-        # Usar la conexión de tareas para obtener el email
-        db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-
-        # Query simplificada que coincide exactamente con el VBS original
-        query = """
-            SELECT CorreoUsuario
-            FROM TbUsuariosAplicaciones
-            WHERE UsuarioRed = ?
-        """
-
-        result = db_connection.execute_query(query, [username])
-
-        if result and len(result) > 0:
-            email = result[0].get("CorreoUsuario", "")
-            return email if email else ""
-
-        return ""
-
-    except Exception as e:
-        if logger:
-            logger.error(f"Error obteniendo email para usuario {username}: {e}")
-        else:
-            logging.error(f"Error obteniendo email para usuario {username}: {e}")
-        return ""
-
-
-def get_technical_emails_string(app_id: str, config, logger) -> str:
-    """
-    Obtiene la cadena de correos de usuarios técnicos separados por ;
-
-    Args:
-        app_id: ID de la aplicación
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-
-    Returns:
-        String con correos separados por ;
-    """
-    try:
-        technical_users = get_technical_users(app_id, config, logger)
-        emails = [
-            user["CorreoUsuario"] for user in technical_users if user["CorreoUsuario"]
-        ]
-        return ";".join(emails)
-    except Exception as e:
-        logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
-        return ""
-
-
-def get_economy_emails_string(config, logger) -> str:
-    """
-    Obtiene la cadena de correos de usuarios de economía separados por ;
-
-    Args:
-        config: Configuración de la aplicación
-        logger: Logger para registrar eventos
-
-    Returns:
-        String con correos separados por ;
-    """
-    try:
-        economy_users = get_economy_users(config, logger)
-        emails = [
-            user["CorreoUsuario"] for user in economy_users if user["CorreoUsuario"]
-        ]
-        return ";".join(emails)
-    except Exception as e:
-        logger.error(f"Error obteniendo emails de economía: {e}")
-        return ""
-
-
-def get_last_task_execution_date(db_connection, task_name: str) -> Optional[date]:
-    """
-    Obtiene la fecha de la última ejecución de una tarea
-
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        task_name: Nombre de la tarea
-
-    Returns:
-        Fecha de la última ejecución o None si no existe
-    """
-    try:
-        query = """
-            SELECT MAX(Fecha) as UltimaFecha
-            FROM TbTareas
-            WHERE Tarea = ?
-        """
-
-        result = db_connection.execute_query(query, [task_name])
-
-        if result and result[0]["UltimaFecha"]:
-            fecha = result[0]["UltimaFecha"]
-            # Convertir a date si es datetime
-            if isinstance(fecha, datetime):
-                return fecha.date()
-            return fecha
-
-        return None
-
-    except Exception as e:
-        logging.error(
-            f"Error obteniendo fecha de última ejecución para {task_name}: {e}"
-        )
-        return None
 
 
 def is_task_completed_today(db_connection, task_name: str) -> bool:
@@ -835,6 +617,7 @@ def is_task_completed_today(db_connection, task_name: str) -> bool:
     Returns:
         True si ya se ejecutó hoy, False en caso contrario
     """
+    # Usar wrapper local para permitir monkeypatch en tests
     last_execution = get_last_task_execution_date(db_connection, task_name)
     today = date.today()
 
@@ -931,49 +714,6 @@ def execute_task_with_standard_boilerplate(
     return exit_code
 
 
-def should_execute_task(
-    db_connection, task_name: str, frequency_days: int, logger=None
-) -> bool:
-    """
-    Determina si se debe ejecutar una tarea basándose en su frecuencia
-
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        task_name: Nombre de la tarea
-        frequency_days: Frecuencia en días para ejecutar la tarea
-        logger: Logger para registrar eventos (opcional)
-
-    Returns:
-        True si se debe ejecutar la tarea
-    """
-    try:
-        last_execution = get_last_task_execution_date(db_connection, task_name)
-
-        if last_execution is None:
-            # Si no hay registro previo, ejecutar
-            if logger:
-                logger.info(
-                    f"No hay registro previo de tarea {task_name}, se requiere ejecutar"
-                )
-            return True
-
-        days_since_last = (date.today() - last_execution).days
-        should_execute = days_since_last >= frequency_days
-
-        if logger:
-            logger.info(
-                f"Última ejecución tarea {task_name}: {last_execution}, "
-                f"días transcurridos: {days_since_last}, requiere: {should_execute}"
-            )
-
-        return should_execute
-
-    except Exception as e:
-        if logger:
-            logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
-        else:
-            logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
-        return True
 
 
 ## (Definición anterior de execute_task_with_standard_boilerplate eliminada y reemplazada por versión centralizada más arriba)
@@ -1087,6 +827,7 @@ def should_execute_weekly_task(
     """
     try:
         today = date.today()
+        from .base_task import get_last_task_execution_date
         last_execution = get_last_task_execution_date(db_connection, task_name)
 
         if logger:
@@ -1162,6 +903,7 @@ def should_execute_monthly_task(
     """
     try:
         today = date.today()
+        from .base_task import get_last_task_execution_date
         last_execution = get_last_task_execution_date(db_connection, task_name)
 
         if logger:
@@ -1235,14 +977,9 @@ def should_execute_quality_task(
     """
     try:
         today = date.today()
-        # Hallar el próximo día laborable que cae en el preferred_weekday (esta semana)
-        # Si hoy es ese día laborable preferido, candidate = today
-        # De lo contrario, no es día de ejecución
-        if today.weekday() != preferred_weekday or not is_workday(
-            today, holidays_file
-        ):
+        if today.weekday() != preferred_weekday or not is_workday(today, holidays_file):
             return False
-
+        from .base_task import get_last_task_execution_date
         last_execution = get_last_task_execution_date(db_connection, task_name)
         if last_execution is None:
             return True

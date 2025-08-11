@@ -1,10 +1,11 @@
-"""Cobertura extendida para RiesgosManager (_get_risks_data y run_daily_tasks)."""
+"""Cobertura extendida para RiesgosManager (_get_risks_data) y RiesgosTask (run_tasks)."""
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
 
 from riesgos.riesgos_manager import RiesgosManager
+from riesgos.riesgos_task import RiesgosTask
 
 
 @pytest.fixture
@@ -70,20 +71,18 @@ def test_generate_table_html_valid_type(manager):
     assert "Total: 1 elementos" in html and "PR1" in html
 
 
-def test_run_daily_tasks_none(manager, monkeypatch):
-    monkeypatch.setattr(manager, "should_execute_technical_task", lambda: False)
-    monkeypatch.setattr(manager, "should_execute_quality_task", lambda: False)
-    monkeypatch.setattr(manager, "should_execute_monthly_quality_task", lambda: False)
-    res = manager.run_daily_tasks()
+def test_riesgos_task_none(manager):
+    """Con flags por defecto no se fuerza ninguna ejecución."""
+    task = RiesgosTask(manager=manager)
+    res = task.run_tasks()
     assert res == {"technical": False, "quality": False, "monthly": False}
 
 
-def test_run_daily_tasks_all(manager, monkeypatch):
-    monkeypatch.setattr(manager, "should_execute_technical_task", lambda: True)
-    monkeypatch.setattr(manager, "should_execute_quality_task", lambda: True)
-    monkeypatch.setattr(manager, "should_execute_monthly_quality_task", lambda: True)
-    monkeypatch.setattr(manager, "execute_technical_task", lambda: True)
-    monkeypatch.setattr(manager, "execute_quality_task", lambda: True)
-    monkeypatch.setattr(manager, "execute_monthly_quality_task", lambda: True)
-    res = manager.run_daily_tasks()
+def test_riesgos_task_forced_all(manager):
+    """Forzamos la ejecución de las tres tareas y simulamos éxito."""
+    manager.execute_technical_task = lambda: True
+    manager.execute_quality_task = lambda: True
+    manager.execute_monthly_quality_task = lambda: True
+    task = RiesgosTask(manager=manager)
+    res = task.run_tasks(force_technical=True, force_quality=True, force_monthly=True)
     assert res == {"technical": True, "quality": True, "monthly": True}

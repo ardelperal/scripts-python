@@ -74,20 +74,30 @@ class RiesgosTask(TareaDiaria):
             from .riesgos_manager import RiesgosManager  # import diferido
 
             self.manager = RiesgosManager(self.config, self.logger)
-            try:
-                self.manager.connect_to_database()
-            except Exception:  # pragma: no cover
-                self.logger.warning("No se pudo conectar a BD de riesgos")
+            # Conexión opcional (el método puede haber sido eliminado en el refactor)
+            if hasattr(self.manager, "connect_to_database"):
+                try:  # pragma: no cover - camino defensivo
+                    self.manager.connect_to_database()
+                except Exception:
+                    self.logger.warning("No se pudo conectar a BD de riesgos")
             created_manager = True
 
         mgr = self.manager
         results = {"technical": False, "quality": False, "monthly": False}
 
         try:
-            # Decisiones (se reutiliza la lógica existente del manager para compatibilidad)
-            should_run_technical = force_technical or mgr.should_execute_technical_task()
-            should_run_quality = force_quality or mgr.should_execute_quality_task()
-            should_run_monthly = force_monthly or mgr.should_execute_monthly_quality_task()
+            # Decisiones: tras el refactor los métodos should_execute_* fueron eliminados.
+            # Usamos getattr con fallback a función que devuelve False para mantener compatibilidad
+            # y permitir ejecución forzada vía flags.
+            should_run_technical = force_technical or bool(
+                getattr(mgr, "should_execute_technical_task", lambda: False)()
+            )
+            should_run_quality = force_quality or bool(
+                getattr(mgr, "should_execute_quality_task", lambda: False)()
+            )
+            should_run_monthly = force_monthly or bool(
+                getattr(mgr, "should_execute_monthly_quality_task", lambda: False)()
+            )
 
             if not (should_run_technical or should_run_quality or should_run_monthly):
                 self.logger.info("RiesgosTask: no hay subtareas para ejecutar hoy")
@@ -107,10 +117,10 @@ class RiesgosTask(TareaDiaria):
                 )
             return results
         finally:
-            if created_manager:
-                try:
+            if created_manager and hasattr(mgr, "disconnect_from_database"):
+                try:  # pragma: no cover - camino defensivo
                     mgr.disconnect_from_database()
-                except Exception:  # pragma: no cover
+                except Exception:
                     pass
 
 

@@ -1,11 +1,11 @@
 """Tarea diaria que orquesta la generación y registro del informe de expedientes."""
 
-from common.access_connection_pool import get_expedientes_connection_pool
+from common.db.access_connection_pool import get_expedientes_connection_pool
 from common.base_task import TareaDiaria
-from common.database import AccessDatabase
+from common.db.database import AccessDatabase
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
-from common.utils import get_admin_emails_string
+from common.user_adapter import get_admin_emails_string
 
 from .expedientes_manager import ExpedientesManager
 
