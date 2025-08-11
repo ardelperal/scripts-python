@@ -115,8 +115,8 @@ class TestSetupLogging:
             mock_logger.hasHandlers.return_value = False
             mock_get_logger.return_value = mock_logger
             
-            with patch('src.common.utils.LokiQueueHandler') as mock_loki_handler:
-                with patch('src.common.utils.Queue') as mock_queue:
+            with patch('common.utils.LokiQueueHandler') as mock_loki_handler:
+                with patch('common.utils.Queue') as mock_queue:
                     mock_handler_instance = Mock()
                     mock_loki_handler.return_value = mock_handler_instance
                     mock_queue_instance = Mock()
@@ -164,7 +164,7 @@ class TestSetupLogging:
             mock_logger.hasHandlers.return_value = False
             mock_get_logger.return_value = mock_logger
             
-            with patch('src.common.utils.LokiQueueHandler', side_effect=Exception("Connection error")):
+            with patch('common.utils.LokiQueueHandler', side_effect=Exception("Connection error")):
                 with patch('logging.warning') as mock_warning:
                     setup_logging(log_file)
                     
@@ -257,7 +257,7 @@ class TestIsNightTime:
     
     def test_is_night_time_default_current_time(self):
         """Test usando tiempo actual por defecto"""
-        with patch('src.common.utils.datetime') as mock_datetime:
+    with patch('common.utils.datetime') as mock_datetime:
             mock_now = datetime(2024, 1, 1, 21, 0)
             mock_datetime.now.return_value = mock_now
             
@@ -409,7 +409,7 @@ class TestSendEmail:
     """Tests para la función send_email"""
     
     @patch('smtplib.SMTP')
-    @patch('src.common.utils.config')
+    @patch('common.utils.config')
     def test_send_email_success(self, mock_config, mock_smtp):
         """Test envío exitoso de email"""
         # Configurar mocks
@@ -428,7 +428,7 @@ class TestSendEmail:
             mock_smtp_instance.sendmail.assert_called_once()
     
     @patch('smtplib.SMTP')
-    @patch('src.common.utils.config')
+    @patch('common.utils.config')
     def test_send_email_html_false(self, mock_config, mock_smtp):
         """Test envío con HTML desactivado"""
         # Configurar mocks
@@ -445,7 +445,7 @@ class TestSendEmail:
             mock_smtp_instance.sendmail.assert_called_once()
     
     @patch('smtplib.SMTP')
-    @patch('src.common.utils.config')
+    @patch('common.utils.config')
     def test_send_email_failure(self, mock_config, mock_smtp):
         """Test fallo en envío de email"""
         # Configurar mocks
@@ -469,7 +469,7 @@ class DummyDB:
 def fake_get_last_task(monkeypatch, return_date):
     def _fake(conn, name):
         return return_date
-    monkeypatch.setattr('src.common.utils.get_last_task_execution_date', _fake)
+    monkeypatch.setattr('common.utils.get_last_task_execution_date', _fake)
 
 
 def test_is_task_completed_today_true(monkeypatch):
@@ -520,7 +520,7 @@ def patch_today(monkeypatch, fixed_date):
         @classmethod
         def today(cls):
             return fixed_date
-    monkeypatch.setattr('src.common.utils.date', D)
+    monkeypatch.setattr('common.utils.date', D)
 
 
 def test_should_execute_weekly_task_first_day(monkeypatch, tmp_path):

@@ -7,7 +7,7 @@ Este directorio contiene los scripts de producción del sistema de monitoreo con
 ```
 scripts/
 ├── run_master.py              # 🎯 Script maestro - daemon principal del sistema
-├── run_correos.py             # 📧 Gestión y envío de correos electrónicos
+├── run_email_services.py      # 📧 Servicios unificados de envío de correos
 ├── run_brass.py               # 🔧 Procesamiento de datos BRASS
 ├── run_expedientes.py         # 📋 Gestión de expedientes y ofertas
 ├── run_riesgos.py             # ⚠️  Análisis y gestión de riesgos
@@ -31,7 +31,7 @@ El **Master Runner** es el corazón del sistema de monitoreo continuo. Ejecuta d
 - **Configuración flexible**: Variables de entorno para todos los parámetros
 
 ### Scripts Gestionados:
-1. **correos** → `run_correos.py` (continuo)
+1. **email_services** → `run_email_services.py` (continuo unificado)
 2. **riesgos** → `run_riesgos.py` (diario)
 3. **brass** → `run_brass.py` (diario)
 4. **expedientes** → `run_expedientes.py` (diario)
@@ -39,10 +39,10 @@ El **Master Runner** es el corazón del sistema de monitoreo continuo. Ejecuta d
 
 ## 📧 Scripts de Producción
 
-### run_correos.py
-- **Función**: Gestión y envío de correos electrónicos
+### run_email_services.py
+- **Función**: Gestión unificada de servicios de correo (reemplaza correos y correo_tareas)
 - **Tipo**: Tarea continua (ejecutada en cada ciclo)
-- **Descripción**: Procesa colas de correo y envía notificaciones
+- **Descripción**: Procesa colas de correo de múltiples orígenes (correos, tareas) y envía notificaciones
 
 ### run_brass.py
 - **Función**: Procesamiento de datos BRASS
@@ -89,7 +89,7 @@ python run_master.py --dry-run
 ### Ejecución Individual de Scripts:
 ```bash
 # Ejecutar script específico
-python run_correos.py
+python run_email_services.py
 python run_brass.py
 python run_expedientes.py
 python run_riesgos.py

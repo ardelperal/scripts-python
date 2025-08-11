@@ -674,16 +674,15 @@ class MasterRunner:
     
     def ejecutar_tareas_diarias(self) -> Dict[str, any]:
         """Ejecuta las tareas diarias consultando la lógica OO de cada TareaDiaria."""
-        # Asegurar path
         src_path = Path(__file__).parent.parent / 'src'
         if str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
-            try:
-                from common.task_registry import TaskRegistry  # import diferido
-                task_instances = TaskRegistry().get_daily_tasks()
-            except Exception as e:  # pragma: no cover - fallback
-                self.logger_adapter.warning(f"No se pudo importar task_registry: {e}. Saltando tareas diarias.")
-                return {}
+        try:
+            from common.task_registry import TaskRegistry  # import diferido
+            task_instances = TaskRegistry().get_daily_tasks()
+        except Exception as e:  # pragma: no cover - fallback
+            self.logger_adapter.warning(f"No se pudo importar task_registry: {e}. Saltando tareas diarias.")
+            return {}
         # Mapa filename->key en available_scripts
         file_to_key = {v: k for k, v in self.available_scripts.items()}
         if self.verbose_mode:

@@ -28,8 +28,7 @@ El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza a
 5. **Riesgos** (`run_riesgos.py`): Gestión de riesgos empresariales
 
 #### Tareas Continuas (ejecutadas en cada ciclo):
-6. **Correos** (`run_correos.py`): Sistema de envío de correos
-7. **Correo Tareas** (`run_correo_tareas.py`): Sistema de gestión de correos que interactúa con la base de datos de tareas
+6. **Email Services** (`run_email_services.py`): Servicio unificado de envío de correos (fusiona antiguos módulos `correos` y `correo_tareas`)
 
 ### 🆕 Cambios Arquitectónicos Recientes (Refactor 2025)
 
@@ -105,10 +104,10 @@ Ejemplo de runner minimalista:
 ```python
 import sys
 from common.utils import execute_task_with_standard_boilerplate
-from correos.correos_task import CorreosTask
+from email_services.email_task import EmailServicesTask
 
 def main():
-   task = CorreosTask()
+   task = EmailServicesTask()
    code = execute_task_with_standard_boilerplate("CORREOS", task_obj=task)
    sys.exit(code)
 
@@ -247,8 +246,7 @@ scripts-python/
 │   │   └── add_status_to_tareas_db.py # Migración estado tareas
 │   ├── run_agedys.py            # Script para módulo AGEDYS
 │   ├── run_brass.py             # Script principal para módulo BRASS
-│   ├── run_correo_tareas.py     # Script para módulo correo tareas
-│   ├── run_correos.py           # Script para módulo correos
+│   ├── run_email_services.py    # Runner unificado de servicios de correo
 │   ├── run_expedientes.py       # Script para módulo expedientes
 │   ├── run_master.py            # Script maestro - daemon principal con modo verbose
 │   ├── run_no_conformidades.py  # Script para no conformidades
@@ -277,14 +275,10 @@ scripts-python/
 │   │   ├── task_registry.py     # Registro de tareas (TaskRegistry OO)
 │   │   ├── user_adapter.py      # Adaptador de usuarios
 │   │   └── utils.py             # Utilidades HTML, logging, fechas
-│   ├── correo_tareas/           # Módulo de gestión de correos que interactúa con la base de datos de tareas
+│   ├── email_services/          # Módulo unificado de correos (correos + tareas)
 │   │   ├── __init__.py
-│   │   ├── correo_tareas_manager.py # Gestor de correos para tareas empresariales
-│   │   └── correo_tareas_task.py # Tareas de correo
-│   ├── correos/                 # Módulo de correos
-│   │   ├── __init__.py
-│   │   ├── correos_manager.py   # Gestor de correos
-│   │   └── correos_task.py      # Tareas de correos
+│   │   ├── email_manager.py     # Lógica centralizada de envío
+│   │   └── email_task.py        # Task continua unificada
 │   ├── expedientes/             # Módulo de expedientes
 │   │   ├── __init__.py
 │   │   ├── expedientes_manager.py # Gestor de expedientes
@@ -316,8 +310,7 @@ scripts-python/
 │   │   ├── __init__.py
 │   │   ├── agedys/              # Integración del sistema AGEDYS
 │   │   ├── brass/               # Integración del sistema brass
-│   │   ├── correo_tareas/       # Integración del sistema de correo tareas
-│   │   ├── correos/             # Integración del sistema de correos
+│   │   ├── email_services/      # Integración del servicio unificado de correos
 │   │   ├── database/            # Integración con bases de datos
 │   │   ├── expedientes/         # Integración del sistema de expedientes
 │   │   ├── no_conformidades/    # Integración no conformidades
@@ -327,7 +320,7 @@ scripts-python/
 │       ├── agedys/              # Tests específicos AGEDYS
 │       ├── brass/               # Tests específicos BRASS
 │       ├── common/              # Tests módulos comunes
-│       ├── correos/             # Tests del módulo de correos
+│       ├── email_services/      # Tests del servicio unificado de correos
 │       ├── expedientes/         # Tests del módulo de expedientes
 │       ├── no_conformidades/    # Tests no conformidades
 │       └── riesgos/             # Tests del módulo de riesgos
@@ -728,7 +721,7 @@ El sistema soporta dos configuraciones SMTP:
 | `src/common/task_registry.py` | 64% | ✅ |
 | `src/common/notifications.py` | 100% | ✅ |
 | `src/common/utils.py` | 49% | ✅ |
-| `src/correos/correos_manager.py` | 91% | ✅ |
+| `src/email_services/email_manager.py` | 91% | ✅ |
 | `src/expedientes/expedientes_manager.py` | 98% | ✅ |
 | `src/riesgos/riesgos_manager.py` | 90% | ✅ |
 
@@ -1081,15 +1074,12 @@ python scripts/run_riesgos.py                   # Ejecución normal
 python scripts/run_riesgos.py --force           # Fuerza ejecución
 python scripts/run_riesgos.py --dry-run         # Modo simulación
 
-# Correos - Sistema de envío de correos
-python scripts/run_correos.py                   # Ejecución normal
-python scripts/run_correos.py --force           # Fuerza ejecución
-python scripts/run_correos.py --dry-run         # Modo simulación
+# Email Services - Servicio unificado de correo (remplaza correos y correo_tareas)
 
-# Tareas - Sistema de gestión de tareas
-python scripts/run_correo_tareas.py                    # Ejecución normal
-python scripts/run_correo_tareas.py --force            # Fuerza ejecución
-python scripts/run_correo_tareas.py --dry-run          # Modo simulación
+### Manejo de errores transitorios SMTP (Refactor 2025)
+Los errores de conexión SMTP (p.ej. desconexión inesperada, `SMTPConnectError`, `ConnectionRefusedError`) ahora se consideran **transitorios** y no marcan el correo como fallido en la base de datos. El registro permanece pendiente para reintentos en futuros ciclos. Sólo errores definitivos (credenciales inválidas, destinatario rechazado, formato de mensaje inválido) marcan el correo como fallido. Esto incrementa la resiliencia ante caídas puntuales del servidor de correo.
+python scripts/run_email_services.py            # Ejecución normal
+python scripts/run_email_services.py --force    # (Reservado) Fuerza ejecución
 
 # Tests
 python scripts/run_tests.py
