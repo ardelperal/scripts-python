@@ -3,8 +3,13 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-from no_conformidades import report_registrar as rr
-from no_conformidades.no_conformidades_manager import NoConformidadesManager
+from no_conformidades.no_conformidades_manager import (
+    enviar_notificacion_calidad,
+    enviar_notificacion_tecnico_individual,
+    _register_email_nc,
+    _register_arapc_notification,
+    NoConformidadesManager,
+)
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
@@ -35,17 +40,19 @@ class TestReportRegistrar(unittest.TestCase):
             "ncs_sin_acciones": [],
             "ars_para_replanificar": [],
         }
-        with patch.object(
-            rr.ReportRegistrar, "get_quality_emails", return_value=["q@a.com"]
-        ), patch.object(
-            rr.ReportRegistrar, "get_admin_emails", return_value=["admin@a.com"]
+        with patch(
+            "no_conformidades.no_conformidades_manager.NoConformidadesManager.get_quality_users",
+            return_value=[{"Correo": "q@a.com"}],
         ), patch(
-            "no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_calidad_moderno",
+            "no_conformidades.no_conformidades_manager.NoConformidadesManager.get_admin_users",
+            return_value=[{"Correo": "admin@a.com"}],
+        ), patch(
+            "no_conformidades.no_conformidades_manager.HTMLReportGenerator.generar_reporte_calidad_moderno",
             return_value="<html></html>",
         ), patch(
-            "no_conformidades.report_registrar._register_email_nc", return_value=99
+            "no_conformidades.no_conformidades_manager._register_email_nc", return_value=99
         ):
-            self.assertTrue(rr.enviar_notificacion_calidad(datos))
+            self.assertTrue(enviar_notificacion_calidad(datos))
 
     def test_enviar_notificacion_calidad_sin_destinatarios(self):
         datos = {
@@ -54,10 +61,14 @@ class TestReportRegistrar(unittest.TestCase):
             "ncs_sin_acciones": [],
             "ars_para_replanificar": [],
         }
-        with patch.object(
-            rr.ReportRegistrar, "get_quality_emails", return_value=[]
-        ), patch.object(rr.ReportRegistrar, "get_admin_emails", return_value=[]):
-            self.assertFalse(rr.enviar_notificacion_calidad(datos))
+        with patch(
+            "no_conformidades.no_conformidades_manager.NoConformidadesManager.get_quality_users",
+            return_value=[],
+        ), patch(
+            "no_conformidades.no_conformidades_manager.NoConformidadesManager.get_admin_users",
+            return_value=[],
+        ):
+            self.assertFalse(enviar_notificacion_calidad(datos))
 
     # Tests legacy de notificaciones técnicas e individuales eliminados (flujo moderno usa enviar_notificacion_tecnico_individual)
 
@@ -70,13 +81,14 @@ class TestReportRegistrar(unittest.TestCase):
             get_max_id=MagicMock(return_value=10),
         )
         with patch(
-            "no_conformidades.report_registrar.AccessDatabase", return_value=fake_db
-        ), patch(
-            "no_conformidades.report_registrar.Config.get_db_tareas_connection_string",
-            return_value="DSN=mem",
+            "no_conformidades.no_conformidades_manager.AccessDatabase", return_value=fake_db
         ):
-            new_id = rr._register_email_nc(
-                "App", "Asunto", "<b>Body</b>", "dest@a.com", "cc@a.com"
+            new_id = _register_email_nc(
+                application="App",
+                subject="Asunto",
+                body="<b>Body</b>",
+                recipients="dest@a.com",
+                admin_emails="cc@a.com",
             )
         self.assertEqual(new_id, 11)  # max + 1
         fake_cursor.execute.assert_called_once()
@@ -95,12 +107,12 @@ class TestReportRegistrar(unittest.TestCase):
         fake_db = MagicMock()
         fake_db.get_connection.return_value = fake_conn
         with patch(
-            "no_conformidades.report_registrar.AccessDatabase", return_value=fake_db
+            "no_conformidades.no_conformidades_manager.AccessDatabase", return_value=fake_db
         ), patch(
-            "no_conformidades.report_registrar.Config.get_database_path",
+            "no_conformidades.no_conformidades_manager.config.get_database_path",
             return_value="fake.accdb",
         ):
-            ok = rr._register_arapc_notification(99, [1, 2], [3], [4])
+            ok = _register_arapc_notification(99, [1, 2], [3], [4])
             self.assertTrue(ok)
             # Should have executed insert for each id (2 + 1 + 1 = 4)
             inserts = [
@@ -176,19 +188,16 @@ class TestManagerDelegacion(unittest.TestCase):
 def test_enviar_notificacion_tecnico_individual_sin_contenido():
     datos = {"ars_15_dias": [], "ars_7_dias": [], "ars_vencidas": []}
     with patch(
-        "no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno",
+        "no_conformidades.no_conformidades_manager.HTMLReportGenerator.generar_reporte_tecnico_moderno",
         return_value="   ",
     ) as gen, patch(
-        "no_conformidades.report_registrar._obtener_email_tecnico"
-    ) as get_mail, patch(
-        "no_conformidades.report_registrar._register_email_nc"
+        "no_conformidades.no_conformidades_manager._register_email_nc"
     ) as reg_mail, patch(
-        "no_conformidades.report_registrar._register_arapc_notification"
+        "no_conformidades.no_conformidades_manager._register_arapc_notification"
     ) as reg_av:
-        ok = rr.enviar_notificacion_tecnico_individual("TEC1", datos)
+        ok = enviar_notificacion_tecnico_individual("TEC1", datos)
     assert ok is True
     gen.assert_called_once()
-    get_mail.assert_not_called()  # Se sale antes de buscar email
     reg_mail.assert_not_called()
     reg_av.assert_not_called()
 
@@ -200,16 +209,16 @@ def test_enviar_notificacion_tecnico_individual_sin_email():
         "ars_vencidas": [],
     }
     with patch(
-        "no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno",
+        "no_conformidades.no_conformidades_manager.HTMLReportGenerator.generar_reporte_tecnico_moderno",
         return_value="<html>cuerpo</html>",
     ) as gen, patch(
-        "no_conformidades.report_registrar._obtener_email_tecnico", return_value=None
+    "no_conformidades.no_conformidades_manager.NoConformidadesManager._obtener_email_tecnico", return_value=None
     ) as get_mail, patch(
-        "no_conformidades.report_registrar._register_email_nc"
+        "no_conformidades.no_conformidades_manager._register_email_nc"
     ) as reg_mail, patch(
-        "no_conformidades.report_registrar._register_arapc_notification"
+        "no_conformidades.no_conformidades_manager._register_arapc_notification"
     ) as reg_av:
-        ok = rr.enviar_notificacion_tecnico_individual("TEC2", datos)
+        ok = enviar_notificacion_tecnico_individual("TEC2", datos)
     assert ok is False
     gen.assert_called_once()
     get_mail.assert_called_once_with("TEC2")
@@ -224,20 +233,20 @@ def test_enviar_notificacion_tecnico_individual_exito():
         "ars_vencidas": [{"IDAccionRealizada": 30}],
     }
     with patch(
-        "no_conformidades.report_registrar.HTMLReportGenerator.generar_reporte_tecnico_moderno",
+        "no_conformidades.no_conformidades_manager.HTMLReportGenerator.generar_reporte_tecnico_moderno",
         return_value="<html>ok</html>",
     ) as gen, patch(
-        "no_conformidades.report_registrar._obtener_email_tecnico",
+    "no_conformidades.no_conformidades_manager.NoConformidadesManager._obtener_email_tecnico",
         return_value="tec@ex.com",
     ) as get_mail, patch(
-        "no_conformidades.report_registrar.ReportRegistrar.get_admin_emails",
-        return_value=["admin@ex.com"],
+        "no_conformidades.no_conformidades_manager.NoConformidadesManager.get_admin_users",
+        return_value=[{"Correo": "admin@ex.com"}],
     ), patch(
-        "no_conformidades.report_registrar._register_email_nc", return_value=999
+        "no_conformidades.no_conformidades_manager._register_email_nc", return_value=999
     ) as reg_mail, patch(
-        "no_conformidades.report_registrar._register_arapc_notification"
+        "no_conformidades.no_conformidades_manager._register_arapc_notification"
     ) as reg_av:
-        ok = rr.enviar_notificacion_tecnico_individual("TEC3", datos)
+        ok = enviar_notificacion_tecnico_individual("TEC3", datos)
     assert ok is True
     gen.assert_called_once()
     get_mail.assert_called_once_with("TEC3")

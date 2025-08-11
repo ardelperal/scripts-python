@@ -1,3 +1,41 @@
+"""Shim de compatibilidad para tests que importan src.brass.run_brass.
+
+Delegamos en scripts/run_brass.py exponiendo BrassTask, parse_args y main.
+Mantener mínimo para no duplicar lógica.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+scripts_runner = _PROJECT_ROOT / "scripts" / "run_brass.py"
+
+if str(_PROJECT_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT / "src"))
+
+# Reutilizamos funciones reales importándolas desde scripts.run_brass
+try:  # pragma: no cover
+    from scripts.run_brass import main, parse_args  # type: ignore
+except Exception:  # pragma: no cover
+    # Fallback simplificado si hubiera problemas de import
+    def parse_args(argv=None):  # type: ignore
+        import argparse
+        p = argparse.ArgumentParser()
+        p.add_argument("--force", action="store_true")
+        p.add_argument("--dry-run", action="store_true")
+        return p.parse_args(argv)
+
+    def main(argv=None):  # type: ignore
+        from brass.brass_task import BrassTask  # local import
+        from common.utils import execute_task_with_standard_boilerplate
+        args = parse_args(argv)
+        task = BrassTask()
+        return execute_task_with_standard_boilerplate("BRASS", task, force=args.force, dry_run=args.dry_run)
+
+from brass.brass_task import BrassTask  # reexport para monkeypatch en tests
+
+__all__ = ["BrassTask", "main", "parse_args"]
 """Script de entrada para la ejecución de la Tarea BRASS.
 """
 import argparse
@@ -22,7 +60,10 @@ def main():
     )
     args = parser.parse_args()
 
-    setup_logging(log_file=Path("logs/brass.log"))
+    # Si ya hay logging global configurado (p.ej. lanzado desde un orquestador), no duplicar handlers
+    if not logging.getLogger().handlers:
+        # Reutilizamos la función estándar apuntando al log unificado por defecto
+        setup_logging()
     logger = logging.getLogger()
 
     logger.info("===============================================")

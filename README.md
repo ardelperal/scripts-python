@@ -397,7 +397,6 @@ scripts-python/
 │   │   ├── __init__.py
 │   │   ├── brass_manager.py     # Gestor principal BRASS
 │   │   ├── brass_task.py        # Tareas BRASS
-│   │   └── run_brass.py         # Script BRASS interno
 │   ├── common/                  # Utilidades compartidas
 │   │   ├── __init__.py
 │   │   ├── access_connection_pool.py # Pool de conexiones Access
@@ -499,7 +498,6 @@ scripts-python/
 
 ## � Módulo No Conformidades – Funcionamiento, Arquitectura y Flujo
 
-> Esta sección ha sido revisada tras la refactorización: unificación de generación HTML, método genérico para recuperación de ARs por técnico, tipado fuerte y manejo específico de errores.
 
 ### 1. Propósito
 Automatizar el seguimiento y la comunicación sobre:
@@ -513,9 +511,8 @@ Automatizar el seguimiento y la comunicación sobre:
 |------------|---------|-----------------------|
 | Runner CLI | `scripts/run_no_conformidades.py` | Orquestación, flags de fuerza / dry-run, logging y registro de tareas. |
 | Manager | `src/no_conformidades/no_conformidades_manager.py` | Lógica de negocio, consultas SQL, flujo de generación interna. |
-| Registrador | `src/no_conformidades/report_registrar.py` | Construcción y registro final de emails (calidad / técnicos). |
 | Generador HTML | `src/common/html_report_generator.py` | Header / footer modernos y tablas unificadas. |
-| Tipos | `src/no_conformidades/types.py` | TypedDict para estructuras de datos AR técnicas y calidad. |
+| Tipos | Integrados en `no_conformidades_manager.py` | TypedDict para AR técnicas y calidad. |
 | Persistencia Avisos | Tabla `TbNCARAvisos` | Evita correos repetidos por AR y rango (0 / 7 / 15 días). |
 | Registro Email | Tabla `TbCorreosEnviados` (BD Tareas) | Trazabilidad de envíos y cuerpo HTML. |
 
@@ -1210,7 +1207,7 @@ python scripts/run_riesgos.py                   # Ejecución normal
 python scripts/run_riesgos.py --force           # Fuerza ejecución
 python scripts/run_riesgos.py --dry-run         # Modo simulación
 
-# Email Services - Servicio unificado de correo (remplaza correos y correo_tareas)
+# Email Services - Servicio unificado de correo (reemplaza módulos de correo previos)
 
 ### Manejo de errores transitorios SMTP (Refactor 2025)
 Los errores de conexión SMTP (p.ej. desconexión inesperada, `SMTPConnectError`, `ConnectionRefusedError`) ahora se consideran **transitorios** y no marcan el correo como fallido en la base de datos. El registro permanece pendiente para reintentos en futuros ciclos. Sólo errores definitivos (credenciales inválidas, destinatario rechazado, formato de mensaje inválido) marcan el correo como fallido. Esto incrementa la resiliencia ante caídas puntuales del servidor de correo.

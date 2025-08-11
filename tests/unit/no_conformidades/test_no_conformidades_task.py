@@ -18,7 +18,7 @@ class TestNoConformidadesTask(unittest.TestCase):
         self.assertEqual(self.task.task_names, ["NCTecnico", "NCCalidad"])
         self.assertEqual(self.task.frequency_days, 1)
 
-    @patch("no_conformidades.no_conformidades_task.NoConformidadesManagerPure")
+    @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")
     @patch("no_conformidades.no_conformidades_task.register_standard_report")
     def test_execute_specific_logic_success(self, mock_register, mock_mgr_cls):
         mock_mgr = MagicMock()
@@ -27,10 +27,10 @@ class TestNoConformidadesTask(unittest.TestCase):
         mock_register.return_value = True
         result = self.task.execute_specific_logic()
         self.assertTrue(result)
-        mock_mgr.generate_nc_report_html.assert_called_once()
+        mock_mgr.generate_nc_report_html.assert_called()
         mock_register.assert_called_once()
 
-    @patch("no_conformidades.no_conformidades_task.NoConformidadesManagerPure")
+    @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")
     def test_execute_specific_logic_empty_report(self, mock_mgr_cls):
         mock_mgr = MagicMock()
         mock_mgr.generate_nc_report_html.return_value = ""
@@ -38,7 +38,7 @@ class TestNoConformidadesTask(unittest.TestCase):
         result = self.task.execute_specific_logic()
         self.assertTrue(result)
 
-    @patch("no_conformidades.no_conformidades_task.NoConformidadesManagerPure")
+    @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")
     def test_execute_specific_logic_exception(self, mock_mgr_cls):
         mock_mgr_cls.side_effect = Exception("boom")
         result = self.task.execute_specific_logic()

@@ -1,8 +1,8 @@
 {
   "scripts": {
     "email_services": {"file": "run_email_services.py", "type": "continuous"},
-    "brass": {"file": "run_brass.py", "type": "daily", "task_name": "BRASSDiario"},
-    "expedientes": {"file": "run_expedientes.py", "type": "daily", "task_name": "ExpedientesDiario"},
+  "brass": {"file": "run_brass.py", "type": "daily", "task_name": "BRASSDiario"},
+  "expedientes": {"file": "run_expedientes.py", "type": "daily", "task_name": "ExpedientesDiario"},
     "no_conformidades": {"file": "run_no_conformidades.py", "type": "daily", "task_name": ["NoConformidadesCalidad", "NoConformidadesTecnica"]},
     "riesgos": {"file": "run_riesgos.py", "type": "daily", "task_name": ["RiesgosDiariosTecnicos", "RiesgosSemanalesCalidad", "RiesgosMensualesCalidad"]},
     "agedys": {"file": "run_agedys.py", "type": "daily", "task_name": "AGEDYSDiario"}

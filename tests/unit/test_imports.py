@@ -1,14 +1,16 @@
 import pytest
 
+
 def test_import_main_modules():
-    """
-    Verifica que los módulos principales se pueden importar sin errores.
-    Esto ayuda a detectar problemas de dependencias circulares o importaciones rotas.
-    """
-    try:
-        import src.common
-        import src.email_services
-        # Añade aquí otros módulos principales de tu aplicación
-        # Ejemplo: import src.brass
-    except ImportError as e:
-        pytest.fail(f"Fallo al importar un módulo principal: {e}")
+    """Asegura que módulos raíz se importan sin errores (detección temprana de dependencias rotas)."""
+    modules = [
+        "src.common",
+        "src.email_services",
+        "src.brass",  # shim + paquete
+        "src.no_conformidades",  # paquete consolidado
+    ]
+    for mod in modules:
+        try:
+            __import__(mod)
+        except ImportError as e:  # pragma: no cover - específico de fallo
+            pytest.fail(f"Fallo al importar {mod}: {e}")

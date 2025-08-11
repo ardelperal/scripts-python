@@ -40,7 +40,7 @@ El **Master Runner** es el corazón del sistema de monitoreo continuo. Ejecuta d
 ## 📧 Scripts de Producción
 
 ### run_email_services.py
-- **Función**: Gestión unificada de servicios de correo (reemplaza correos y correo_tareas)
+- **Función**: Gestión unificada de servicios de correo (reemplaza módulos históricos de envío)
 - **Tipo**: Tarea continua (ejecutada en cada ciclo)
 - **Descripción**: Procesa colas de correo de múltiples orígenes (correos, tareas) y envía notificaciones
 

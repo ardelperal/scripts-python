@@ -21,7 +21,7 @@ from common.utils import (
     register_task_completion,
 )
 
-from .nc_pure_manager import NoConformidadesManagerPure
+from .no_conformidades_manager import NoConformidadesManager
 
 
 class NoConformidadesTask(TareaDiaria):
@@ -92,13 +92,15 @@ class NoConformidadesTask(TareaDiaria):
         Puede evolucionar a comprobaciones de frecuencia específicas.
         """
         try:
-            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            manager = NoConformidadesManager()
+            manager.db_nc = self.db_nc
             datasets = [
                 manager.get_ars_proximas_vencer_calidad(),
                 manager.get_ncs_pendientes_eficacia(),
                 manager.get_ncs_sin_acciones(),
                 manager.get_ars_para_replanificar(),
             ]
+            manager.close_connections()
             return any(datasets)
         except Exception:  # pragma: no cover
             # Señalizar error para que execute_specific_logic lo considere fallo
@@ -117,10 +119,12 @@ class NoConformidadesTask(TareaDiaria):
     # ---------------- Lógica de subtareas ----------------
     def ejecutar_logica_calidad(self) -> bool:
         try:
-            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            manager = NoConformidadesManager()
+            manager.db_nc = self.db_nc
             partial_html = manager.generate_nc_report_html()
             if not partial_html:
                 self.logger.info("Calidad: informe vacío; se omite correo")
+                manager.close_connections()
                 return True
             destinatarios = (
                 get_quality_emails_string(
@@ -133,6 +137,7 @@ class NoConformidadesTask(TareaDiaria):
             )
             if not destinatarios:
                 self.logger.warning("Calidad: sin destinatarios configurados")
+                manager.close_connections()
                 return True
             ok = register_standard_report(
                 self.db_tareas,
@@ -143,6 +148,7 @@ class NoConformidadesTask(TareaDiaria):
                 admin_emails="",
                 logger=self.logger,
             )
+            manager.close_connections()
             if ok:
                 register_task_completion(self.db_tareas, "NoConformidadesCalidad")
             return bool(ok)
@@ -156,14 +162,14 @@ class NoConformidadesTask(TareaDiaria):
                 NoConformidadesManager,  # import local para evitar ciclos en carga
             )
 
-            manager_full = NoConformidadesManager()  # reutiliza métodos existentes
-            manager_full.db_nc = self.db_nc  # compartir conexión ya abierta
-            manager = NoConformidadesManagerPure(self.db_nc, logger=self.logger)
+            manager_full = NoConformidadesManager()
+            manager_full.db_nc = self.db_nc
             tecnicos = (
                 manager_full._get_tecnicos_con_nc_activas()
             )  # usar lógica consolidada existente
             if not tecnicos:
                 self.logger.info("Técnica: sin técnicos con NC activas")
+                manager_full.close_connections()
                 return True
             exitosos = 0
             total = 0
@@ -183,13 +189,14 @@ class NoConformidadesTask(TareaDiaria):
                     "caducadas (No Conformidades)",
                     body=cuerpo,
                     recipients=correo_tecnico,
-                    admin_emails=self._collect_responsables_calidad(manager, data),
+                    admin_emails=self._collect_responsables_calidad(manager_full, data),
                 )
                 if ok:
                     exitosos += 1
             if total:
                 self.logger.info(f"Técnica: notificaciones {exitosos}/{total}")
                 register_task_completion(self.db_tareas, "NoConformidadesTecnica")
+            manager_full.close_connections()
             return True
         except Exception as e:  # pragma: no cover
             self.logger.exception(f"Error en ejecutar_logica_tecnica: {e}")
@@ -210,17 +217,13 @@ class NoConformidadesTask(TareaDiaria):
             self.logger.error(f"Error listando técnicos NC: {e}")
             return []
 
-    def _build_datasets_tecnico(
-        self, manager: NoConformidadesManagerPure, tecnico: str
-    ):
+    def _build_datasets_tecnico(self, manager: NoConformidadesManager, tecnico: str):
         # Reutilizamos consultas existentes de manager donde aplica; placeholders para
         # detallado por técnico
         # En refactor posterior se crearán métodos específicos filtrados por técnico
         return {"ars_8_15": [], "ars_1_7": [], "ars_vencidas": []}
 
-    def _collect_responsables_calidad(
-        self, manager: NoConformidadesManagerPure, datos: dict
-    ) -> str:
+    def _collect_responsables_calidad(self, manager: NoConformidadesManager, datos: dict) -> str:
         return ""
 
     def _render_html_tecnico(self, datos: dict) -> str:
