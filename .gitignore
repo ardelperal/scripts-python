@@ -83,6 +83,9 @@ ejemplo_*.html
 quality_output.html
 setup_local_environment_root.log
 
+# Export archives
+repo_export_*.zip
+
 # Development files
 herramientas/*.txt
 herramientas/*.css
