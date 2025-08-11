@@ -221,4 +221,23 @@ AGEDYS_TABLE_CONFIGURATIONS = {
     # },
 }
 
-__all__ = ["TABLE_CONFIGURATIONS", "AGEDYS_TABLE_CONFIGURATIONS"]
+BRASS_TABLE_CONFIGURATIONS = {
+    "equipment_out_of_calibration": {
+        "title": "Equipos de Medida Fuera de Calibración",
+        "columns": [
+            {"header": "ID", "field": "IDEquipoMedida"},
+            {"header": "Nombre", "field": "NOMBRE"},
+            {"header": "Nº Serie", "field": "NS"},
+            {"header": "PN", "field": "PN"},
+            {"header": "Marca", "field": "MARCA"},
+            {"header": "Modelo", "field": "MODELO"},
+            {"header": "Fecha Fin Calibración", "field": "FechaFinCalibracion", "format": "date"},
+        ],
+    }
+}
+
+__all__ = [
+    "TABLE_CONFIGURATIONS",
+    "AGEDYS_TABLE_CONFIGURATIONS",
+    "BRASS_TABLE_CONFIGURATIONS",
+]

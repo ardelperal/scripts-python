@@ -14,6 +14,7 @@ from typing import Any
 
 from common.html_report_generator import HTMLReportGenerator
 from common.reporting.table_builder import build_table_html
+from common.reporting.table_configurations import BRASS_TABLE_CONFIGURATIONS  # type: ignore
 
 
 class BrassManager:
@@ -77,9 +78,9 @@ class BrassManager:
         header = self.html_generator.generar_header_moderno(
             "INFORME DE AVISOS DE EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN"
         )
-        table_html = build_table_html(
-            "Equipos de Medida Fuera de Calibración", data, sort_headers=True
-        )
+        # Usar configuración centralizada (primer y único key por ahora)
+        cfg = BRASS_TABLE_CONFIGURATIONS["equipment_out_of_calibration"]
+        table_html = build_table_html(cfg["title"], data, sort_headers=True)
         footer = self.html_generator.generar_footer_moderno()
         html = header + table_html + footer
         self.logger.info(
