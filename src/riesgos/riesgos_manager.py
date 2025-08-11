@@ -66,7 +66,200 @@ except Exception:  # Fallback sin prefijo
             load_css_content,
             register_task_completion,
         )
-from .table_configurations import TABLE_CONFIGURATIONS
+# Configuración de tablas movida desde table_configurations.py para simplificar módulo
+TABLE_CONFIGURATIONS = {
+    "accepted_risks_unmotivated": {
+        "title": "Riesgos Aceptados sin Motivación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Aceptación", "field": "FechaAceptacion", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "accepted_risks_rejected": {
+        "title": "Riesgos Aceptados Rechazados",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Aceptación", "field": "FechaAceptacion", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "retired_risks_unmotivated": {
+        "title": "Riesgos Retirados sin Motivación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Retirada", "field": "FechaRetirada", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "retired_risks_rejected": {
+        "title": "Riesgos Retirados Rechazados",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Retirada", "field": "FechaRetirada", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "editions_ready_for_publication": {
+        "title": "Ediciones Listas para Publicación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "UltimaEdicion"},
+            {"header": "Fecha Edición", "field": "FechaEdicion", "format": "date"},
+            {"header": "Fecha Publicación", "field": "FechaPublicacion", "format": "date"},
+            {"header": "Responsable Técnico", "field": "ResponsableTecnico"},
+            {"header": "Resp. Calidad", "field": "ResponsableCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "accepted_risks_pending_approval": {
+        "title": "Riesgos Aceptados Pendientes de Aprobación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Aceptación", "field": "FechaAceptacion", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "retired_risks_pending_approval": {
+        "title": "Riesgos Retirados Pendientes de Aprobación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Retirada", "field": "FechaRetirada", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "materialized_risks_pending_decision": {
+        "title": "Riesgos Materializados Pendientes de Decisión",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha Materialización", "field": "FechaMaterializacion", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "editions_with_expired_dates": {
+        "title": "Ediciones con Fechas Caducadas",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "UltimaEdicion"},
+            {"header": "Fecha Máx.Próx Ed.", "field": "FechaMaximaProximaEdicion", "format": "date"},
+            {"header": "Resp. Calidad", "field": "ResponsableCalidad"},
+            {"header": "Días", "field": "Dias", "format": "days"},
+        ],
+    },
+    "active_editions": {
+        "title": "Ediciones Activas",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "Edicion"},
+            {"header": "Fecha Edición", "field": "FechaEdicion", "format": "date"},
+            {"header": "Fecha Publicación", "field": "FechaPublicacion", "format": "date"},
+            {"header": "Responsable Técnico", "field": "ResponsableTecnico"},
+            {"header": "Estado", "field": "Estado"},
+        ],
+    },
+    "closed_editions_last_month": {
+        "title": "Ediciones Cerradas en los Últimos 30 Días",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "Edicion"},
+            {"header": "Fecha Edición", "field": "FechaEdicion", "format": "date"},
+            {"header": "Fecha Publicación", "field": "FechaPublicacion", "format": "date"},
+            {"header": "Fecha Cierre", "field": "FechaCierre", "format": "date"},
+            {"header": "Responsable Técnico", "field": "ResponsableTecnico"},
+            {"header": "Días desde Cierre", "field": "DiasDesdeCierre"},
+        ],
+    },
+    "risks_to_reclassify": {
+        "title": "Riesgos que hay que Asignar un Código de Biblioteca",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa raíz", "field": "CausaRaiz"},
+            {"header": "Fecha para retific.", "field": "FechaRiesgoParaRetipificar", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+        ],
+    },
+    "mitigation_actions_reschedule": {
+        "title": "Riesgos con Acciones de Mitigación para Replanificar",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código Riesgo", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa Raíz", "field": "CausaRaiz"},
+            {"header": "Disparador", "field": "DisparadorDelPlan"},
+            {"header": "Acción", "field": "Accion"},
+            {"header": "Fecha Inicio", "field": "FechaInicio", "format": "date"},
+            {"header": "Fecha Fin Prevista", "field": "FechaFinPrevista", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+        ],
+    },
+    "contingency_actions_reschedule": {
+        "title": "Riesgos con Acciones de Contingencia para Replanificar",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Código Riesgo", "field": "CodigoRiesgo"},
+            {"header": "Descripción", "field": "Descripcion"},
+            {"header": "Causa Raíz", "field": "CausaRaiz"},
+            {"header": "Disparador", "field": "DisparadorDelPlan"},
+            {"header": "Acción", "field": "Accion"},
+            {"header": "Fecha Inicio", "field": "FechaInicio", "format": "date"},
+            {"header": "Fecha Fin Prevista", "field": "FechaFinPrevista", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+        ],
+    },
+    "editions_need_publication": {
+        "title": "Ediciones que necesitan propuesta de publicación",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "Edicion"},
+            {"header": "Fecha Máx.Próx Ed.", "field": "FechaMaxProximaPublicacion", "format": "date"},
+            {"header": "Propuesta para Publicación", "field": "FechaPreparadaParaPublicar", "format": "date"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+            {"header": "Faltan (días)", "field": "Dias", "format": "css_days"},
+        ],
+    },
+    "editions_with_rejected_proposals": {
+        "title": "Ediciones con propuestas de publicación rechazadas",
+        "columns": [
+            {"header": "Proyecto", "field": "Nemotecnico"},
+            {"header": "Últ Ed", "field": "Edicion"},
+            {"header": "Fecha Máx.Próx Ed.", "field": "FechaMaxProximaPublicacion", "format": "date"},
+            {"header": "Propuesta para Publicación", "field": "FechaPreparadaParaPublicar", "format": "date"},
+            {"header": "Fecha Rechazo", "field": "PropuestaRechazadaPorCalidadFecha", "format": "date"},
+            {"header": "Motivo Rechazo", "field": "PropuestaRechazadaPorCalidadMotivo"},
+            {"header": "Resp. Calidad", "field": "UsuarioCalidad"},
+        ],
+    },
+}
 
 
 class RiesgosManager:
@@ -342,51 +535,6 @@ class RiesgosManager:
                 f"🚨 ERROR #{self.error_count} obteniendo última ejecución de {task_name}: {e}"
             )
             return None
-
-    def should_execute_technical_task(self) -> bool:
-        """
-        Determina si debe ejecutarse la tarea técnica (semanal, primer día laborable)
-        """
-        try:
-            last = self.get_last_execution("TECNICA")
-            if not last:
-                return True
-            # Ejecutar si han pasado >=7 días
-            return (datetime.now() - last).days >= 7
-        except Exception:
-            return False
-
-    def should_execute_quality_task(self) -> bool:
-        """
-        Determina si debe ejecutarse la tarea de calidad semanal.
-        Se ejecuta el primer día laborable de la semana.
-
-        Returns:
-            True si debe ejecutarse
-        """
-        try:
-            last = self.get_last_execution("CALIDAD")
-            if not last:
-                return True
-            return (datetime.now() - last).days >= 7
-        except Exception:
-            return False
-
-    def should_execute_monthly_quality_task(self) -> bool:
-        """
-        Determina si debe ejecutarse la tarea de calidad mensual.
-        Se ejecuta el primer día laborable del mes.
-
-        Returns:
-            True si debe ejecutarse
-        """
-        try:
-            last = self.get_last_execution("MENSUAL")
-            if not last:
-                return True
-            return (datetime.now() - last).days >= 30
-        except Exception:
-            return False
 
     def _build_technical_users_query(
         self, query_type: str, specific_conditions: list[str] = None
@@ -937,29 +1085,7 @@ class RiesgosManager:
         except Exception:
             return False
 
-    def run_daily_tasks(
-        self,
-        force_technical: bool = False,
-        force_quality: bool = False,
-        force_monthly: bool = False,
-    ) -> dict[str, bool]:
-        """Wrapper legacy: delega en `RiesgosTask` para no romper tests.
-
-        Una vez migrados los tests a usar `RiesgosTask` directamente, este
-        método podrá eliminarse junto con la lógica de decisión duplicada.
-        """
-        try:
-            from .riesgos_task import RiesgosTask  # import diferido
-
-            task = RiesgosTask(manager=self)
-            return task.run_tasks(
-                force_technical=force_technical,
-                force_quality=force_quality,
-                force_monthly=force_monthly,
-            )
-        except Exception as e:  # pragma: no cover
-            self.logger.error(f"Error delegando run_daily_tasks en RiesgosTask: {e}")
-            return {"technical": False, "quality": False, "monthly": False}
+    # Método run_daily_tasks eliminado: responsabilidad movida a RiesgosTask
 
     def _generate_technical_report_html(self, user_id: str, user_name: str) -> str:
         """
@@ -1404,53 +1530,6 @@ class RiesgosManager:
     # =============================
     #  Métodos de compatibilidad para tests legacy
     # =============================
-    def connect(self) -> bool:  # pragma: no cover
-        try:
-            # Si ya existe mock de db en tests, intentar llamar a connect()
-            if self.db and hasattr(self.db, "connect"):
-                try:
-                    self.db.connect()
-                    return True
-                except Exception:
-                    return False
-            self.connect_to_database()
-            return True
-        except Exception:
-            return False
-
-    def disconnect(self):  # pragma: no cover
-        self.disconnect_from_database()
-
-    def get_last_execution(self, task_type: str):
-        mapping = {
-            "TECNICA": "RiesgosDiariosTecnicos",
-            "CALIDAD": "RiesgosDiariosCalidad",
-            "MENSUAL": "RiesgosMensualesCalidad",
-        }
-        task_name = mapping.get(task_type.upper(), task_type)
-        try:
-            if not self.db:
-                return None
-            rows = self.db.execute_query(
-                "SELECT FechaEjecucion FROM TbTareas WHERE Tarea = ? ORDER BY FechaEjecucion DESC",
-                (task_name,),
-            )
-            return rows[0].get("FechaEjecucion") if rows else None
-        except Exception:
-            return None
-
-    def record_task_execution(self, task_type: str) -> bool:
-        try:
-            if not self.db:
-                return False
-            self.db.execute_query(
-                "INSERT INTO TbTareas (Tarea, FechaEjecucion) VALUES (?, ?)",
-                (task_type, datetime.now()),
-            )
-            return True
-        except Exception:
-            return False
-
     def get_distinct_users(self) -> dict[str, tuple[str, str]]:
         users: dict[str, tuple[str, str]] = {}
         if not self.db:
@@ -1473,48 +1552,6 @@ class RiesgosManager:
     def get_css_styles(self) -> str:
         css = self._load_css_styles()
         return css if "<style" in css else f"<style>{css}</style>"
-
-    def execute_daily_task(self) -> bool:
-        if not self.connect():
-            self.disconnect()
-            return False
-        try:
-            ran = False
-            if self.should_execute_technical_task():
-                ran = self.execute_technical_task() or ran
-                self.record_task_execution("TECNICA")
-            if self.should_execute_quality_task():
-                ran = self.execute_quality_task() or ran
-                self.record_task_execution("CALIDAD")
-            # Compatibilidad tests: registrar siempre un email si alguna tarea se ejecutó
-            if ran:
-                try:
-                    admin_emails = get_admin_emails_string()
-                    if admin_emails:
-                        try:
-                            from common.utils import (
-                                register_email_in_database as _reg,  # type: ignore
-                            )
-                        except Exception:
-                            try:
-                                from src.common.utils import (
-                                    register_email_in_database as _reg,  # type: ignore
-                                )
-                            except Exception:
-                                _reg = None  # type: ignore
-                        if _reg:
-                            _reg(
-                                "TECNICA",
-                                "ADMIN",
-                                "Resumen Diario Riesgos",
-                                "<html>Resumen Diario</html>",
-                                "text/html",
-                            )
-                except Exception:
-                    pass
-            return ran
-        finally:
-            self.disconnect()
 
     def execute_technical_task(self) -> bool:
         try:

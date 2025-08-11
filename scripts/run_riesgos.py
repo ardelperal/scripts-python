@@ -19,7 +19,7 @@ if str(_SRC_DIR) not in sys.path:
 
 from common.config import config  # type: ignore
 from common.utils import ensure_project_root_in_path, execute_task_with_standard_boilerplate  # type: ignore
-from riesgos.riesgos_manager import RiesgosManager  # type: ignore
+from riesgos.riesgos_task import RiesgosTask  # type: ignore
 
 ensure_project_root_in_path()
 
@@ -51,29 +51,25 @@ def main(argv: list[str] | None = None):  # pragma: no cover
         if args.verbose:
             logger.setLevel(logging.DEBUG)
         logger.info("Config entorno: %s", config.environment)
-        manager = RiesgosManager(config, logger)
-        manager.connect_to_database()
-        try:
-            results = manager.run_daily_tasks(
-                force_technical=args.force_technical,
-                force_quality=args.force_quality,
-                force_monthly=args.force_monthly,
-            )
-            ok = True
-            if args.force_technical and not results.get("technical"):
-                logger.error("Fallo tarea técnica")
-                ok = False
-            if args.force_quality and not results.get("quality"):
-                logger.error("Fallo tarea calidad")
-                ok = False
-            if args.force_monthly and not results.get("monthly"):
-                logger.error("Fallo tarea mensual")
-                ok = False
-            if ok:
-                logger.info("Tareas completadas")
-            return ok
-        finally:
-            manager.disconnect_from_database()
+        task = RiesgosTask()
+        results = task.run_tasks(
+            force_technical=args.force_technical,
+            force_quality=args.force_quality,
+            force_monthly=args.force_monthly,
+        )
+        ok = True
+        if args.force_technical and not results.get("technical"):
+            logger.error("Fallo tarea técnica")
+            ok = False
+        if args.force_quality and not results.get("quality"):
+            logger.error("Fallo tarea calidad")
+            ok = False
+        if args.force_monthly and not results.get("monthly"):
+            logger.error("Fallo tarea mensual")
+            ok = False
+        if ok:
+            logger.info("Tareas completadas")
+        return ok
 
     exit_code = execute_task_with_standard_boilerplate("RIESGOS", custom_logic=_logic)
     sys.exit(exit_code)
