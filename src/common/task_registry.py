@@ -23,15 +23,13 @@ try:
     from src.expedientes.expedientes_task import ExpedientesTask  # type: ignore
     from src.no_conformidades.no_conformidades_task import NoConformidadesTask  # type: ignore
     from src.agedys.agedys_task import AgedysTask  # type: ignore
-    from src.correos.correos_task import CorreosTask  # type: ignore
-    from src.correo_tareas.correo_tareas_task import CorreoTareasTask  # type: ignore
+    from src.email_services.email_task import EmailServicesTask  # type: ignore
 except ModuleNotFoundError:
     from brass.brass_task import BrassTask  # type: ignore
     from expedientes.expedientes_task import ExpedientesTask  # type: ignore
     from no_conformidades.no_conformidades_task import NoConformidadesTask  # type: ignore
     from agedys.agedys_task import AgedysTask  # type: ignore
-    from correos.correos_task import CorreosTask  # type: ignore
-    from correo_tareas.correo_tareas_task import CorreoTareasTask  # type: ignore
+    from email_services.email_task import EmailServicesTask  # type: ignore
 
 # Intento de importación ligera de RiesgosTask; si falla, se crea stub para tests unitarios
 try:
@@ -188,24 +186,29 @@ class AgedysTask(TareaDiaria):
         )
 
 
-class CorreosTask(TareaContinua):
-    """Tarea continua para envío de correos pendientes"""
-    
+class EmailServicesRegistryTask(TareaContinua):
+    """Wrapper de registro para tarea unificada de servicios de correo.
+
+    Se mantiene un wrapper mínimo para no acoplar directamente TaskRegistry
+    a la implementación concreta y facilitar futuras extensiones (p.ej. división).
+    """
+
     def __init__(self):
         super().__init__(
-            name="Correos",
-            script_filename="run_correos.py"
+            name="EmailServices",
+            script_filename="run_email_services.py"
         )
 
-
-class CorreoTareasTask(TareaContinua):
-    """Tarea continua para notificaciones de tareas"""
-    
-    def __init__(self):
-        super().__init__(
-            name="CorreoTareas",
-            script_filename="run_correo_tareas.py"
-        )
+    # Delegación: la lógica real vive en EmailServicesTask ejecutada vía runner.
+    # Aquí podríamos, en el futuro, instanciar y ejecutar EmailServicesTask directamente
+    # si migramos completamente al modelo TaskRegistry para continuas.
+    def execute_specific_logic(self) -> bool:  # pragma: no cover - mínima
+        try:
+            from email_services.email_task import EmailServicesTask  # import local para evitar ciclos
+            task = EmailServicesTask()
+            return task.execute_specific_logic()
+        except Exception:
+            return False
 
 
 class TaskRegistry:
@@ -235,8 +238,7 @@ class TaskRegistry:
             ])
         if include_continuous:
             self._continuous_tasks.extend([
-                CorreosTask(),
-                CorreoTareasTask()
+                EmailServicesRegistryTask()
             ])
         if extra_daily:
             self._daily_tasks.extend(extra_daily)
@@ -289,5 +291,5 @@ __all__ = [
     'get_all_tasks',
     # Clases de tareas
     'RiesgosTask', 'BrassTask', 'ExpedientesTask', 'NoConformidadesTask', 'AgedysTask',
-    'CorreosTask', 'CorreoTareasTask'
+    'EmailServicesRegistryTask'
 ]
