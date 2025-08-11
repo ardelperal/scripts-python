@@ -943,48 +943,23 @@ class RiesgosManager:
         force_quality: bool = False,
         force_monthly: bool = False,
     ) -> dict[str, bool]:
+        """Wrapper legacy: delega en `RiesgosTask` para no romper tests.
+
+        Una vez migrados los tests a usar `RiesgosTask` directamente, este
+        método podrá eliminarse junto con la lógica de decisión duplicada.
         """
-        Ejecuta las tareas diarias según corresponda.
+        try:
+            from .riesgos_task import RiesgosTask  # import diferido
 
-        Args:
-            force_technical: Forzar ejecución de tarea técnica
-            force_quality: Forzar ejecución de tarea de calidad
-            force_monthly: Forzar ejecución de tarea mensual
-
-        Returns:
-            Diccionario con el resultado de cada tarea
-
-        Raises:
-            Exception: Si ocurre algún error durante la ejecución de las tareas.
-                      La excepción se propaga para facilitar la depuración.
-        """
-        results = {"technical": False, "quality": False, "monthly": False}
-
-        # Verificar qué tareas deben ejecutarse
-        should_run_technical = force_technical or self.should_execute_technical_task()
-        should_run_quality = force_quality or self.should_execute_quality_task()
-        should_run_monthly = force_monthly or self.should_execute_monthly_quality_task()
-
-        if not (should_run_technical or should_run_quality or should_run_monthly):
-            self.logger.info("No hay tareas de riesgos para ejecutar hoy")
-            return results
-
-        # Ejecutar tareas según corresponda
-        if should_run_technical:
-            results["technical"] = self.execute_technical_task()
-
-        if should_run_quality:
-            results["quality"] = self.execute_quality_task()
-
-        if should_run_monthly:
-            results["monthly"] = self.execute_monthly_quality_task()
-
-        # Log de resumen
-        executed_tasks = [task for task, success in results.items() if success]
-        if executed_tasks:
-            self.logger.info(f"Tareas ejecutadas: {', '.join(executed_tasks)}")
-
-        return results
+            task = RiesgosTask(manager=self)
+            return task.run_tasks(
+                force_technical=force_technical,
+                force_quality=force_quality,
+                force_monthly=force_monthly,
+            )
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"Error delegando run_daily_tasks en RiesgosTask: {e}")
+            return {"technical": False, "quality": False, "monthly": False}
 
     def _generate_technical_report_html(self, user_id: str, user_name: str) -> str:
         """
