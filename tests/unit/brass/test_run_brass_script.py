@@ -1,16 +1,20 @@
-"""Tests ligeros para script run_brass (argumento --force)."""
+"""Tests ligeros para script scripts/run_brass.py (argumento --force).
+
+Se ha eliminado el shim src.brass.run_brass; ahora importamos directamente
+scripts.run_brass para validar comportamiento. Se parchea BrassTask en ese módulo.
+"""
 import importlib
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
-SCRIPT_PATH = Path("src") / "brass" / "run_brass.py"
+SCRIPT_PATH = Path("scripts") / "run_brass.py"
 
 
 def import_module_fresh():
-    if "src.brass.run_brass" in sys.modules:
-        del sys.modules["src.brass.run_brass"]
-    return importlib.import_module("src.brass.run_brass")
+    if "scripts.run_brass" in sys.modules:
+        del sys.modules["scripts.run_brass"]
+    return importlib.import_module("scripts.run_brass")
 
 
 def test_run_brass_normal(monkeypatch):
@@ -32,7 +36,7 @@ def test_run_brass_normal(monkeypatch):
         def marcar_como_completada(self):
             self.marked = True
 
-    monkeypatch.setattr("src.brass.run_brass.BrassTask", DummyTask)
+    monkeypatch.setattr("scripts.run_brass.BrassTask", DummyTask)
     testargs = ["run_brass.py"]
     with patch.object(sys, "argv", testargs):
         mod = import_module_fresh()
@@ -63,7 +67,7 @@ def test_run_brass_force(monkeypatch):
         def marcar_como_completada(self):
             self.marked = True
 
-    monkeypatch.setattr("src.brass.run_brass.BrassTask", DummyTask)
+    monkeypatch.setattr("scripts.run_brass.BrassTask", DummyTask)
     testargs = ["run_brass.py", "--force"]
     with patch.object(sys, "argv", testargs):
         mod = import_module_fresh()
