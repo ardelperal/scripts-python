@@ -52,6 +52,7 @@ coverage.xml
 # Logs
 logs/
 *.log
+legacy/.removed/
 
 # Database files
 *.accdb
@@ -78,7 +79,9 @@ debug_html/
 verify_*.py
 ejemplo_*.html
 
-# Permit test_*.py files to be tracked (was previously ignored)
+# Explicitly ignore removed artifacts
+quality_output.html
+setup_local_environment_root.log
 
 # Development files
 herramientas/*.txt
