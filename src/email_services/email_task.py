@@ -35,25 +35,67 @@ class EmailServicesTask(TareaContinua):
         Devuelve True si ambos pasos se ejecutan sin excepciones graves.
         """
         try:
-            logger.info("[EmailServicesTask] Procesando correos generales (correos)")
+            self.logger.info(
+                "Iniciando procesamiento de correos generales",
+                extra={
+                    "event": "email_processing_start",
+                    "source": "correos",
+                    "task": self.name,
+                },
+            )
             self._manager_correos = EmailManager(email_source="correos")
             enviados_correos = self._manager_correos.process_pending_emails()
-            logger.info(
-                "[EmailServicesTask] Correos generales enviados: %s", enviados_correos
+            self.logger.info(
+                "Procesamiento de correos generales finalizado",
+                extra={
+                    "event": "email_processing_end",
+                    "source": "correos",
+                    "sent_count": enviados_correos,
+                    "task": self.name,
+                },
             )
         except Exception as e:
-            logger.error("Error procesando correos generales: %s", e)
+            self.logger.error(
+                "Error procesando correos generales",
+                extra={
+                    "event": "email_processing_error",
+                    "source": "correos",
+                    "error": str(e),
+                    "task": self.name,
+                },
+            )
             return False
 
         try:
-            logger.info("[EmailServicesTask] Procesando correos de tareas (tareas)")
+            self.logger.info(
+                "Iniciando procesamiento de correos de tareas",
+                extra={
+                    "event": "email_processing_start",
+                    "source": "tareas",
+                    "task": self.name,
+                },
+            )
             self._manager_tareas = EmailManager(email_source="tareas")
             enviados_tareas = self._manager_tareas.process_pending_emails()
-            logger.info(
-                "[EmailServicesTask] Correos de tareas enviados: %s", enviados_tareas
+            self.logger.info(
+                "Procesamiento de correos de tareas finalizado",
+                extra={
+                    "event": "email_processing_end",
+                    "source": "tareas",
+                    "sent_count": enviados_tareas,
+                    "task": self.name,
+                },
             )
         except Exception as e:
-            logger.error("Error procesando correos de tareas: %s", e)
+            self.logger.error(
+                "Error procesando correos de tareas",
+                extra={
+                    "event": "email_processing_error",
+                    "source": "tareas",
+                    "error": str(e),
+                    "task": self.name,
+                },
+            )
             return False
 
         return True
@@ -62,4 +104,7 @@ class EmailServicesTask(TareaContinua):
         """Cierra/limpia referencias a managers (los pools se mantienen singleton)."""
         self._manager_correos = None
         self._manager_tareas = None
-        logger.debug("[EmailServicesTask] Managers liberados (pools siguen vivos)")
+        self.logger.debug(
+            "Managers liberados",
+            extra={"event": "email_task_cleanup", "task": self.name},
+        )
