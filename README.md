@@ -310,8 +310,7 @@ scripts-python/
 │   │   ├── __init__.py
 │   │   ├── agedys/              # Integración del sistema AGEDYS
 │   │   ├── brass/               # Integración del sistema brass
-│   │   ├── correo_tareas/       # Integración del sistema de correo tareas
-│   │   ├── correos/             # Integración del sistema de correos
+│   │   ├── email_services/      # Integración del servicio unificado de correos
 │   │   ├── database/            # Integración con bases de datos
 │   │   ├── expedientes/         # Integración del sistema de expedientes
 │   │   ├── no_conformidades/    # Integración no conformidades
@@ -321,7 +320,7 @@ scripts-python/
 │       ├── agedys/              # Tests específicos AGEDYS
 │       ├── brass/               # Tests específicos BRASS
 │       ├── common/              # Tests módulos comunes
-│       ├── correos/             # Tests del módulo de correos
+│       ├── email_services/      # Tests del servicio unificado de correos
 │       ├── expedientes/         # Tests del módulo de expedientes
 │       ├── no_conformidades/    # Tests no conformidades
 │       └── riesgos/             # Tests del módulo de riesgos
@@ -722,7 +721,7 @@ El sistema soporta dos configuraciones SMTP:
 | `src/common/task_registry.py` | 64% | ✅ |
 | `src/common/notifications.py` | 100% | ✅ |
 | `src/common/utils.py` | 49% | ✅ |
-| `src/correos/correos_manager.py` | 91% | ✅ |
+| `src/email_services/email_manager.py` | 91% | ✅ |
 | `src/expedientes/expedientes_manager.py` | 98% | ✅ |
 | `src/riesgos/riesgos_manager.py` | 90% | ✅ |
 
@@ -1076,6 +1075,9 @@ python scripts/run_riesgos.py --force           # Fuerza ejecución
 python scripts/run_riesgos.py --dry-run         # Modo simulación
 
 # Email Services - Servicio unificado de correo (remplaza correos y correo_tareas)
+
+### Manejo de errores transitorios SMTP (Refactor 2025)
+Los errores de conexión SMTP (p.ej. desconexión inesperada, `SMTPConnectError`, `ConnectionRefusedError`) ahora se consideran **transitorios** y no marcan el correo como fallido en la base de datos. El registro permanece pendiente para reintentos en futuros ciclos. Sólo errores definitivos (credenciales inválidas, destinatario rechazado, formato de mensaje inválido) marcan el correo como fallido. Esto incrementa la resiliencia ante caídas puntuales del servidor de correo.
 python scripts/run_email_services.py            # Ejecución normal
 python scripts/run_email_services.py --force    # (Reservado) Fuerza ejecución
 

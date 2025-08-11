@@ -25,6 +25,11 @@ from common.access_connection_pool import (
 logger = logging.getLogger(__name__)
 
 
+class TransientEmailSendError(Exception):
+    """Error transitorio (p.ej. fallo de conexión SMTP) que NO debe marcar el correo como no enviado aún."""
+    pass
+
+
 class EmailManager:
     """Gestor unificado para envío de correos pendientes.
 
@@ -69,12 +74,19 @@ class EmailManager:
             logger.info("%s correos pendientes (%s)", len(rows), self.email_source)
             for correo in rows:
                 try:
-                    if self._enviar_correo_individual(correo):
+                    resultado = self._enviar_correo_individual(correo)
+                    if resultado is True:
                         self._marcar_correo_enviado(correo['IDCorreo'], datetime.now())
                         enviados += 1
-                    else:
+                    elif resultado is False:
+                        # Fallo definitivo en construcción o envío (no transitorio)
                         self._marcar_correo_no_enviado(correo['IDCorreo'], 'Error envío')
-                except Exception as e:  # pragma: no cover - path de error
+                except TransientEmailSendError as e:  # fallo transitorio -> reintentar en ciclo futuro
+                    logger.warning(
+                        "Fallo transitorio SMTP para correo ID %s: %s (se reintentará sin marcar)",
+                        correo.get('IDCorreo'), e
+                    )
+                except Exception as e:  # pragma: no cover - path de error inesperado
                     logger.error("Error procesando correo ID %s: %s", correo.get('IDCorreo'), e)
                     self._marcar_correo_no_enviado(correo.get('IDCorreo', -1), str(e))
             return enviados
@@ -84,6 +96,7 @@ class EmailManager:
 
     # ------------------ Lógica interna ------------------
     def _enviar_correo_individual(self, correo: Dict[str, Any]) -> bool:
+        """Devuelve True si enviado, False si fallo definitivo, o levanta TransientEmailSendError."""
         try:
             msg = MIMEMultipart()
             aplicacion = correo.get('Aplicacion', 'Sistema')
@@ -109,6 +122,8 @@ class EmailManager:
                 logger.warning("Correo ID %s sin destinatarios", correo.get('IDCorreo'))
                 return False
             return self._enviar_smtp(msg, destinatarios)
+        except TransientEmailSendError:
+            raise
         except Exception as e:
             logger.error("Error en _enviar_correo_individual: %s", e)
             return False
@@ -162,6 +177,9 @@ class EmailManager:
                     servidor.login(self.smtp_user, self.smtp_password)
                 servidor.sendmail(self.smtp_user, destinatarios, msg.as_string())
             return True
+        except (ConnectionRefusedError, smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as e:
+            logger.error("Fallo conexión SMTP: %s", e)
+            raise TransientEmailSendError(str(e))
         except Exception as e:
             logger.error("Error enviando correo SMTP: %s", e)
             return False

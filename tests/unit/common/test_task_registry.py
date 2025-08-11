@@ -10,7 +10,8 @@ def test_registry_default_counts():
     daily = registry.get_daily_tasks()
     continuous = registry.get_continuous_tasks()
     assert len(daily) >= 5  # Riesgos, BRASS, Expedientes, NoConformidades, Agedys
-    assert len(continuous) >= 2  # Correos, CorreoTareas
+    # Ahora solo una tarea continua unificada (EmailServices)
+    assert len(continuous) == 1  # EmailServices
 
 
 def test_registry_summary_names():
@@ -19,7 +20,7 @@ def test_registry_summary_names():
     assert 'daily_count' in summary and summary['daily_count'] == len(summary['daily_names'])
     assert 'continuous_count' in summary and summary['continuous_count'] == len(summary['continuous_names'])
     assert 'Riesgos' in summary['daily_names']
-    assert 'Correos' in summary['continuous_names']
+    assert 'EmailServices' in summary['continuous_names']
 
 
 def test_registry_filters():

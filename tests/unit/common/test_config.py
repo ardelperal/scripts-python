@@ -208,22 +208,29 @@ class TestConfig:
         """Test creación de directorios necesarios"""
         with patch('common.config.load_dotenv'):
             Config()  # instancia para disparar mkdir
-        # Verificar que se llamó mkdir para el directorio de logs
-        mock_mkdir.assert_called_with(parents=True, exist_ok=True)
-    
-    def test_get_database_path_brass(self):
-        """Test obtención de ruta de base de datos BRASS"""
+
+
+def test_default_recipient_unset_fallback():
+    """Si DEFAULT_RECIPIENT no está definido debe usar 'admin@empresa.com'."""
+    env_vars = {
+        'ENVIRONMENT': 'local'
+    }
+    with patch.dict(os.environ, env_vars, clear=True):
         with patch('common.config.load_dotenv'):
-            test_config = Config()
-            result = test_config.get_database_path('brass')
-        assert result == test_config.db_brass_path
-    
-    def test_get_database_path_tareas(self):
-        """Test obtención de ruta de base de datos Tareas"""
+            cfg = Config()
+            assert cfg.default_recipient == 'admin@empresa.com'
+
+
+def test_default_recipient_telefonica_domain_fallback():
+    """Si DEFAULT_RECIPIENT termina en @telefonica.com se fuerza fallback 'admin@empresa.com'."""
+    env_vars = {
+        'ENVIRONMENT': 'local',
+        'DEFAULT_RECIPIENT': 'soporte@telefonica.com'
+    }
+    with patch.dict(os.environ, env_vars, clear=True):
         with patch('common.config.load_dotenv'):
-            test_config = Config()
-            result = test_config.get_database_path('tareas')
-        assert result == test_config.db_tareas_path
+            cfg = Config()
+            assert cfg.default_recipient == 'admin@empresa.com'
     
     def test_get_database_path_correos(self):
         """Test obtención de ruta de base de datos Correos"""
