@@ -767,6 +767,99 @@ class AgedysManager:
     ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
+    # -------------------- Métodos integrados desde AgedysPureManager --------------------
+    def get_dpds_sin_visado_calidad(self) -> list[dict[str, Any]]:
+        """Versión agrupada (sin filtro usuario) integrada desde AgedysPureManager."""
+        query = """
+            SELECT DISTINCT e.CODPROYECTOS, e.CODIGO, e.Descripcion
+            FROM TbExpedientes1 e
+            LEFT JOIN TbVisadoFacturas_Nueva vf ON e.IDExpediente = vf.IDExpediente
+            WHERE e.AGEDYSAplica = 'Sí'
+              AND vf.IDExpediente IS NULL;
+        """
+        return self._execute_section(query, "dpds_sin_visado_calidad_integrado")
+
+    def get_dpds_rechazados_calidad(self) -> list[dict[str, Any]]:  # type: ignore[override]
+        query = """
+            SELECT DISTINCT e.CODPROYECTOS, e.CODIGO, e.Descripcion, vf.FRECHAZOTECNICO
+            FROM TbExpedientes1 e
+              INNER JOIN TbVisadoFacturas_Nueva vf ON e.IDExpediente = vf.IDExpediente
+            WHERE vf.FRECHAZOTECNICO IS NOT NULL;
+        """
+        return self._execute_section(query, "dpds_rechazados_calidad_integrado")
+
+    def get_dpds_sin_pedido(self) -> list[dict[str, Any]]:  # type: ignore[override]
+        query = """
+            SELECT DISTINCT e.CODPROYECTOS, e.CODIGO, e.Descripcion
+            FROM TbExpedientes1 e
+            LEFT JOIN TbNPedido np ON e.IDExpediente = np.IDExpediente
+            WHERE np.NPEDIDO IS NULL AND e.AGEDYSAplica = 'Sí';
+        """
+        return self._execute_section(query, "dpds_sin_pedido_integrado")
+
+    def generate_agedys_report_html(self) -> str:
+        """Informe unificado (heredado de AgedysPureManager).
+
+        Mantiene la firma legacy utilizada en algunos tests.
+        """
+        sections = [
+            (
+                "Usuarios con facturas pendientes de visado técnico",
+                self.get_usuarios_facturas_pendientes_visado_tecnico(),
+            ),
+            ("DPDs sin visado calidad", self.get_dpds_sin_visado_calidad()),
+            ("DPDs rechazados calidad", self.get_dpds_rechazados_calidad()),
+            ("DPDs sin pedido", self.get_dpds_sin_pedido()),
+        ]
+        non_empty = [(title, data) for title, data in sections if data]
+        if not non_empty:
+            self.logger.info(
+                "Informe AGEDYS vacío", extra={"event": "agedys_report_empty"}
+            )
+            return ""
+        parts: list[str] = []
+        parts.append(
+            self.html_generator.generar_header_moderno(
+                "INFORME TAREAS PENDIENTES (AGEDYS)"
+            )
+        )
+        total_rows = 0
+        for title, data in non_empty:
+            total_rows += len(data)
+            parts.append(build_table_html(title, data, sort_headers=True))
+            self.logger.info(
+                f"Sección {title} generada",
+                extra={
+                    "event": "agedys_report_section",
+                    "section": title.lower().replace(" ", "_"),
+                    "metric_name": "agedys_section_rows",
+                    "metric_value": len(data),
+                    "app": "AGEDYS",
+                },
+            )
+        html = "".join(parts) + self.html_generator.generar_footer_moderno()
+        self.logger.info(
+            "Resumen informe AGEDYS",
+            extra={
+                "event": "agedys_report_summary",
+                "metric_name": "agedys_report_sections",
+                "metric_value": len(non_empty),
+                "total_rows": total_rows,
+                "html_length": len(html),
+                "app": "AGEDYS",
+            },
+        )
+        self.logger.info(
+            "Longitud informe AGEDYS",
+            extra={
+                "event": "agedys_report_length",
+                "metric_name": "agedys_report_length_chars",
+                "metric_value": len(html),
+                "app": "AGEDYS",
+            },
+        )
+        return html
+
     # Generadores HTML antiguos (requeridos por tests funcionales)
     def generate_facturas_html_table(self, facturas: list[dict[str, Any]]) -> str:
         if not facturas:
