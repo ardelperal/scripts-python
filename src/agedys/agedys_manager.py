@@ -27,6 +27,7 @@ from typing import Any
 
 from common.html_report_generator import HTMLReportGenerator
 from common.reporting.table_builder import build_table_html
+from common.reporting.table_configurations import AGEDYS_TABLE_CONFIGURATIONS  # type: ignore
 
 # Compatibilidad retro: tests antiguos esperan poder parchear config y AccessDatabase
 try:  # pragma: no cover - defensivo
