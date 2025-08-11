@@ -137,7 +137,7 @@ class AgedysTask(TareaDiaria):
         frequency = int(os.getenv("AGEDYS_FRECUENCIA_DIAS", "1"))
         super().__init__(
             name="AGEDYS",
-            script_filename="run_agedys.py",
+            script_filename="run_agedys.py",  # runner vive ahora en scripts/
             task_names=["AGEDYSDiario"],
             frequency_days=frequency,
         )
