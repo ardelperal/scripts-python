@@ -82,9 +82,9 @@ class SimpleMasterTaskRunner:
     def run_daily_tasks(self) -> tuple[int, int]:
         from datetime import date as _date
 
-        from common.utils import is_workday  # type: ignore
+        from common.utils import es_laborable
 
-        if not is_workday(_date.today()):
+        if not es_laborable(_date.today()):
             self.logger.info("📅 Hoy no es día laborable, omitiendo tareas diarias")
             return 0, len(self.daily_tasks)
         ejecutadas = 0

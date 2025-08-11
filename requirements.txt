@@ -1,4 +1,5 @@
 # Dependencias del proyecto - Windows con Access
+holidays
 # Base de datos y procesamiento
 pandas>=2.2.0
 
@@ -14,4 +15,4 @@ python-dotenv>=1.0.0
 # Logging y utilidades
 python-dateutil>=2.8.0
 colorama>=0.4.6
-python-logging-loki
+holidays

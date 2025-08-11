@@ -590,3 +590,60 @@ def test_should_execute_quality_task_due_on_preferred(monkeypatch):
     patch_today(monkeypatch, monday)
     fake_get_last_task(monkeypatch, date(2024, 4, 1))  # 7 days ago
     assert should_execute_quality_task(None, "QUAL", preferred_weekday=0) is True
+
+
+import pytest
+from unittest.mock import patch, MagicMock
+from datetime import date
+from pathlib import Path
+
+from common.utils import es_laborable
+
+
+class TestEsLaborable:
+    def test_laborable_weekday(self):
+        # Lunes normal
+        assert es_laborable(date(2025, 8, 11)) is True
+
+    def test_no_laborable_weekend(self):
+        # Sábado
+        assert es_laborable(date(2025, 8, 9)) is False
+        # Domingo
+        assert es_laborable(date(2025, 8, 10)) is False
+
+    def test_festivo_por_holidays(self):
+        # Simula que holidays devuelve True para esa fecha
+        with patch("common.utils.HOLIDAYS_LIB_AVAILABLE", True), \
+             patch("common.utils.festivos_madrid", new_callable=MagicMock) as mock_holidays:
+            mock_holidays.__contains__.side_effect = lambda d: d == date(2025, 1, 1)
+            assert es_laborable(date(2025, 1, 1)) is False  # Festivo
+            assert es_laborable(date(2025, 8, 11)) is True  # No festivo
+
+    def test_fallback_archivo_festivo(self, tmp_path):
+        # Simula holidays no disponible y usa archivo local
+        festivo = date(2025, 12, 25)
+        festivos_file = tmp_path / "Festivos.txt"
+        festivos_file.write_text(festivo.strftime("%d/%m/%Y") + "\n", encoding="utf-8")
+        with patch("common.utils.HOLIDAYS_LIB_AVAILABLE", False), \
+             patch("common.utils.festivos_madrid", None):
+            # El 25 de diciembre debe ser festivo (no laborable)
+            assert es_laborable(festivo, festivos_file_path=festivos_file) is False
+            assert es_laborable(date(2025, 8, 11), festivos_file_path=festivos_file) is True
+
+    def test_fallback_archivo_no_existe(self, tmp_path):
+        # Simula holidays no disponible y archivo no existe
+        non_existent_file = tmp_path / "Festivos.txt"
+        with patch("common.utils.HOLIDAYS_LIB_AVAILABLE", False), \
+             patch("common.utils.festivos_madrid", None):
+            assert es_laborable(date(2025, 8, 11), festivos_file_path=non_existent_file) is True
+
+    def test_fallback_archivo_error_lectura(self, tmp_path):
+        # Simula error al leer el archivo
+        festivos_file = tmp_path / "Festivos.txt"
+        festivos_file.write_text("25/12/2025\n", encoding="utf-8")
+        with patch("common.utils.HOLIDAYS_LIB_AVAILABLE", False), \
+             patch("common.utils.festivos_madrid", None), \
+             patch("builtins.open", side_effect=OSError("fail")), \
+             patch("logging.error") as mock_log:
+            assert es_laborable(date(2025, 8, 11), festivos_file_path=festivos_file) is True
+            mock_log.assert_called()

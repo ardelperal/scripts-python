@@ -1,6 +1,7 @@
 """Utilidades comunes para el proyecto
 """
 import logging
+import holidays
 import os
 import re
 from datetime import date, datetime, timedelta
@@ -111,6 +112,55 @@ def setup_logging(log_file: Path, level=logging.INFO):
         )
 
 
+# Inicializa el objeto una sola vez a nivel de módulo para mayor eficiencia
+# 'M' es el código para la Comunidad de Madrid
+try:
+    festivos_madrid = holidays.ES(prov='M')
+    HOLIDAYS_LIB_AVAILABLE = True
+except Exception:
+    festivos_madrid = None
+    HOLIDAYS_LIB_AVAILABLE = False
+    logging.warning("No se pudo inicializar la librería 'holidays'. Se usará el archivo local como fallback.")
+
+def es_laborable(fecha: date = None, festivos_file_path: Path = None) -> bool:
+    """
+    Determina si una fecha es día laborable en Madrid.
+    Un día es laborable si no es fin de semana y no es festivo.
+    Primero intenta usar la librería 'holidays' y, si falla, usa 'Festivos.txt'.
+    festivos_file_path: solo para tests, permite inyectar la ruta del archivo de festivos.
+    """
+    if fecha is None:
+        fecha = date.today()
+
+    # 1. Comprueba si es fin de semana (lunes=0, ..., domingo=6)
+    if fecha.weekday() >= 5:
+        return False
+
+    # 2. Intenta usar la librería 'holidays' (método principal)
+    if HOLIDAYS_LIB_AVAILABLE and festivos_madrid:
+        try:
+            if fecha in festivos_madrid:
+                return False
+            else:
+                return True # No es festivo según la librería
+        except Exception as e:
+            logging.warning(f"Fallo al consultar la librería 'holidays': {e}. Usando fallback a Festivos.txt.")
+
+    # 3. Si la librería falla o no está disponible, usa el archivo local (método de respaldo)
+    try:
+        if festivos_file_path is None:
+            project_root = Path(__file__).resolve().parent.parent.parent
+            festivos_file_path = project_root / "herramientas" / "Festivos.txt"
+        if festivos_file_path.exists():
+            with open(festivos_file_path, 'r', encoding='utf-8') as f:
+                festivos_locales = f.read().splitlines()
+            if fecha.strftime("%d/%m/%Y") in festivos_locales:
+                return False
+    except Exception as e:
+        logging.error(f"No se pudo leer el archivo de festivos local: {e}")
+
+    # Si no es fin de semana ni se encontró como festivo, es laborable
+    return True
 def is_workday(check_date: date, holidays_file: Optional[Path] = None) -> bool:
     """
     Verifica si una fecha es día laborable
@@ -153,23 +203,23 @@ def get_next_workday_from_preferred(
     Returns:
         Fecha del próximo día laborable
     """
-    today = date.today()
+    _today = date.today()
 
     # Calcular días hasta el día preferido de esta semana
-    days_until_preferred = (preferred_weekday - today.weekday()) % 7
+    _days_until_preferred = (preferred_weekday - _today.weekday()) % 7
 
     # Si es 0, significa que hoy es el día preferido
-    if days_until_preferred == 0:
-        candidate_date = today
+    if _days_until_preferred == 0:
+        candidate_date = _today
     else:
-        candidate_date = today + timedelta(days=days_until_preferred)
+        candidate_date = _today + timedelta(days=_days_until_preferred)
 
     # Buscar el próximo día laborable desde el día preferido
     max_attempts = 7  # Máximo una semana de búsqueda
     attempts = 0
 
     while attempts < max_attempts:
-        if is_workday(candidate_date, holidays_file):
+        if es_laborable(candidate_date):
             return candidate_date
 
         # Si no es laborable, probar el siguiente día
