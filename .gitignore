@@ -85,8 +85,12 @@ setup_local_environment_root.log
 
 # Export archives
 repo_export_*.zip
+legacy_archive.zip
 
 # Development files
 herramientas/*.txt
 herramientas/*.css
 !herramientas/CSS_moderno.css
+
+# Legacy code
+/legacy/

@@ -6,22 +6,24 @@ contra la base de datos de riesgos es posible en el entorno de pruebas. No se ha
 el contenido porque depende de datos locales.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import pytest
 
 # Mantener compatibilidad si los tests se ejecutan sin instalar el paquete
 project_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(project_root / 'src'))
+sys.path.insert(0, str(project_root / "src"))
 
-from common.database import AccessDatabase  # noqa: E402
 from common.config import Config  # noqa: E402
+from common.database import AccessDatabase  # noqa: E402
 
 
 def test_riesgos_queries():
     queries = {
         "1. Ediciones que necesitan publicación": """
-            SELECT DISTINCT TbProyectosEdiciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbProyectosEdiciones.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbProyectosEdiciones
             INNER JOIN TbUsuariosAplicaciones ON TbProyectosEdiciones.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbProyectosEdiciones.FechaPublicacion IS NULL
@@ -29,14 +31,16 @@ def test_riesgos_queries():
               AND TbProyectosEdiciones.FechaPropuestaPublicacionRechazada IS NULL
         """,
         "2. Ediciones con propuesta de publicación rechazada": """
-            SELECT DISTINCT TbProyectosEdiciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbProyectosEdiciones.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbProyectosEdiciones
             INNER JOIN TbUsuariosAplicaciones ON TbProyectosEdiciones.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbProyectosEdiciones.FechaPropuestaPublicacionRechazada IS NOT NULL
               AND TbProyectosEdiciones.FechaPublicacion IS NULL
         """,
         "3. Riesgos aceptados no motivados": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.FechaJustificacionAceptacionRiesgo IS NOT NULL
@@ -45,14 +49,16 @@ def test_riesgos_queries():
               AND TbRiesgos.JustificacionAceptacionRiesgo IS NULL
         """,
         "4. Riesgos aceptados rechazados": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.FechaJustificacionAceptacionRiesgoRechazada IS NOT NULL
               AND TbRiesgos.ParaInformeAvisos <> 'No'
         """,
         "5. Riesgos retirados no motivados": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.FechaJustificacionRetiroRiesgo IS NOT NULL
@@ -61,14 +67,16 @@ def test_riesgos_queries():
               AND TbRiesgos.JustificacionRetiroRiesgo IS NULL
         """,
         "6. Riesgos retirados rechazados": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.FechaJustificacionRetiroRiesgoRechazada IS NOT NULL
               AND TbRiesgos.ParaInformeAvisos <> 'No'
         """,
         "7. Riesgos con acciones de mitigación para replanificar": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.AccionMitigacion IS NOT NULL
@@ -78,7 +86,8 @@ def test_riesgos_queries():
               AND TbRiesgos.FechaFinRealAccionMitigacion IS NULL
         """,
         "8. Riesgos con acciones de contingencia para replanificar": """
-            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            SELECT DISTINCT TbRiesgos.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
             FROM TbRiesgos
             INNER JOIN TbUsuariosAplicaciones ON TbRiesgos.UsuarioRed = TbUsuariosAplicaciones.UsuarioRed
             WHERE TbRiesgos.AccionContingencia IS NOT NULL
@@ -91,21 +100,23 @@ def test_riesgos_queries():
 
     config = Config()
     try:
-        db = AccessDatabase(config.get_db_connection_string('riesgos'))
+        db = AccessDatabase(config.get_db_connection_string("riesgos"))
         db.connect()
         cursor = db.get_cursor()
-        # Ejecutar cada consulta; si una falla, la registramos pero no abortamos todas salvo error crítico
+        # Ejecutar cada consulta; si una falla, la registramos pero no abortamos
+        # todas salvo error crítico
         for name, sql in queries.items():
             try:
                 cursor.execute(sql)
                 _ = cursor.fetchall()
             except Exception as qerr:
-                # Solo registramos el error; este test es diagnóstico y no debe fallar por datos incompletos
+                # Solo registramos el error; este test es diagnóstico y no debe fallar
+                # por datos incompletos.
                 print(f"[AVISO] Consulta '{name}' falló: {qerr}")
     except Exception as conn_err:
         pytest.fail(f"No se pudo conectar a la BD de riesgos: {conn_err}")
     finally:
-        if 'db' in locals():
+        if "db" in locals():
             try:
                 db.disconnect()
             except Exception:

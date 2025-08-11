@@ -4,9 +4,8 @@ Responsabilidad: encapsular la inserción en TbCorreosEnviados para informes AGE
 """
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
 import logging
+from datetime import datetime
 
 from common.config import Config
 from common.database import AccessDatabase
@@ -15,7 +14,9 @@ config = Config()
 logger = logging.getLogger(__name__)
 
 
-def register_agedys_report(subject: str, body_html: str, recipients: str, admin_emails: str = "") -> Optional[int]:
+def register_agedys_report(
+    subject: str, body_html: str, recipients: str, admin_emails: str = ""
+) -> int | None:
     """Inserta un correo de informe AGEDYS en TbCorreosEnviados.
 
     Args:
@@ -34,28 +35,32 @@ def register_agedys_report(subject: str, body_html: str, recipients: str, admin_
             next_id = db.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
             now = datetime.now()
             insert = (
-                "INSERT INTO TbCorreosEnviados (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosConCopia, DestinatariosConCopiaOculta, FechaGrabacion)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO TbCorreosEnviados (IDCorreo, Aplicacion, Asunto, Cuerpo, "
+                "Destinatarios, DestinatariosConCopia, DestinatariosConCopiaOculta, "
+                "FechaGrabacion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
-            cursor.execute(insert, [
-                next_id,
-                "AGEDYS",
-                subject,
-                body_html.strip(),
-                recipients,
-                admin_emails,
-                "",  # BCC
-                now,
-            ])
+            cursor.execute(
+                insert,
+                [
+                    next_id,
+                    "AGEDYS",
+                    subject,
+                    body_html.strip(),
+                    recipients,
+                    admin_emails,
+                    "",  # BCC
+                    now,
+                ],
+            )
             conn.commit()
             logger.info(
                 "Correo AGEDYS registrado",
                 extra={
-                    'event': 'agedys_report_registered',
-                    'metric_name': 'agedys_report_registered',
-                    'metric_value': 1,
-                    'id_correo': next_id,
-                }
+                    "event": "agedys_report_registered",
+                    "metric_name": "agedys_report_registered",
+                    "metric_value": 1,
+                    "id_correo": next_id,
+                },
             )
             return next_id
     except Exception as e:  # pragma: no cover

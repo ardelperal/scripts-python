@@ -22,11 +22,12 @@ NOTA: Algunas consultas son versiones simplificadas basadas en el contexto dispo
 """
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional, Tuple
 import logging
+from typing import Any
 
-from common.reporting.table_builder import build_table_html
 from common.html_report_generator import HTMLReportGenerator
+from common.reporting.table_builder import build_table_html
+
 # Compatibilidad retro: tests antiguos esperan poder parchear config y AccessDatabase
 try:  # pragma: no cover - defensivo
     from common.config import config  # type: ignore
@@ -37,15 +38,19 @@ try:  # pragma: no cover
 except Exception:  # pragma: no cover
     AccessDatabase = None  # type: ignore
 
+
 # Funciones legacy usadas por tests funcionales (se definen como stubs si no existen)
 def load_css_content(path: str) -> str:  # pragma: no cover - stub
     return ""
 
+
 def register_email_in_database(*args, **kwargs) -> bool:  # pragma: no cover - stub
     return True
 
+
 def should_execute_task(*args, **kwargs) -> bool:  # pragma: no cover - stub
     return True
+
 
 def register_task_completion(*args, **kwargs) -> bool:  # pragma: no cover - stub
     return True
@@ -70,19 +75,29 @@ class AgedysManager:
         else:
             # Intentar auto-construir usando config (retrocompatibilidad)
             self.db_agedys = None
-            if 'AccessDatabase' in globals() and AccessDatabase and config:  # pragma: no cover - dependiente entorno
+            if (
+                "AccessDatabase" in globals() and AccessDatabase and config
+            ):  # pragma: no cover - dependiente entorno
                 try:
-                    self.db_agedys = AccessDatabase(config.get_db_agedys_connection_string())  # type: ignore[attr-defined]
+                    self.db_agedys = AccessDatabase(
+                        config.get_db_agedys_connection_string()
+                    )  # type: ignore[attr-defined]
                 except Exception as e:  # pragma: no cover
                     self.logger.debug(f"No se pudo crear conexión AGEDYS auto: {e}")
         # Alias retro usados por tests: .db, .tareas_db, .correos_db
         self.db = self.db_agedys
         self.tareas_db = None
         self.correos_db = None
-        if 'AccessDatabase' in globals() and AccessDatabase and config:  # pragma: no cover - dependiente entorno
+        if (
+            "AccessDatabase" in globals() and AccessDatabase and config
+        ):  # pragma: no cover - dependiente entorno
             try:
-                self.tareas_db = AccessDatabase(config.get_db_tareas_connection_string())  # type: ignore[attr-defined]
-                self.correos_db = AccessDatabase(config.get_db_correos_connection_string())  # type: ignore[attr-defined]
+                self.tareas_db = AccessDatabase(
+                    config.get_db_tareas_connection_string()
+                )  # type: ignore[attr-defined]
+                self.correos_db = AccessDatabase(
+                    config.get_db_correos_connection_string()
+                )  # type: ignore[attr-defined]
             except Exception as e:  # pragma: no cover
                 self.logger.debug(f"No se pudieron crear conexiones secundarias: {e}")
         self.html_generator = HTMLReportGenerator()
@@ -91,14 +106,22 @@ class AgedysManager:
             from common.utils import load_css_content as _load_css  # type: ignore
         except Exception:
             try:
-                from src.common.utils import load_css_content as _load_css  # type: ignore
+                from src.common.utils import (
+                    load_css_content as _load_css,  # type: ignore
+                )
             except Exception:  # pragma: no cover
-                _load_css = lambda _p=None: ""  # type: ignore
+                def _load_css(_p=None):
+                    return ""  # type: ignore
         # Intentar localizar un CSS base (cae en vacío si no existe)
         self.css_content = ""  # default
-        for candidate in ["herramientas/CSS_moderno.css", "CSS_moderno.css", "style.css"]:
+        for candidate in [
+            "herramientas/CSS_moderno.css",
+            "CSS_moderno.css",
+            "style.css",
+        ]:
             try:
                 import os
+
                 if os.path.exists(candidate):
                     self.css_content = _load_css(candidate)
                     break
@@ -108,30 +131,39 @@ class AgedysManager:
     # ------------------------------------------------------------------
     # BLOQUE: Consultas base existentes (agregadas / multi-subconsulta)
     # ------------------------------------------------------------------
-    def get_usuarios_facturas_pendientes_visado_tecnico(self) -> List[Dict[str, Any]]:
-        target_db = getattr(self, 'db_agedys', None) or getattr(self, 'db', None)
+    def get_usuarios_facturas_pendientes_visado_tecnico(self) -> list[dict[str, Any]]:
+        target_db = getattr(self, "db_agedys", None) or getattr(self, "db", None)
         if not target_db:
             return []
         merged: dict[str, str] = {}
         # Ejecutamos 4 subconsultas secuenciales (tests controlan side_effect)
         for _ in range(4):
             try:
-                rows = target_db.execute_query("-- subquery usuarios_facturas_pendientes")
+                rows = target_db.execute_query(
+                    "-- subquery usuarios_facturas_pendientes"
+                )
             except Exception:
                 rows = []
             for r in rows or []:
-                u = r.get('UsuarioRed')
-                c = r.get('CorreoUsuario')
+                u = r.get("UsuarioRed")
+                c = r.get("CorreoUsuario")
                 if u and c:
                     merged[u] = c
-        return [{'UsuarioRed': u, 'CorreoUsuario': c} for u, c in merged.items()]
+        return [{"UsuarioRed": u, "CorreoUsuario": c} for u, c in merged.items()]
+
     # ------------------------------------------------------------------
     # SECCIONES TECNICOS (por usuario) - Migración directa VBScript
     # ------------------------------------------------------------------
-    def get_facturas_pendientes_por_tecnico(self, user_id: int, user_name: str) -> List[Dict[str, Any]]:
+    def get_facturas_pendientes_por_tecnico(
+        self,
+        user_id: int,
+        user_name: str,
+    ) -> list[dict[str, Any]]:
         """Replica getFacturasPendientesVisadoTecnico (4 subconsultas VB)."""
         queries = [
-            ("g_no_join", """
+            (
+                "g_no_join",
+                """
                 SELECT DISTINCT fd.NFactura, p.CODPROYECTOS, p.PETICIONARIO, e.CodExp, p.DESCRIPCION,
                                  np.IMPORTEADJUDICADO, s.Suministrador, fd.ImporteFactura, fd.NDOCUMENTO
                 FROM (((TbProyectos p INNER JOIN (TbNPedido np INNER JOIN (TbFacturasDetalle fd
@@ -147,8 +179,12 @@ class AgedysManager:
                     AND e.AGEDYSAplica='Sí'
                     AND er.CorreoSiempre='Sí'
                     AND er.IdUsuario=?
-            """, (user_id,)),
-            ("g_no_left", """
+            """,
+                (user_id,),
+            ),
+            (
+                "g_no_left",
+                """
                 SELECT DISTINCT fd.NFactura, p.CODPROYECTOS, p.PETICIONARIO, e.CodExp, p.DESCRIPCION,
                                  np.IMPORTEADJUDICADO, s.Suministrador, fd.ImporteFactura, fd.NDOCUMENTO
                 FROM ((((TbProyectos p INNER JOIN (TbNPedido np INNER JOIN TbFacturasDetalle fd
@@ -163,8 +199,12 @@ class AgedysManager:
                     AND e.AGEDYSAplica='Sí'
                     AND er.CorreoSiempre='Sí'
                     AND er.IdUsuario=?
-            """, (user_id,)),
-            ("g_si_join", """
+            """,
+                (user_id,),
+            ),
+            (
+                "g_si_join",
+                """
                 SELECT DISTINCT fd.NFactura, p.CODPROYECTOS, p.PETICIONARIO, e.CodExp, p.DESCRIPCION,
                                  np.IMPORTEADJUDICADO, s.Suministrador, fd.ImporteFactura, fd.NDOCUMENTO
                 FROM ((TbProyectos p INNER JOIN (TbNPedido np INNER JOIN (TbFacturasDetalle fd
@@ -178,8 +218,12 @@ class AgedysManager:
                     AND e.AGEDYSGenerico='Sí'
                     AND e.AGEDYSAplica='Sí'
                     AND p.PETICIONARIO=?
-            """, (user_name,)),
-            ("g_si_left", """
+            """,
+                (user_name,),
+            ),
+            (
+                "g_si_left",
+                """
                 SELECT DISTINCT fd.NFactura, p.CODPROYECTOS, p.PETICIONARIO, e.CodExp, p.DESCRIPCION,
                                  np.IMPORTEADJUDICADO, s.Suministrador, fd.ImporteFactura, fd.NDOCUMENTO
                 FROM (((TbProyectos p INNER JOIN (TbNPedido np INNER JOIN TbFacturasDetalle fd
@@ -192,9 +236,11 @@ class AgedysManager:
                     AND e.AGEDYSGenerico='Sí'
                     AND e.AGEDYSAplica='Sí'
                     AND p.PETICIONARIO=?
-            """, (user_name,)),
+            """,
+                (user_name,),
+            ),
         ]
-        merged: Dict[str, Dict[str, Any]] = {}
+        merged: dict[str, dict[str, Any]] = {}
         for code, sql, params in queries:
             try:
                 rows = self.db_agedys.execute_query(sql, params)
@@ -207,16 +253,25 @@ class AgedysManager:
                     merged[key] = r
             self.logger.info(
                 "Subconsulta facturas pendientes técnico",
-                extra={'event': 'agedys_subquery_fetch', 'section': 'facturas_pendientes_tecnico', 'subquery': code, 'rows': len(rows)}
+                extra={
+                    "event": "agedys_subquery_fetch",
+                    "section": "facturas_pendientes_tecnico",
+                    "subquery": code,
+                    "rows": len(rows),
+                },
             )
         result = list(merged.values())
         self.logger.info(
             "Sección facturas_pendientes_tecnico consolidada",
-            extra={'event': 'agedys_section_fetch', 'section': 'facturas_pendientes_tecnico', 'rows': len(result)}
+            extra={
+                "event": "agedys_section_fetch",
+                "section": "facturas_pendientes_tecnico",
+                "rows": len(result),
+            },
         )
         return result
 
-    def get_dpds_sin_so_por_tecnico(self, user_name: str) -> List[Dict[str, Any]]:
+    def get_dpds_sin_so_por_tecnico(self, user_name: str) -> list[dict[str, Any]]:
         """DPDs sin Solicitud de Oferta para un técnico (usa p_Usuario). VBScript: getColDPDsSinSOUsuario.
 
         NOTA: Original tenía dos variantes (por IdResponsable y por Peticionario). Requerimiento actual
@@ -230,9 +285,12 @@ class AgedysManager:
             WHERE p.ELIMINADO = False AND sop.DPD IS NULL AND p.PETICIONARIO = ?
                 AND e.AGEDYSGenerico <> 'Sí' AND p.CODCONTRATOGTV IS NULL AND s.IDSuministrador IS NULL
         """
-        return self._execute_section(query, 'dpds_sin_so_tecnico', (user_name,))
+        return self._execute_section(query, "dpds_sin_so_tecnico", (user_name,))
 
-    def get_dpds_con_so_sin_ro_por_tecnico(self, user_name: str) -> List[Dict[str, Any]]:
+    def get_dpds_con_so_sin_ro_por_tecnico(
+        self,
+        user_name: str,
+    ) -> list[dict[str, Any]]:
         """DPDs con SO pero sin RO adjunto para un técnico (p_Usuario). VBScript: getColDPDsConSOSinROUsuario.
 
         Se elige variante por PETICIONARIO según requerimiento de firma.
@@ -245,9 +303,12 @@ class AgedysManager:
             WHERE p.ELIMINADO = False AND p.PETICIONARIO = ?
                 AND e.AGEDYSGenerico <> 'No' AND p.CODCONTRATOGTV IS NULL AND s.IDSuministrador IS NULL
         """
-        return self._execute_section(query, 'dpds_con_so_sin_ro_tecnico', (user_name,))
+        return self._execute_section(query, "dpds_con_so_sin_ro_tecnico", (user_name,))
 
-    def get_dpds_sin_visado_calidad_por_tecnico(self, user_name: str) -> List[Dict[str, Any]]:
+    def get_dpds_sin_visado_calidad_por_tecnico(
+        self,
+        user_name: str,
+    ) -> list[dict[str, Any]]:
         """DPDs sin visado de calidad para un técnico (p_Usuario). VBScript: getColDPDsSinVisadoCalidadUsuario.
 
         Se adapta filtro a PETICIONARIO para cumplir firma solicitada.
@@ -265,9 +326,14 @@ class AgedysManager:
               AND p.FechaFinAgendaTecnica IS NULL
               AND p.PETICIONARIO = ?
         """
-        return self._execute_section(query, 'dpds_sin_visado_calidad_tecnico', (user_name,))
+        return self._execute_section(
+            query, "dpds_sin_visado_calidad_tecnico", (user_name,)
+        )
 
-    def get_dpds_rechazados_calidad_por_tecnico(self, user_name: str) -> List[Dict[str, Any]]:
+    def get_dpds_rechazados_calidad_por_tecnico(
+        self,
+        user_name: str,
+    ) -> list[dict[str, Any]]:
         """DPDs rechazados por calidad (p_Usuario). VBScript: getColDPDsRechazadosCalidadUsuario."""
         query = """
             SELECT DISTINCT p.CODPROYECTOS, p.PETICIONARIO, p.FECHAPETICION, p.EXPEDIENTE, p.DESCRIPCION
@@ -276,13 +342,16 @@ class AgedysManager:
                 LEFT JOIN TbSuministradoresSAP s ON p.NAcreedorSAP = s.AcreedorSAP)
             WHERE p.ELIMINADO = False AND vg.ROFechaRechazo IS NOT NULL AND p.PETICIONARIO = ?
         """
-        return self._execute_section(query, 'dpds_rechazados_calidad_tecnico', (user_name,))
+        return self._execute_section(
+            query, "dpds_rechazados_calidad_tecnico", (user_name,)
+        )
 
         # ------------------------------------------------------------------
         # SECCIONES AGRUPADAS (Calidad / Economía)
         # ------------------------------------------------------------------
-    def get_dpds_sin_visado_calidad_agrupado(self) -> List[Dict[str, Any]]:
-                query = """
+
+    def get_dpds_sin_visado_calidad_agrupado(self) -> list[dict[str, Any]]:
+        query = """
                         SELECT DISTINCT p.CODPROYECTOS, p.DESCRIPCION, p.PETICIONARIO, p.FECHAPETICION, e.CodExp,
                                      uc.Nombre AS ResponsableCalidad
                         FROM (((TbProyectos p INNER JOIN TbExpedientes1 e ON p.IDExpediente = e.IdExpediente)
@@ -295,10 +364,10 @@ class AgedysManager:
                             AND vg.ROFechaRechazo IS NULL
                             AND p.FechaFinAgendaTecnica IS NULL
                 """
-                return self._execute_section(query, 'dpds_sin_visado_calidad_agrupado')
+        return self._execute_section(query, "dpds_sin_visado_calidad_agrupado")
 
     # Alias requerido: get_dpds_con_fin_agenda_tecnica_agrupado
-    def get_dpds_con_fin_agenda_tecnica_agrupado(self) -> List[Dict[str, Any]]:
+    def get_dpds_con_fin_agenda_tecnica_agrupado(self) -> list[dict[str, Any]]:
         query = """
             SELECT p.CODPROYECTOS, p.PETICIONARIO, p.FECHAPETICION, p.EXPEDIENTE, p.DESCRIPCION
             FROM TbProyectos p
@@ -306,18 +375,18 @@ class AgedysManager:
               AND p.FECHARECEPCIONECONOMICA IS NULL
               AND p.FechaFinAgendaTecnica IS NOT NULL
         """
-        return self._execute_section(query, 'dpds_fin_agenda_tecnica_pte_recepcion')
+        return self._execute_section(query, "dpds_fin_agenda_tecnica_pte_recepcion")
 
-    def get_dpds_sin_pedido_agrupado(self) -> List[Dict[str, Any]]:
-                query = """
+    def get_dpds_sin_pedido_agrupado(self) -> list[dict[str, Any]]:
+        query = """
                         SELECT p.CODPROYECTOS, p.PETICIONARIO, p.FECHAPETICION, p.EXPEDIENTE, p.DESCRIPCION
                         FROM TbProyectos p INNER JOIN TbNPedido np ON p.CODPROYECTOS = np.CODPPD
                         WHERE p.ELIMINADO = False AND np.NPEDIDO IS NULL
                 """
-                return self._execute_section(query, 'dpds_sin_pedido_agrupado')
+        return self._execute_section(query, "dpds_sin_pedido_agrupado")
 
-    def get_facturas_rechazadas_agrupado(self) -> List[Dict[str, Any]]:
-                query = """
+    def get_facturas_rechazadas_agrupado(self) -> list[dict[str, Any]]:
+        query = """
                         SELECT fd.NFactura, fd.NDocumento, p.CODPROYECTOS, p.PETICIONARIO, p.EXPEDIENTE,
                                      p.DESCRIPCION, p.IMPORTESINIVA, s.Suministrador, fd.ImporteFactura
                         FROM (((TbProyectos p INNER JOIN TbNPedido np ON p.CODPROYECTOS = np.CODPPD)
@@ -326,10 +395,10 @@ class AgedysManager:
                             LEFT JOIN TbVisadoFacturas_Nueva vf ON (fd.NPEDIDO = vf.NPEDIDO AND fd.NFactura = vf.NFactura)
                         WHERE p.ELIMINADO = False AND vf.FRECHAZOTECNICO IS NOT NULL AND fd.FechaAceptacion IS NULL
                 """
-                return self._execute_section(query, 'facturas_rechazadas_agrupado')
+        return self._execute_section(query, "facturas_rechazadas_agrupado")
 
     # Alias requerido: get_facturas_visadas_pendientes_op_agrupado
-    def get_facturas_visadas_pendientes_op_agrupado(self) -> List[Dict[str, Any]]:
+    def get_facturas_visadas_pendientes_op_agrupado(self) -> list[dict[str, Any]]:
         query = """
             SELECT fd.NFactura, fd.NDocumento, p.CODPROYECTOS, p.PETICIONARIO, p.EXPEDIENTE,
                    p.DESCRIPCION, p.IMPORTESINIVA, s.Suministrador, fd.ImporteFactura
@@ -339,19 +408,24 @@ class AgedysManager:
                 LEFT JOIN TbVisadoFacturas_Nueva vf ON (fd.NFactura = vf.NFactura AND fd.NPEDIDO = vf.NPEDIDO)
             WHERE p.ELIMINADO = False AND vf.FVISADOTECNICO IS NOT NULL AND fd.FechaAceptacion IS NULL
         """
-        return self._execute_section(query, 'facturas_visadas_pte_op_agrupado')
+        return self._execute_section(query, "facturas_visadas_pte_op_agrupado")
 
     # Mantener compatibilidad si código existente aún llama al nombre anterior
-    def get_dpds_con_fin_agenda_tecnica_pendientes_recepcion_economia(self) -> List[Dict[str, Any]]:  # pragma: no cover - deprecated wrapper
+    def get_dpds_con_fin_agenda_tecnica_pendientes_recepcion_economia(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover - deprecated wrapper
         return self.get_dpds_con_fin_agenda_tecnica_agrupado()
 
-    def get_facturas_visadas_pendientes_orden_pago_agrupado(self) -> List[Dict[str, Any]]:  # pragma: no cover - deprecated wrapper
+    def get_facturas_visadas_pendientes_orden_pago_agrupado(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover - deprecated wrapper
         return self.get_facturas_visadas_pendientes_op_agrupado()
 
         # ------------------------------------------------------------------
         # USUARIOS con al menos una tarea pendiente (UNION de todas las fuentes)
         # ------------------------------------------------------------------
-    def get_usuarios_con_tareas_pendientes(self) -> List[Dict[str, Any]]:
+
+    def get_usuarios_con_tareas_pendientes(self) -> list[dict[str, Any]]:
         """Replica racionalizada de getColParaTecnicos del VBScript.
 
         El VBScript original construía 5 colecciones (usuarios con: DPDs sin SO, DPDs con SO sin RO,
@@ -369,7 +443,7 @@ class AgedysManager:
             # 4) DPDs rechazados calidad
             "SELECT DISTINCT u.UsuarioRed FROM (TbProyectos p INNER JOIN TbVisadosGenerales vg ON p.CODPROYECTOS = vg.NDPD) INNER JOIN TbUsuariosAplicaciones u ON p.PETICIONARIO = u.Nombre WHERE vg.ROFechaRechazo IS NOT NULL",
             # 5) Facturas pendientes visado técnico
-                "SELECT DISTINCT u.UsuarioRed FROM (((TbProyectos p INNER JOIN TbNPedido np ON p.CODPROYECTOS = np.CODPPD) INNER JOIN TbFacturasDetalle fd ON np.NPEDIDO = fd.NPEDIDO) LEFT JOIN TbVisadoFacturas_Nueva vf ON (fd.NPEDIDO = vf.NPEDIDO AND fd.NFactura = vf.NFactura)) INNER JOIN TbUsuariosAplicaciones u ON p.PETICIONARIO = u.Nombre WHERE p.ELIMINADO=False AND fd.FechaAceptacion IS NULL AND vf.FRECHAZOTECNICO IS NULL AND vf.FVISADOTECNICO IS NULL",
+            "SELECT DISTINCT u.UsuarioRed FROM (((TbProyectos p INNER JOIN TbNPedido np ON p.CODPROYECTOS = np.CODPPD) INNER JOIN TbFacturasDetalle fd ON np.NPEDIDO = fd.NPEDIDO) LEFT JOIN TbVisadoFacturas_Nueva vf ON (fd.NPEDIDO = vf.NPEDIDO AND fd.NFactura = vf.NFactura)) INNER JOIN TbUsuariosAplicaciones u ON p.PETICIONARIO = u.Nombre WHERE p.ELIMINADO=False AND fd.FechaAceptacion IS NULL AND vf.FRECHAZOTECNICO IS NULL AND vf.FVISADOTECNICO IS NULL",
         ]
         usuarios: set[str] = set()
         for idx, sql in enumerate(subqueries, start=1):
@@ -379,37 +453,56 @@ class AgedysManager:
                 self.logger.error(f"Error subconsulta usuarios({idx}): {e}")
                 rows = []
             for r in rows or []:
-                u = r.get('UsuarioRed')
+                u = r.get("UsuarioRed")
                 if u:
                     usuarios.add(u)
         if not usuarios:
             return []
-        placeholders = ','.join(['?'] * len(usuarios))
-        detail_sql = f"SELECT Id AS UserId, Nombre AS UserName, CorreoUsuario AS UserEmail FROM TbUsuariosAplicaciones WHERE UsuarioRed IN ({placeholders})"
+        placeholders = ",".join(["?" for _ in usuarios])
+        detail_sql = (
+            "SELECT Id AS UserId, Nombre AS UserName, CorreoUsuario AS UserEmail "
+            f"FROM TbUsuariosAplicaciones WHERE UsuarioRed IN ({placeholders})"
+        )
         try:
             return self.db_agedys.execute_query(detail_sql, tuple(usuarios))
         except Exception as e:  # pragma: no cover
             self.logger.error(f"Error obteniendo detalles usuarios: {e}")
             return []
 
-
     # ------------------------------------------------------------------
     # BLOQUE: Helper interno
     # ------------------------------------------------------------------
-    def _execute_section(self, query: str, section: str, params: Optional[Tuple[Any, ...]] = None) -> List[Dict[str, Any]]:
+    def _execute_section(
+        self,
+        query: str,
+        section: str,
+        params: tuple[Any, ...] | None = None,
+    ) -> list[dict[str, Any]]:
         try:
-            rows = self.db_agedys.execute_query(query, params) if params else self.db_agedys.execute_query(query)
+            rows = (
+                self.db_agedys.execute_query(query, params)
+                if params
+                else self.db_agedys.execute_query(query)
+            )
             self.logger.info(
                 f"Sección {section} consultada",
-                extra={'event': 'agedys_section_fetch', 'section': section, 'rows': len(rows)}
+                extra={
+                    "event": "agedys_section_fetch",
+                    "section": section,
+                    "rows": len(rows),
+                },
             )
             return rows or []
         except Exception as e:  # pragma: no cover
             self.logger.error(f"Error sección {section}: {e}")
             return []
 
-    def _run_merge_queries(self, queries: List[Tuple[str, str, Tuple[Any, ...]]], section: str) -> List[Dict[str, Any]]:
-        merged: Dict[str, Dict[str, Any]] = {}
+    def _run_merge_queries(
+        self,
+        queries: list[tuple[str, str, tuple[Any, ...]]],
+        section: str,
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
         for code, sql, params in queries:
             try:
                 rows = self.db_agedys.execute_query(sql, params)
@@ -417,24 +510,40 @@ class AgedysManager:
                 self.logger.error(f"Error subconsulta {section} {code}: {e}")
                 rows = []
             for r in rows:
-                key = '|'.join(str(v) for v in r.values())  # crude key; adjust if needed
+                key = "|".join(
+                    str(v) for v in r.values() # crude key; adjust if needed
+                )
                 if key not in merged:
                     merged[key] = r
             self.logger.info(
                 "Subconsulta merge",
-                extra={'event': 'agedys_subquery_fetch', 'section': section, 'subquery': code, 'rows': len(rows)}
+                extra={
+                    "event": "agedys_subquery_fetch",
+                    "section": section,
+                    "subquery": code,
+                    "rows": len(rows),
+                },
             )
         result = list(merged.values())
         self.logger.info(
             "Sección consolidada",
-            extra={'event': 'agedys_section_fetch', 'section': section, 'rows': len(result)}
+            extra={
+                "event": "agedys_section_fetch",
+                "section": section,
+                "rows": len(result),
+            },
         )
         return result
 
     # ------------------------------------------------------------------
     # BLOQUE: Generadores de informes (HTML) usando únicamente framework común
     # ------------------------------------------------------------------
-    def generate_technical_user_report_html(self, user_id: int, user_name: str, user_email: str) -> str:
+    def generate_technical_user_report_html(
+        self,
+        user_id: int,
+        user_name: str,
+        user_email: str,
+    ) -> str:
         """Genera informe individual de un técnico usando build_table_html.
 
         Retorna "" si no hay ninguna sección con datos. Para simplificar y homogenizar
@@ -446,18 +555,35 @@ class AgedysManager:
         sections: list[tuple[str, list[dict[str, Any]]]] = [
             ("DPDs sin SO", self.get_dpds_sin_so_por_tecnico(user_name)),
             ("DPDs con SO sin RO", self.get_dpds_con_so_sin_ro_por_tecnico(user_name)),
-            ("DPDs sin visado calidad", self.get_dpds_sin_visado_calidad_por_tecnico(user_name)),
-            ("DPDs rechazados calidad", self.get_dpds_rechazados_calidad_por_tecnico(user_name)),
-            ("Facturas pendientes de visado técnico", self.get_facturas_pendientes_por_tecnico(user_id, user_name)),
+            (
+                "DPDs sin visado calidad",
+                self.get_dpds_sin_visado_calidad_por_tecnico(user_name),
+            ),
+            (
+                "DPDs rechazados calidad",
+                self.get_dpds_rechazados_calidad_por_tecnico(user_name),
+            ),
+            (
+                "Facturas pendientes de visado técnico",
+                self.get_facturas_pendientes_por_tecnico(user_id, user_name),
+            ),
         ]
         non_empty = [(title, rows) for title, rows in sections if rows]
         if not non_empty:
             self.logger.info(
                 "Informe técnico vacío",
-                extra={'event': 'agedys_report_empty', 'scope': 'technical', 'user_id': user_id}
+                extra={
+                    "event": "agedys_report_empty",
+                    "scope": "technical",
+                    "user_id": user_id,
+                },
             )
             return ""
-        parts: list[str] = [self.html_generator.generar_header_moderno(f"INFORME TAREAS PENDIENTES - {user_name}")]
+        parts: list[str] = [
+            self.html_generator.generar_header_moderno(
+                f"INFORME TAREAS PENDIENTES - {user_name}"
+            )
+        ]
         total_rows = 0
         for title, rows in non_empty:
             total_rows += len(rows)
@@ -465,12 +591,27 @@ class AgedysManager:
             parts.append(build_table_html(title, rows, pretty_headers=True))
             self.logger.info(
                 f"Sección {title} generada (técnico)",
-                extra={'event': 'agedys_report_section', 'scope': 'technical', 'user_id': user_id, 'section': title.lower().replace(' ', '_'), 'metric_name': 'agedys_section_rows', 'metric_value': len(rows), 'app': 'AGEDYS'}
+                extra={
+                    "event": "agedys_report_section",
+                    "scope": "technical",
+                    "user_id": user_id,
+                    "section": title.lower().replace(" ", "_"),
+                    "metric_name": "agedys_section_rows",
+                    "metric_value": len(rows),
+                    "app": "AGEDYS",
+                },
             )
-        html = ''.join(parts) + self.html_generator.generar_footer_moderno()
+        html = "".join(parts) + self.html_generator.generar_footer_moderno()
         self.logger.info(
             "Resumen informe técnico",
-            extra={'event': 'agedys_report_summary', 'scope': 'technical', 'user_id': user_id, 'sections': len(non_empty), 'total_rows': total_rows, 'html_length': len(html)}
+            extra={
+                "event": "agedys_report_summary",
+                "scope": "technical",
+                "user_id": user_id,
+                "sections": len(non_empty),
+                "total_rows": total_rows,
+                "html_length": len(html),
+            },
         )
         return html
 
@@ -480,7 +621,7 @@ class AgedysManager:
         if not rows:
             self.logger.info(
                 "Informe Calidad vacío",
-                extra={'event': 'agedys_report_empty', 'scope': 'quality'}
+                extra={"event": "agedys_report_empty", "scope": "quality"},
             )
             return ""
         parts: list[str] = [
@@ -489,44 +630,68 @@ class AgedysManager:
         parts.append(
             build_table_html("DPDs sin visado calidad", rows, pretty_headers=True)
         )
-        html = ''.join(parts) + self.html_generator.generar_footer_moderno()
+        html = "".join(parts) + self.html_generator.generar_footer_moderno()
         self.logger.info(
             "Resumen informe Calidad",
             extra={
-                'event': 'agedys_report_summary',
-                'scope': 'quality',
-                'sections': 1,
-                'total_rows': len(rows),
-                'html_length': len(html)
-            }
+                "event": "agedys_report_summary",
+                "scope": "quality",
+                "sections": 1,
+                "total_rows": len(rows),
+                "html_length": len(html),
+            },
         )
         return html
 
     def generate_economy_report_html(self) -> str:
         """Informe grupal para Economía usando build_table_html por sección."""
         sections = [
-            ("DPDs fin agenda técnica pendientes recepción", self.get_dpds_con_fin_agenda_tecnica_agrupado()),
+            (
+                "DPDs fin agenda técnica pendientes recepción",
+                self.get_dpds_con_fin_agenda_tecnica_agrupado(),
+            ),
             ("DPDs sin pedido", self.get_dpds_sin_pedido_agrupado()),
             ("Facturas rechazadas", self.get_facturas_rechazadas_agrupado()),
-            ("Facturas visadas pendientes orden de pago", self.get_facturas_visadas_pendientes_op_agrupado()),
+            (
+                "Facturas visadas pendientes orden de pago",
+                self.get_facturas_visadas_pendientes_op_agrupado(),
+            ),
         ]
         non_empty = [(t, r) for t, r in sections if r]
         if not non_empty:
-            self.logger.info("Informe Economía vacío", extra={'event': 'agedys_report_empty', 'scope': 'economy'})
+            self.logger.info(
+                "Informe Economía vacío",
+                extra={"event": "agedys_report_empty", "scope": "economy"},
+            )
             return ""
-        parts: list[str] = [self.html_generator.generar_header_moderno("INFORME AGEDYS - ECONOMÍA")]
+        parts: list[str] = [
+            self.html_generator.generar_header_moderno("INFORME AGEDYS - ECONOMÍA")
+        ]
         total_rows = 0
         for title, rows in non_empty:
             total_rows += len(rows)
             parts.append(build_table_html(title, rows, pretty_headers=True))
             self.logger.info(
                 f"Sección {title} generada (economía)",
-                extra={'event': 'agedys_report_section', 'scope': 'economy', 'section': title.lower().replace(' ', '_'), 'metric_name': 'agedys_section_rows', 'metric_value': len(rows), 'app': 'AGEDYS'}
+                extra={
+                    "event": "agedys_report_section",
+                    "scope": "economy",
+                    "section": title.lower().replace(" ", "_"),
+                    "metric_name": "agedys_section_rows",
+                    "metric_value": len(rows),
+                    "app": "AGEDYS",
+                },
             )
-        html = ''.join(parts) + self.html_generator.generar_footer_moderno()
+        html = "".join(parts) + self.html_generator.generar_footer_moderno()
         self.logger.info(
             "Resumen informe Economía",
-            extra={'event': 'agedys_report_summary', 'scope': 'economy', 'sections': len(non_empty), 'total_rows': total_rows, 'html_length': len(html)}
+            extra={
+                "event": "agedys_report_summary",
+                "scope": "economy",
+                "sections": len(non_empty),
+                "total_rows": total_rows,
+                "html_length": len(html),
+            },
         )
         return html
 
@@ -538,8 +703,14 @@ class AgedysManager:
     # las pruebas se actualicen; luego eliminar.
 
     # Antiguo nombre esperado en tests para facturas por técnico (usuario_red)
-    def get_facturas_pendientes_visado_tecnico(self, usuario_red: str) -> List[Dict[str, Any]]:  # pragma: no cover - simple wrapper
-        self.logger.debug("Wrapper legacy get_facturas_pendientes_visado_tecnico -> get_facturas_pendientes_por_tecnico")
+    def get_facturas_pendientes_visado_tecnico(
+        self,
+        usuario_red: str,
+    ) -> list[dict[str, Any]]:  # pragma: no cover - simple wrapper
+        self.logger.debug(
+            "Wrapper legacy get_facturas_pendientes_visado_tecnico -> "
+            "get_facturas_pendientes_por_tecnico"
+        )
         # Sin Id numérico disponible; devolvemos lista vacía para que tests que sólo
         # comprueban len() >= 0 no fallen.
         try:
@@ -549,63 +720,100 @@ class AgedysManager:
 
     # Usuarios / colecciones legacy: mantener implementación principal (no override vacío)
 
-    def get_usuarios_dpds_sin_visado_calidad(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_usuarios_dpds_sin_visado_calidad(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_usuarios_dpds_rechazados_calidad(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_usuarios_dpds_rechazados_calidad(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_usuarios_economia(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_usuarios_economia(self) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_usuarios_dpds_pendientes_recepcion_economica(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_usuarios_dpds_pendientes_recepcion_economica(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_dpds_pendientes_recepcion_economica(self, usuario_red: str) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_dpds_pendientes_recepcion_economica(
+        self,
+        usuario_red: str,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_dpds_fin_agenda_tecnica_por_recepcionar(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_dpds_fin_agenda_tecnica_por_recepcionar(
+        self,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_usuarios_tareas(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_usuarios_tareas(self) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_dpds_sin_pedido(self) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_dpds_sin_pedido(self) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_dpds_sin_visado_calidad(self, usuario_red: str) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_dpds_sin_visado_calidad(
+        self,
+        usuario_red: str,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
-    def get_dpds_rechazados_calidad(self, usuario_red: str) -> List[Dict[str, Any]]:  # pragma: no cover
+    def get_dpds_rechazados_calidad(
+        self,
+        usuario_red: str,
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
     # Generadores HTML antiguos (requeridos por tests funcionales)
-    def generate_facturas_html_table(self, facturas: List[Dict[str, Any]]) -> str:
+    def generate_facturas_html_table(self, facturas: list[dict[str, Any]]) -> str:
         if not facturas:
-            return '<table><thead></thead><tbody></tbody></table>'
+            return "<table><thead></thead><tbody></tbody></table>"
         headers = list(facturas[0].keys())
-        rows_html = '\n'.join(
-            '<tr>' + ''.join(f'<td>{(row.get(h,""))}</td>' for h in headers) + '</tr>' for row in facturas
+        rows_html = "\n".join(
+            "<tr>" + "".join(f'<td>{(row.get(h,""))}</td>' for h in headers) + "</tr>"
+            for row in facturas
         )
-        return '<table>' + '<thead><tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr></thead><tbody>' + rows_html + '</tbody></table>'
+        return (
+            "<table>"
+            + "<thead><tr>"
+            + "".join(f"<th>{h}</th>" for h in headers)
+            + "</tr></thead><tbody>"
+            + rows_html
+            + "</tbody></table>"
+        )
 
-    def generate_dpds_html_table(self, dpds: List[Dict[str, Any]], _tipo: str) -> str:  # pragma: no cover - simple
+    def generate_dpds_html_table(
+        self,
+        dpds: list[dict[str, Any]],
+        _tipo: str,
+    ) -> str:  # pragma: no cover - simple
         return self.generate_facturas_html_table(dpds)
 
     # Registro de notificaciones (simples no-ops que retornan True)
-    def register_facturas_pendientes_notification(self, *_, **__) -> bool:  # pragma: no cover
+    def register_facturas_pendientes_notification(
+        self, *_, **__
+    ) -> bool:  # pragma: no cover
         return True
 
-    def register_dpds_sin_visado_notification(self, *_, **__) -> bool:  # pragma: no cover
+    def register_dpds_sin_visado_notification(
+        self, *_, **__
+    ) -> bool:  # pragma: no cover
         return True
 
-    def register_dpds_rechazados_notification(self, *_, **__) -> bool:  # pragma: no cover
+    def register_dpds_rechazados_notification(
+        self, *_, **__
+    ) -> bool:  # pragma: no cover
         return True
 
     def register_economia_notification(self, *_, **__) -> bool:  # pragma: no cover
         return True
 
-    def register_dpds_sin_pedido_notification(self, *_, **__) -> bool:  # pragma: no cover
+    def register_dpds_sin_pedido_notification(
+        self, *_, **__
+    ) -> bool:  # pragma: no cover
         return True
 
     # Método run legacy (simplificado)
@@ -620,5 +828,9 @@ class AgedysManager:
             return False
 
     # Método esperado por pruebas de integración (interfaz tipo Task)
-    def execute_task(self, force: bool = False, dry_run: bool = True) -> bool:  # pragma: no cover - stub
+    def execute_task(
+        self,
+        force: bool = False,
+        dry_run: bool = True,
+    ) -> bool:  # pragma: no cover - stub
         return self.run(dry_run=dry_run)

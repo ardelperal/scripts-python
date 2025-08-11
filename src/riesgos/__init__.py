@@ -9,4 +9,4 @@ Migrado desde: original/GestionRiesgos.vbs
 
 from .riesgos_manager import RiesgosManager
 
-__all__ = ['RiesgosManager']
+__all__ = ["RiesgosManager"]

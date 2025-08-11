@@ -2,24 +2,29 @@
 Script de migración para agregar los campos 'Enviado' y 'Notas' a la tabla 'TbCorreosEnviados'
 en la base de datos de Tareas.
 """
-import sys
 import logging
+import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
-from common.database import AccessDatabase
 from common.config import config
+from common.database import AccessDatabase
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def migrate_database():
     """Añade las columnas necesarias a la base de datos de tareas."""
     logging.info("Iniciando migración de la base de datos de Tareas...")
-    
-    db_path = config._get_db_path('tareas')
+
+    db_path = config._get_db_path("tareas")
     if not db_path or not Path(db_path).exists():
-        logging.error(f"La ruta de la base de datos de tareas no es válida o no existe: {db_path}")
+        logging.error(
+            f"La ruta de la base de datos de tareas no es válida o no existe: {db_path}"
+        )
         return
 
     try:
@@ -53,6 +58,7 @@ def migrate_database():
 
     except Exception as e:
         logging.error(f"Error durante la migración de la base de datos: {e}")
+
 
 if __name__ == "__main__":
     migrate_database()

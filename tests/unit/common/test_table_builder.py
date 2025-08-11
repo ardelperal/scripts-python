@@ -1,11 +1,12 @@
 """Tests unitarios para build_table_html (utilidad común)."""
 import re
-from datetime import datetime, date
+from datetime import datetime
+
 from common.reporting.table_builder import build_table_html
 
 
 def test_build_table_html_empty():
-    assert build_table_html("Titulo", []) == ''
+    assert build_table_html("Titulo", []) == ""
 
 
 def test_build_table_html_basic():
@@ -15,14 +16,14 @@ def test_build_table_html_basic():
     ]
     html = build_table_html("Mi Tabla", rows)
     assert "Mi Tabla" in html
-    assert html.count('<tr>') == 3  # header + 2 rows
-    assert '<th>A</th>' in html and '<th>B</th>' in html
+    assert html.count("<tr>") == 3  # header + 2 rows
+    assert "<th>A</th>" in html and "<th>B</th>" in html
 
 
 def test_build_table_html_date_format():
     rows = [{"Fecha": datetime(2025, 1, 2), "Valor": 10}]
     html = build_table_html("Fechas", rows)
-    assert '02/01/2025' in html
+    assert "02/01/2025" in html
 
 
 def test_build_table_html_sorted_headers():

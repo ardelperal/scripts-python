@@ -11,20 +11,19 @@ Ejecución recomendada (desde la raíz del proyecto):
 """
 from __future__ import annotations
 
-import sys
-import logging
 import argparse
+import sys
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SRC_DIR = _PROJECT_ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
-from common.utils import ensure_project_root_in_path  # type: ignore
-ensure_project_root_in_path()
 
-from common.utils import execute_task_with_standard_boilerplate  # type: ignore
+from common.utils import ensure_project_root_in_path, execute_task_with_standard_boilerplate  # type: ignore
 from expedientes.expedientes_task import ExpedientesTask  # type: ignore
+
+ensure_project_root_in_path()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

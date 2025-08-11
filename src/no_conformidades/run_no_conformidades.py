@@ -4,21 +4,28 @@ Usa argparse + --force y patrón execute_specific_logic como Brass/Expedientes.
 """
 from __future__ import annotations
 
-import sys
-import logging
 import argparse
+import logging
+import sys
 from pathlib import Path
 
 from common.utils import setup_logging
+
 from .no_conformidades_task import NoConformidadesTask
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ejecuta la tarea de No Conformidades (parcial refactor).")
-    parser.add_argument('--force', action='store_true', help='Fuerza la ejecución, ignorando planificación.')
+    parser = argparse.ArgumentParser(
+        description="Ejecuta la tarea de No Conformidades (parcial refactor)."
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Fuerza la ejecución, ignorando planificación.",
+    )
     args = parser.parse_args()
 
-    log_file = Path('logs/no_conformidades.log')
+    log_file = Path("logs/no_conformidades.log")
     setup_logging(log_file=log_file)
     logger = logging.getLogger()
 
@@ -49,5 +56,5 @@ def main():
     sys.exit(exit_code)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

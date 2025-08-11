@@ -1,12 +1,15 @@
 """Tests para BrassTask con inyección y modos force/dry-run."""
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from brass.brass_task import BrassTask
 
 
 class DummyRecipientsService:
     def __init__(self, db_tareas, config, logger):
         self.db_tareas = db_tareas
+
     def get_admin_emails_string(self):
         return "admin@test.com"
 
@@ -35,8 +38,9 @@ def test_execute_specific_logic_empty(task, monkeypatch):
 def test_execute_specific_logic_with_data(task):
     manager_mock = MagicMock()
     manager_mock.generate_brass_report_html.return_value = "<html>ok</html>"
-    with patch("brass.brass_task.BrassManager", return_value=manager_mock), \
-         patch("brass.brass_task.register_standard_report", return_value=True) as reg:
+    with patch("brass.brass_task.BrassManager", return_value=manager_mock), patch(
+        "brass.brass_task.register_standard_report", return_value=True
+    ) as reg:
         ok = task.execute_specific_logic()
         assert ok is True
         reg.assert_called_once()

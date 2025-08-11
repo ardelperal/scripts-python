@@ -5,8 +5,6 @@ futura evolución (cache, filtros, métricas) con impacto mínimo en módulos.
 """
 from __future__ import annotations
 
-from typing import Optional, List
-
 from .. import utils as _utils
 
 
@@ -19,24 +17,32 @@ class EmailRecipientsService:
         self.logger = logger
 
     # --- Métodos por rol -------------------------------------------------
-    def get_admin_emails(self) -> List[str]:
-        emails_str = _utils.get_admin_emails_string(self.db_connection, self.config, self.logger)
+    def get_admin_emails(self) -> list[str]:
+        emails_str = _utils.get_admin_emails_string(
+            self.db_connection, self.config, self.logger
+        )
         return self._split(emails_str)
 
     def get_admin_emails_string(self) -> str:  # conveniencia
-        return _utils.get_admin_emails_string(self.db_connection, self.config, self.logger)
+        return _utils.get_admin_emails_string(
+            self.db_connection, self.config, self.logger
+        )
 
-    def get_technical_emails(self) -> List[str]:
-        emails_str = _utils.get_technical_emails_string(self.db_connection, self.config, self.logger)
+    def get_technical_emails(self) -> list[str]:
+        emails_str = _utils.get_technical_emails_string(
+            self.db_connection, self.config, self.logger
+        )
         return self._split(emails_str)
 
-    def get_quality_emails(self, app_id: Optional[str] = None) -> List[str]:
+    def get_quality_emails(self, app_id: str | None = None) -> list[str]:
         if app_id is None:
             return []
-        emails_str = _utils.get_quality_emails_string(app_id, self.config, self.logger, self.db_connection)
+        emails_str = _utils.get_quality_emails_string(
+            app_id, self.config, self.logger, self.db_connection
+        )
         return self._split(emails_str)
 
-    def get_economy_emails(self) -> List[str]:
+    def get_economy_emails(self) -> list[str]:
         """Destinatarios de Economía.
 
         Usa utilidades existentes; si falla retorna lista vacía.
@@ -50,7 +56,7 @@ class EmailRecipientsService:
 
     # --- Utilidades internas ---------------------------------------------
     @staticmethod
-    def _split(emails_str: str) -> List[str]:
+    def _split(emails_str: str) -> list[str]:
         if not emails_str:
             return []
         return [e.strip() for e in emails_str.replace(",", ";").split(";") if e.strip()]

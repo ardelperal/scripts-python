@@ -3,15 +3,18 @@
 Script temporal para probar la conexión a la base de datos de correos
 """
 
+import os
+
+import pytest
+
 from common.config import config
 from common.database import AccessDatabase
-import os
-import pytest
+
 
 def test_correos_db():
     """Verifica que la base de datos de correos es accesible y la tabla principal responde."""
     # Obtener ruta de la base de datos
-    db_path = config.get_database_path('correos')
+    db_path = config.get_database_path("correos")
     print(f"DB Path: {db_path}")
 
     assert os.path.exists(db_path), f"El archivo de base de datos no existe: {db_path}"
@@ -31,6 +34,7 @@ def test_correos_db():
             assert count >= 0
     except Exception as e:
         pytest.fail(f"Fallo al conectar o consultar la BD de correos: {e}")
+
 
 if __name__ == "__main__":
     test_correos_db()

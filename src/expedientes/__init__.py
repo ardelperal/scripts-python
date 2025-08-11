@@ -6,4 +6,4 @@ Adaptación del script original Expedientes.vbs
 
 from .expedientes_manager import ExpedientesManager
 
-__all__ = ['ExpedientesManager']
+__all__ = ["ExpedientesManager"]

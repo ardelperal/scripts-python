@@ -1,13 +1,13 @@
+"""Utilidades comunes para el proyecto
 """
-Utilidades comunes para el proyecto
-"""
-import os
 import logging
+import os
 import re
-from datetime import datetime, date, timedelta
-from pathlib import Path
-from typing import Optional, List, Dict
+from datetime import date, datetime, timedelta
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Optional
+
 # Importa los componentes de la librería correcta: python-logging-loki
 try:  # Hacer opcional la dependencia de logging_loki
     from logging_loki import LokiQueueHandler  # type: ignore
@@ -22,16 +22,16 @@ from .config import config
 def hide_password_in_connection_string(connection_string: str) -> str:
     """
     Oculta la contraseña en una cadena de conexión para logging seguro
-    
+
     Args:
         connection_string: Cadena de conexión que puede contener contraseña
-        
+
     Returns:
         Cadena de conexión con contraseña oculta
     """
     # Patrón para encontrar PWD=valor; o Password=valor;
-    pattern = r'(PWD|Password)=([^;]+);'
-    return re.sub(pattern, r'\1=***;', connection_string, flags=re.IGNORECASE)
+    pattern = r"(PWD|Password)=([^;]+);"
+    return re.sub(pattern, r"\1=***;", connection_string, flags=re.IGNORECASE)
 
 
 def setup_logging(log_file: Path, level=logging.INFO):
@@ -41,23 +41,23 @@ def setup_logging(log_file: Path, level=logging.INFO):
     Para etiquetas dinámicas, usar el argumento 'extra' en las llamadas de logging.
     """
     logger = logging.getLogger()
-    
+
     # Prevenir handlers duplicados
     if logger.hasHandlers():
         logger.handlers.clear()
-        
+
     logger.setLevel(level)
 
     # --- Handlers estándar (consola y archivo) ---
     default_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
+
     # Handler de Archivo
     if not log_file.parent.exists():
         log_file.parent.mkdir(parents=True)
     file_handler = RotatingFileHandler(
-        log_file, maxBytes=5 * 1024 * 1024, backupCount=2, encoding='utf-8'
+        log_file, maxBytes=5 * 1024 * 1024, backupCount=2, encoding="utf-8"
     )
     file_handler.setFormatter(default_formatter)
     logger.addHandler(file_handler)
@@ -79,7 +79,7 @@ def setup_logging(log_file: Path, level=logging.INFO):
 
             # Crear una cola para el handler no bloqueante
             log_queue = Queue()
-            
+
             # LokiQueueHandler es recomendado para no bloquear la aplicación mientras envía logs
             # La URL debe incluir el path completo: http://localhost:3100/loki/api/v1/push
             full_loki_url = f"{loki_url.rstrip('/')}/loki/api/v1/push"
@@ -90,98 +90,110 @@ def setup_logging(log_file: Path, level=logging.INFO):
                 version="1",
             )
             loki_handler.setFormatter(default_formatter)
-            
+
             logger.addHandler(loki_handler)
-            logging.info(f"Logging configurado. Destinos: archivo, consola y Loki en {full_loki_url}")
+            logging.info(
+                f"Logging configurado. Destinos: archivo, consola y Loki en {full_loki_url}"
+            )
         except Exception as e:
-            logging.warning(f"No se pudo configurar Loki handler: {e}. Continuando solo con archivo y consola.")
+            logging.warning(
+                f"No se pudo configurar Loki handler: {e}. Continuando solo con "
+                "archivo y consola."
+            )
     elif loki_url and LokiQueueHandler is None:
-        logging.info("LOKI_URL configurada pero módulo logging_loki no instalado; continuando sin Loki.")
+        logging.info(
+            "LOKI_URL configurada pero módulo logging_loki no instalado; continuando "
+            "sin Loki."
+        )
     else:
-        logging.info("LOKI_URL no configurada. Logging configurado solo para archivo y consola.")
+        logging.info(
+            "LOKI_URL no configurada. Logging configurado solo para archivo y consola."
+        )
 
 
 def is_workday(check_date: date, holidays_file: Optional[Path] = None) -> bool:
     """
     Verifica si una fecha es día laborable
-    
+
     Args:
         check_date: Fecha a verificar
         holidays_file: Archivo con días festivos
-        
+
     Returns:
         True si es día laborable, False en caso contrario
     """
     # Verificar si es fin de semana (lunes=0, domingo=6)
     if check_date.weekday() >= 5:  # sábado=5, domingo=6
         return False
-    
+
     # Verificar si es día festivo
     if holidays_file and holidays_file.exists():
         try:
-            with open(holidays_file, 'r', encoding='utf-8') as f:
+            with open(holidays_file, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line and str(check_date) in line:
                         return False
         except Exception as e:
             logging.warning(f"Error leyendo archivo de festivos: {e}")
-    
+
     return True
 
 
-def get_next_workday_from_preferred(preferred_weekday: int = 0, holidays_file: Optional[Path] = None) -> date:
+def get_next_workday_from_preferred(
+    preferred_weekday: int = 0, holidays_file: Optional[Path] = None
+) -> date:
     """
     Obtiene el próximo día laborable a partir del día de la semana preferido
-    
+
     Args:
         preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
         holidays_file: Archivo con días festivos
-        
+
     Returns:
         Fecha del próximo día laborable
     """
     today = date.today()
-    
+
     # Calcular días hasta el día preferido de esta semana
     days_until_preferred = (preferred_weekday - today.weekday()) % 7
-    
+
     # Si es 0, significa que hoy es el día preferido
     if days_until_preferred == 0:
         candidate_date = today
     else:
         candidate_date = today + timedelta(days=days_until_preferred)
-    
+
     # Buscar el próximo día laborable desde el día preferido
     max_attempts = 7  # Máximo una semana de búsqueda
     attempts = 0
-    
+
     while attempts < max_attempts:
         if is_workday(candidate_date, holidays_file):
             return candidate_date
-        
+
         # Si no es laborable, probar el siguiente día
         candidate_date += timedelta(days=1)
         attempts += 1
-    
-    # Si no encontramos un día laborable en una semana, devolver el día preferido original
-    # (esto no debería pasar en condiciones normales)
-    return today + timedelta(days=days_until_preferred)
+
+    # Si no encontramos un día laborable en una semana, devolver el lunes original
+    # (situación excepcional)
+    return candidate_date
 
 
 def is_night_time(current_time: Optional[datetime] = None) -> bool:
     """
     Verifica si es horario nocturno (20:00 - 07:00)
-    
+
     Args:
         current_time: Hora actual (si no se proporciona, usa la actual)
-        
+
     Returns:
         True si es horario nocturno
     """
     if current_time is None:
         current_time = datetime.now()
-    
+
     hour = current_time.hour
     return hour >= 20 or hour < 7
 
@@ -189,28 +201,33 @@ def is_night_time(current_time: Optional[datetime] = None) -> bool:
 def load_css_content(css_file_path: Path) -> str:
     """
     Carga el contenido CSS desde un archivo con soporte para múltiples encodings
-    
+
     Args:
         css_file_path: Ruta al archivo CSS
-        
+
     Returns:
         Contenido CSS como string
     """
-    encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1']
-    
+    encodings = ["utf-8", "utf-8-sig", "latin1", "cp1252", "iso-8859-1"]
+
     for encoding in encodings:
         try:
-            with open(css_file_path, 'r', encoding=encoding) as f:
+            with open(css_file_path, encoding=encoding) as f:
                 content = f.read()
-                logging.info(f"Archivo CSS cargado exitosamente con encoding {encoding}")
+                logging.info(
+                    f"Archivo CSS cargado exitosamente con encoding {encoding}"
+                )
                 return content
         except UnicodeDecodeError:
             continue
         except Exception as e:
             logging.error(f"Error leyendo archivo CSS {css_file_path}: {e}")
             break
-    
-    logging.warning(f"No se pudo cargar el archivo CSS {css_file_path} con ningún encoding, usando CSS por defecto")
+
+    logging.warning(
+        f"No se pudo cargar el archivo CSS {css_file_path} con ningún encoding, "
+        "usando CSS por defecto"
+    )
     # CSS básico por defecto
     return """
     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
@@ -223,18 +240,18 @@ def load_css_content(css_file_path: Path) -> str:
     """
 
 
-## Eliminados definitivamente generate_html_header / generate_html_footer (wrappers legacy) 
+## Eliminados definitivamente generate_html_header / generate_html_footer (wrappers legacy)
 ## Usar directamente HTMLReportGenerator en nuevo código.
 
 
 def safe_str(value, default: str = "&nbsp;") -> str:
     """
     Convierte un valor a string de forma segura para HTML
-    
+
     Args:
         value: Valor a convertir
         default: Valor por defecto si es None o vacío
-        
+
     Returns:
         String seguro para HTML
     """
@@ -246,17 +263,17 @@ def safe_str(value, default: str = "&nbsp;") -> str:
 def format_date(date_value, format_str: str = "%d/%m/%Y") -> str:
     """
     Formatea una fecha a string
-    
+
     Args:
         date_value: Fecha a formatear (datetime, date o string)
         format_str: Formato de salida
-        
+
     Returns:
         Fecha formateada como string
     """
     if date_value is None:
         return ""
-    
+
     if isinstance(date_value, str):
         try:
             # Intentar parsear diferentes formatos de fecha
@@ -270,68 +287,67 @@ def format_date(date_value, format_str: str = "%d/%m/%Y") -> str:
                 return str(date_value)
         except Exception:
             return str(date_value)
-    
+
     if isinstance(date_value, (datetime, date)):
         return date_value.strftime(format_str)
-    
+
     return str(date_value)
 
 
-def get_admin_users(db_connection) -> List[Dict[str, str]]:
+def get_admin_users(db_connection) -> list[dict[str, str]]:
     """
     Obtiene la lista de usuarios administradores desde la base de datos
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
-        
+
     Returns:
         Lista de usuarios administradores
     """
     try:
         query = """
-            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario 
-            FROM TbUsuariosAplicaciones ua 
-            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario 
-            WHERE ua.ParaTareasProgramadas = True 
-            AND ua.FechaBaja IS NULL 
+            SELECT ua.UsuarioRed, ua.Nombre, ua.CorreoUsuario
+            FROM TbUsuariosAplicaciones ua
+            INNER JOIN TbUsuariosAplicacionesTareas uat ON ua.CorreoUsuario = uat.CorreoUsuario
+            WHERE ua.ParaTareasProgramadas = True
+            AND ua.FechaBaja IS NULL
             AND uat.EsAdministrador = 'Sí'
         """
-        
+
         result = db_connection.execute_query(query)
         return result
-        
+
     except Exception as e:
         logging.error(f"Error obteniendo usuarios administradores: {e}")
         return []
 
 
-def get_technical_emails_string(db_connection, config, logger) -> str:
+def get_technical_emails_string(app_id: str, config, logger) -> str:
     """
-    Obtiene una cadena con los emails de los administradores separados por punto y coma
-    
+    Obtiene la cadena de correos de usuarios técnicos separados por ;
+
     Args:
-        db_connection: Conexión a la base de datos de tareas
+        app_id: ID de la aplicación
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
-        Cadena de emails
+        String con correos separados por ;
     """
     try:
-        from .user_adapter import get_users_with_fallback
-        technical_users = get_users_with_fallback(
-            user_type='technical', 
-            db_connection=db_connection,
-            config=config,
-            logger=logger
-        )
-        return "; ".join([user['CorreoUsuario'] for user in technical_users if user.get('CorreoUsuario')])
+        technical_users = get_technical_users(app_id, config, logger)
+        emails = [
+            user["CorreoUsuario"] for user in technical_users if user["CorreoUsuario"]
+        ]
+        return ";".join(emails)
     except Exception as e:
-        logging.error(f"Error obteniendo emails de técnicos: {e}")
+        logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
         return ""
 
+
 def get_quality_emails_string(app_id, config, logger, db_connection) -> str:
-    """Devuelve emails de usuarios de Calidad.
+    """
+    Devuelve emails de usuarios de Calidad.
 
     app_id debe ser numérico (IDAplicacion en permisos). Antes se pasaba la cadena
     "AGEDYS" provocando error de tipo en Access. Esta función acepta str/int pero
@@ -339,39 +355,53 @@ def get_quality_emails_string(app_id, config, logger, db_connection) -> str:
     """
     try:
         from .user_adapter import get_users_with_fallback
+
         quality_users = get_users_with_fallback(
-            user_type='quality',
+            user_type="quality",
             db_connection=db_connection,
             config=config,
             logger=logger,
-            app_id=app_id
+            app_id=app_id,
         )
-        return "; ".join([user['CorreoUsuario'] for user in quality_users if user.get('CorreoUsuario')])
+        return "; ".join(
+            [
+                user["CorreoUsuario"]
+                for user in quality_users
+                if user.get("CorreoUsuario")
+            ]
+        )
     except Exception as e:
         logging.error(f"Error obteniendo emails de calidad: {e}")
         return ""
 
+
 def get_admin_emails_string(db_connection, config, logger) -> str:
     """
     Obtiene una cadena con los emails de los administradores separados por punto y coma
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         Cadena de emails
     """
     # Por ahora, los administradores son los mismos que los técnicos
-    return get_technical_emails_string(db_connection, config, logger)
+    return get_technical_emails_string("admin", config, logger)
 
 
-def send_email(to_address: str, subject: str, body: str, is_html: bool = True, 
-               from_app: str = "Sistema", attachments: List[str] = None) -> bool:
+def send_email(
+    to_address: str,
+    subject: str,
+    body: str,
+    is_html: bool = True,
+    from_app: str = "Sistema",
+    attachments: list[str] = None,
+) -> bool:
     """
     Envía un email usando SMTP (implementación real basada en script original VBS)
-    
+
     Args:
         to_address: Dirección de destino
         subject: Asunto del email
@@ -379,56 +409,59 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
         is_html: Si el cuerpo es HTML
         from_app: Aplicación que envía el correo
         attachments: Lista de rutas de archivos adjuntos
-        
+
     Returns:
         True si se envió correctamente, False en caso contrario
     """
     try:
         import smtplib
+        from email.mime.application import MIMEApplication
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
-        from email.mime.application import MIMEApplication
         from pathlib import Path
-        
+
         # Configuración SMTP basada en script original VBS
         smtp_server = config.smtp_server
         smtp_port = config.smtp_port
-        
+
         # Crear mensaje
         msg = MIMEMultipart()
-        msg['From'] = f"{from_app}.DySN@telefonica.com"
-        msg['To'] = to_address
-        msg['Subject'] = subject
-        
+        msg["From"] = f"{from_app}.DySN@telefonica.com"
+        msg["To"] = to_address
+        msg["Subject"] = subject
+
         # Añadir BCC para administrador (como en el script original VBS)
         admin_email = "Andres.RomandelPeral@telefonica.com"
         if admin_email not in to_address:
-            msg['Bcc'] = admin_email
-        
+            msg["Bcc"] = admin_email
+
         # Añadir cuerpo del mensaje
         if is_html:
-            msg.attach(MIMEText(body, 'html', 'utf-8'))
+            msg.attach(MIMEText(body, "html", "utf-8"))
         else:
-            msg.attach(MIMEText(body, 'plain', 'utf-8'))
-        
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+
         # Añadir archivos adjuntos si existen
         if attachments:
             for attachment_path in attachments:
                 if Path(attachment_path).exists():
-                    with open(attachment_path, 'rb') as f:
+                    with open(attachment_path, "rb") as f:
                         attach = MIMEApplication(f.read())
-                        attach.add_header('Content-Disposition', 'attachment', 
-                                        filename=Path(attachment_path).name)
+                        attach.add_header(
+                            "Content-Disposition",
+                            "attachment",
+                            filename=Path(attachment_path).name,
+                        )
                         msg.attach(attach)
-        
+
         # Enviar email
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             # Sin autenticación como en el script original VBS
-            server.sendmail(msg['From'], [to_address, admin_email], msg.as_string())
-        
+            server.sendmail(msg["From"], [to_address, admin_email], msg.as_string())
+
         logging.info(f"Email enviado exitosamente a {to_address} con asunto: {subject}")
         return True
-        
+
     except Exception as e:
         logging.error(f"Error enviando email a {to_address}: {e}")
         return False
@@ -437,11 +470,17 @@ def send_email(to_address: str, subject: str, body: str, is_html: bool = True,
 # Función send_notification_email eliminada - solo se registran correos en BD
 
 
-def register_email_in_database(db_connection, application: str, subject: str, body: str, 
-                              recipients: str, admin_emails: str = "") -> bool:
+def register_email_in_database(
+    db_connection,
+    application: str,
+    subject: str,
+    body: str,
+    recipients: str,
+    admin_emails: str = "",
+) -> bool:
     """
     Registra un correo en la base de datos de tareas
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         application: Nombre de la aplicación (BRASS, Expedientes, Riesgos, etc.)
@@ -449,14 +488,14 @@ def register_email_in_database(db_connection, application: str, subject: str, bo
         body: Cuerpo del correo
         recipients: Destinatarios del correo
         admin_emails: Emails de administradores para copia oculta
-        
+
     Returns:
         True si se registró correctamente
     """
     try:
         # Obtener próximo ID
         next_id = db_connection.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
-        
+
         # Preparar datos del correo
         email_data = {
             "IDCorreo": next_id,
@@ -465,188 +504,186 @@ def register_email_in_database(db_connection, application: str, subject: str, bo
             "Cuerpo": body,
             "Destinatarios": recipients if "@" in recipients else "",
             "DestinatariosConCopiaOculta": admin_emails,
-            "FechaGrabacion": datetime.now()
+            "FechaGrabacion": datetime.now(),
         }
-        
+
         success = db_connection.insert_record("TbCorreosEnviados", email_data)
-        
+
         if success:
             logging.info(f"Correo registrado correctamente para {application}")
         else:
             logging.error(f"Error registrando correo para {application}")
-        
+
         return success
-        
+
     except Exception as e:
         logging.error(f"Error registrando correo en base de datos: {e}")
         return False
 
 
-def register_task_completion(db_connection, task_name: str, execution_date: Optional[date] = None) -> bool:
+def register_task_completion(
+    db_connection, task_name: str, execution_date: Optional[date] = None
+) -> bool:
     """
     Registra la finalización de una tarea en la base de datos
     Solo debe haber un registro por nombre de tarea.
     Si no existe se crea, si existe se actualiza la fecha.
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
         execution_date: Fecha de ejecución (por defecto hoy)
-        
+
     Returns:
         True si se registró correctamente
     """
     try:
         if execution_date is None:
             execution_date = date.today()
-        
+
         # Verificar si ya existe registro para la tarea (sin importar la fecha)
         query_check = """
-            SELECT COUNT(*) as Count 
-            FROM TbTareas 
+            SELECT COUNT(*) as Count
+            FROM TbTareas
             WHERE Tarea = ?
         """
-        
+
         result = db_connection.execute_query(query_check, [task_name])
-        
-        if result and result[0]['Count'] > 0:
+
+        if result and result[0]["Count"] > 0:
             # Actualizar registro existente - solo cambiar la fecha
-            task_data = {
-                "Fecha": execution_date,
-                "Realizado": "Sí"
-            }
+            task_data = {"Fecha": execution_date, "Realizado": "Sí"}
             success = db_connection.update_record(
-                "TbTareas", 
-                task_data, 
-                "Tarea = ?", 
-                [task_name]
+                "TbTareas", task_data, "Tarea = ?", [task_name]
             )
-            logging.info(f"Tarea {task_name} actualizada con fecha {str(execution_date)}")
+            logging.info(
+                f"Tarea {task_name} actualizada con fecha {str(execution_date)}"
+            )
         else:
             # Insertar nuevo registro
-            task_data = {
-                "Tarea": task_name,
-                "Fecha": execution_date,
-                "Realizado": "Sí"
-            }
+            task_data = {"Tarea": task_name, "Fecha": execution_date, "Realizado": "Sí"}
             success = db_connection.insert_record("TbTareas", task_data)
             logging.info(f"Tarea {task_name} creada con fecha {str(execution_date)}")
-        
+
         if success:
             logging.info(f"Tarea {task_name} registrada como completada")
         else:
             logging.error(f"Error registrando tarea {task_name}")
-        
+
         return success
-        
+
     except Exception as e:
         logging.error(f"Error registrando finalización de tarea: {e}")
         return False
 
 
-def get_technical_users(app_id: str, config, logger) -> List[Dict[str, str]]:
+def get_technical_users(app_id: str, config, logger) -> list[dict[str, str]]:
     """
     Obtiene la lista de usuarios técnicos desde la base de datos
     Basado en el script original VBS: usuarios que NO están en TbUsuariosAplicacionesTareas
-    
+
     Args:
         app_id: ID de la aplicación
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         Lista de usuarios técnicos
     """
     try:
         from .database import AccessDatabase
-        
+
         # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-        
+
         query = """
-            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario 
-            FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario 
-            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True 
-            AND TbUsuariosAplicaciones.FechaBaja IS NULL 
+            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
+            FROM TbUsuariosAplicaciones LEFT JOIN TbUsuariosAplicacionesTareas ON
+            TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario
+            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True
+            AND TbUsuariosAplicaciones.FechaBaja IS NULL
             AND TbUsuariosAplicacionesTareas.CorreoUsuario IS NULL
         """
-        
+
         result = db_connection.execute_query(query)
         return result
-        
+
     except Exception as e:
         logger.error(f"Error obteniendo usuarios técnicos para {app_id}: {e}")
         return []
 
 
-def get_quality_users(app_id: str, config, logger) -> List[Dict[str, str]]:
+def get_quality_users(app_id: str, config, logger) -> list[dict[str, str]]:
     """
     Obtiene la lista de usuarios de calidad desde la base de datos
     Basado en el script original VBS: usa TbUsuariosAplicacionesPermisos con IDAplicacion = 3 (hardcodeado)
-    
+
     Args:
         app_id: ID de la aplicación (no usado, se mantiene por compatibilidad)
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         Lista de usuarios de calidad
     """
     try:
         from .database import AccessDatabase
-        
+
         # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-        
+
         # Basado en el script original VBS, usar IDAplicacion = 3 (hardcodeado como en el VBS)
         query = """
-            SELECT UsuarioRed, Nombre, TbUsuariosAplicaciones.CorreoUsuario 
-            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesPermisos 
-            ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesPermisos.CorreoUsuario 
-            WHERE ParaTareasProgramadas = True 
-            AND FechaBaja IS NULL 
-            AND ParaTareasProgramadas = True 
-            AND IDAplicacion = 3 
+            SELECT UsuarioRed, Nombre, TbUsuariosAplicaciones.CorreoUsuario
+            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesPermisos
+            ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesPermisos.CorreoUsuario
+            WHERE ParaTareasProgramadas = True
+            AND FechaBaja IS NULL
+            AND ParaTareasProgramadas = True
+            AND IDAplicacion = 3
             AND EsUsuarioCalidad = 'Sí'
         """
-        
+
         result = db_connection.execute_query(query)
         return result
-        
+
     except Exception as e:
         logger.error(f"Error obteniendo usuarios de calidad para {app_id}: {e}")
         return []
 
 
-def get_economy_users(config, logger) -> List[Dict[str, str]]:
+def get_economy_users(config, logger) -> list[dict[str, str]]:
     """
     Obtiene la lista de usuarios de economía desde la base de datos
     Basado en el script original VBS: usa TbUsuariosAplicacionesTareas con EsEconomia
-    
+
     Args:
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         Lista de usuarios de economía
     """
     try:
         from .database import AccessDatabase
-        
+
         # Usar la conexión de tareas para obtener usuarios (como en el script original)
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-        
+
         query = """
-            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre, TbUsuariosAplicaciones.CorreoUsuario 
-            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario 
-            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True 
-            AND TbUsuariosAplicaciones.FechaBaja IS NULL 
+            SELECT TbUsuariosAplicaciones.UsuarioRed, TbUsuariosAplicaciones.Nombre,
+            TbUsuariosAplicaciones.CorreoUsuario
+            FROM TbUsuariosAplicaciones INNER JOIN TbUsuariosAplicacionesTareas ON
+            TbUsuariosAplicaciones.CorreoUsuario = TbUsuariosAplicacionesTareas.CorreoUsuario
+            WHERE TbUsuariosAplicaciones.ParaTareasProgramadas = True
+            AND TbUsuariosAplicaciones.FechaBaja IS NULL
             AND TbUsuariosAplicacionesTareas.EsEconomia = 'Sí'
         """
-        
+
         result = db_connection.execute_query(query)
         return result
-        
+
     except Exception as e:
         logger.error(f"Error obteniendo usuarios de economía: {e}")
         return []
@@ -656,36 +693,36 @@ def get_user_email(username: str, config, logger=None) -> str:
     """
     Obtiene el correo electrónico de un usuario específico
     Basado en el script original VBS: busca en TbUsuariosAplicaciones por UsuarioRed
-    
+
     Args:
         usuario_red: Nombre de usuario de red
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         Correo electrónico del usuario o None si no se encuentra
     """
     try:
         from .database import AccessDatabase
-        
+
         # Usar la conexión de tareas para obtener el email
         db_connection = AccessDatabase(config.get_db_tareas_connection_string())
-        
+
         # Query simplificada que coincide exactamente con el VBS original
         query = """
-            SELECT CorreoUsuario 
-            FROM TbUsuariosAplicaciones 
+            SELECT CorreoUsuario
+            FROM TbUsuariosAplicaciones
             WHERE UsuarioRed = ?
         """
-        
+
         result = db_connection.execute_query(query, [username])
-        
+
         if result and len(result) > 0:
-            email = result[0].get('CorreoUsuario', '')
+            email = result[0].get("CorreoUsuario", "")
             return email if email else ""
-        
+
         return ""
-        
+
     except Exception as e:
         if logger:
             logger.error(f"Error obteniendo email para usuario {username}: {e}")
@@ -694,25 +731,24 @@ def get_user_email(username: str, config, logger=None) -> str:
         return ""
 
 
-
-
-
 def get_technical_emails_string(app_id: str, config, logger) -> str:
     """
     Obtiene la cadena de correos de usuarios técnicos separados por ;
-    
+
     Args:
         app_id: ID de la aplicación
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         String con correos separados por ;
     """
     try:
         technical_users = get_technical_users(app_id, config, logger)
-        emails = [user['CorreoUsuario'] for user in technical_users if user['CorreoUsuario']]
-        return ';'.join(emails)
+        emails = [
+            user["CorreoUsuario"] for user in technical_users if user["CorreoUsuario"]
+        ]
+        return ";".join(emails)
     except Exception as e:
         logger.error(f"Error obteniendo emails técnicos para {app_id}: {e}")
         return ""
@@ -721,18 +757,20 @@ def get_technical_emails_string(app_id: str, config, logger) -> str:
 def get_economy_emails_string(config, logger) -> str:
     """
     Obtiene la cadena de correos de usuarios de economía separados por ;
-    
+
     Args:
         config: Configuración de la aplicación
         logger: Logger para registrar eventos
-        
+
     Returns:
         String con correos separados por ;
     """
     try:
         economy_users = get_economy_users(config, logger)
-        emails = [user['CorreoUsuario'] for user in economy_users if user['CorreoUsuario']]
-        return ';'.join(emails)
+        emails = [
+            user["CorreoUsuario"] for user in economy_users if user["CorreoUsuario"]
+        ]
+        return ";".join(emails)
     except Exception as e:
         logger.error(f"Error obteniendo emails de economía: {e}")
         return ""
@@ -741,157 +779,101 @@ def get_economy_emails_string(config, logger) -> str:
 def get_last_task_execution_date(db_connection, task_name: str) -> Optional[date]:
     """
     Obtiene la fecha de la última ejecución de una tarea
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
-        
+
     Returns:
         Fecha de la última ejecución o None si no existe
     """
     try:
         query = """
-            SELECT MAX(Fecha) as UltimaFecha 
-            FROM TbTareas 
+            SELECT MAX(Fecha) as UltimaFecha
+            FROM TbTareas
             WHERE Tarea = ?
         """
-        
+
         result = db_connection.execute_query(query, [task_name])
-        
-        if result and result[0]['UltimaFecha']:
-            fecha = result[0]['UltimaFecha']
+
+        if result and result[0]["UltimaFecha"]:
+            fecha = result[0]["UltimaFecha"]
             # Convertir a date si es datetime
             if isinstance(fecha, datetime):
                 return fecha.date()
             return fecha
-            
+
         return None
-        
+
     except Exception as e:
-        logging.error(f"Error obteniendo fecha de última ejecución para {task_name}: {e}")
+        logging.error(
+            f"Error obteniendo fecha de última ejecución para {task_name}: {e}"
+        )
         return None
 
 
 def is_task_completed_today(db_connection, task_name: str) -> bool:
     """
     Verifica si una tarea ya se ejecutó hoy
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
-        
+
     Returns:
         True si ya se ejecutó hoy, False en caso contrario
     """
     last_execution = get_last_task_execution_date(db_connection, task_name)
     today = date.today()
-    
+
     if last_execution is None:
         return False
-    
+
     return last_execution == today
 
 
-def should_execute_task(db_connection, task_name: str, frequency_days: int, logger=None) -> bool:
+def should_execute_task(
+    db_connection, task_name: str, frequency_days: int, logger=None
+) -> bool:
     """
     Determina si se debe ejecutar una tarea basándose en su frecuencia
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
         frequency_days: Frecuencia en días para ejecutar la tarea
         logger: Logger para registrar eventos (opcional)
-        
+
     Returns:
         True si se debe ejecutar la tarea
     """
     try:
         last_execution = get_last_task_execution_date(db_connection, task_name)
-        
+
         if last_execution is None:
             # Si no hay registro previo, ejecutar
             if logger:
-                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+                logger.info(
+                    f"No hay registro previo de tarea {task_name}, se requiere ejecutar"
+                )
             return True
-        
+
         days_since_last = (date.today() - last_execution).days
         should_execute = days_since_last >= frequency_days
-        
+
         if logger:
-            logger.info(f"Última ejecución tarea {task_name}: {last_execution}, "
-                       f"días transcurridos: {days_since_last}, requiere: {should_execute}")
-        
+            logger.info(
+                f"Última ejecución tarea {task_name}: {last_execution}, "
+                f"días transcurridos: {days_since_last}, requiere: {should_execute}"
+            )
+
         return should_execute
-        
+
     except Exception as e:
         if logger:
             logger.error(f"Error determinando si requiere tarea {task_name}: {e}")
         else:
             logging.error(f"Error determinando si requiere tarea {task_name}: {e}")
-        return True
-
-
-def should_execute_quality_task(db_connection, task_name: str, preferred_weekday: int = 0, 
-                               holidays_file: Optional[Path] = None, logger=None) -> bool:
-    """
-    Determina si se debe ejecutar una tarea de calidad basándose en el día de la semana preferido
-    y considerando días festivos
-    
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        task_name: Nombre de la tarea
-        preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
-        holidays_file: Archivo con días festivos
-        logger: Logger para registrar eventos (opcional)
-        
-    Returns:
-        True si se debe ejecutar la tarea
-    """
-    try:
-        today = date.today()
-        last_execution = get_last_task_execution_date(db_connection, task_name)
-        
-        if logger:
-            logger.info(f"Verificando tarea de calidad {task_name} - Última ejecución: {last_execution}")
-        
-        # Si no hay registro previo, verificar si hoy es un día laborable válido
-        if last_execution is None:
-            if is_workday(today, holidays_file):
-                if logger:
-                    logger.info(f"No hay registro previo de tarea {task_name} y hoy es laborable, se requiere ejecutar")
-                return True
-            else:
-                if logger:
-                    logger.info(f"No hay registro previo de tarea {task_name} pero hoy no es laborable")
-                return False
-        
-        # Obtener el próximo día laborable desde el día preferido de esta semana
-        next_workday = get_next_workday_from_preferred(preferred_weekday, holidays_file)
-        
-        if logger:
-            logger.info(f"Próximo día laborable desde día preferido ({preferred_weekday}): {next_workday}")
-        
-        # Si hoy es el próximo día laborable y han pasado al menos 7 días desde la última ejecución
-        if today == next_workday:
-            days_since_last = (today - last_execution).days
-            should_execute = days_since_last >= 7  # Mínimo una semana
-            
-            if logger:
-                logger.info(f"Hoy es el día laborable objetivo. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
-            
-            return should_execute
-        
-        # Si no es el día objetivo, no ejecutar
-        if logger:
-            logger.info(f"Hoy ({today}) no es el día laborable objetivo ({next_workday})")
-        
-        return False
-        
-    except Exception as e:
-        if logger:
-            logger.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
-        else:
-            logging.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
         return True
 
 
@@ -906,7 +888,8 @@ def execute_task_with_standard_boilerplate(
     log_file: Path | None = None,
     logger: logging.Logger | None = None,
 ):
-    """Ejecuta una tarea con banners y convenciones unificadas.
+    """
+    Ejecuta una tarea con banners y convenciones unificadas.
 
     Args:
         task_name: Nombre lógico (ej. 'BRASS').
@@ -921,8 +904,8 @@ def execute_task_with_standard_boilerplate(
     Returns:
         exit_code (0 éxito, 1 fallo)
     """
-    from pathlib import Path as _Path
     from contextlib import nullcontext
+    from pathlib import Path as _Path
 
     task_upper = task_name.upper()
     log_path = log_file or _Path(f"logs/{task_upper.lower()}.log")
@@ -938,7 +921,7 @@ def execute_task_with_standard_boilerplate(
 
     logger.info(
         f"=== INICIO TAREA {task_upper} ===",
-        extra={'event': 'task_start', 'task': task_upper, 'app': task_upper}
+        extra={"event": "task_start", "task": task_upper, "app": task_upper},
     )
     exit_code = 0
 
@@ -955,7 +938,9 @@ def execute_task_with_standard_boilerplate(
                 exit_code = 1
         else:
             if task_obj is None:
-                raise ValueError("Se requiere task_obj si no se proporciona custom_logic")
+                raise ValueError(
+                    "Se requiere task_obj si no se proporciona custom_logic"
+                )
             cm = task_obj if hasattr(task_obj, "__enter__") else nullcontext(task_obj)
             with cm as t:
                 if hasattr(t, "initialize"):
@@ -965,20 +950,29 @@ def execute_task_with_standard_boilerplate(
                             logger.error("Inicialización de la tarea falló")
                             return 1
                     except Exception as init_exc:  # pragma: no cover
-                        logger.error(f"Excepción inicializando tarea: {init_exc}", exc_info=True)
+                        logger.error(
+                            f"Excepción inicializando tarea: {init_exc}", exc_info=True
+                        )
                         return 1
                 exec_method = _select_logic(t)
                 if dry_run:
-                    logger.info("Modo DRY-RUN: comprobando planificación sin ejecutar lógica.")
+                    logger.info(
+                        "Modo DRY-RUN: comprobando planificación sin ejecutar lógica."
+                    )
                     should = False
                     if hasattr(t, "debe_ejecutarse"):
                         try:
                             should = t.debe_ejecutarse()
                         except Exception as plan_exc:  # pragma: no cover
                             logger.error(f"Error comprobando planificación: {plan_exc}")
-                    logger.info(f"Resultado planificación: {'EJECUTAR' if should else 'OMITIR'}")
+                    logger.info(
+                        f"Resultado planificación: {'EJECUTAR' if should else 'OMITIR'}"
+                    )
                 elif force:
-                    logger.info("Ejecución forzada (--force) ignorando planificación (NO marca completada).")
+                    logger.info(
+                        "Ejecución forzada (--force) ignorando planificación (NO marca "
+                        "completada)."
+                    )
                     ok = exec_method()
                     if not ok:
                         logger.error("La ejecución forzada falló.")
@@ -1007,264 +1001,293 @@ def execute_task_with_standard_boilerplate(
 
     logger.info(
         f"=== FIN TAREA {task_upper} ===",
-        extra={'event': 'task_end', 'task': task_upper, 'exit_code': exit_code, 'app': task_upper}
+        extra={
+            "event": "task_end",
+            "task": task_upper,
+            "exit_code": exit_code,
+            "app": task_upper,
+        },
     )
     return exit_code
 
 
 def ensure_project_root_in_path():
-    """Garantiza que la ruta raíz del proyecto (que contiene 'src') esté en sys.path.
+    """
+    Garantiza que la ruta raíz del proyecto (que contiene 'src') esté en sys.path.
 
     Idempotente: sólo inserta si no existe ya. No lanza excepciones al fallar.
     """
     try:
         import sys as _sys
         from pathlib import Path as _Path
+
         current_file = _Path(__file__).resolve()
         # Estructura esperada: <root>/src/common/utils.py -> root = parent.parent.parent
         project_root = current_file.parent.parent.parent
-        if str(project_root / 'src') not in _sys.path:
-            _sys.path.insert(0, str(project_root / 'src'))
+        if str(project_root / "src") not in _sys.path:
+            _sys.path.insert(0, str(project_root / "src"))
     except Exception:  # pragma: no cover
         # Silencioso: evitar romper importaciones si algo inesperado ocurre
         pass
 
 
-def get_first_workday_of_week(reference_date: Optional[date] = None, holidays_file: Optional[Path] = None) -> date:
+def get_first_workday_of_week(
+    reference_date: Optional[date] = None, holidays_file: Optional[Path] = None
+) -> date:
     """
     Obtiene el primer día laborable de la semana
-    
+
     Args:
         reference_date: Fecha de referencia (si no se proporciona, usa la actual)
         holidays_file: Archivo con días festivos
-        
+
     Returns:
         Fecha del primer día laborable de la semana
     """
     if reference_date is None:
         reference_date = date.today()
-    
+
     # Obtener el lunes de la semana actual
     monday = reference_date - timedelta(days=reference_date.weekday())
-    
+
     # Buscar el primer día laborable desde el lunes
     candidate_date = monday
     max_attempts = 7  # Máximo una semana de búsqueda
     attempts = 0
-    
+
     while attempts < max_attempts:
         if is_workday(candidate_date, holidays_file):
             return candidate_date
-        
+
+        # Si no es laborable, probar el siguiente día
         candidate_date += timedelta(days=1)
         attempts += 1
-    
-    # Si no encontramos un día laborable en la semana, devolver el lunes
-    return monday
+
+    # Si no encontramos un día laborable en una semana, devolver el día preferido original
+    # (esto no debería pasar en condiciones normales)
+    return today + timedelta(days=days_until_preferred)
 
 
-def get_first_workday_of_month(reference_date: Optional[date] = None, holidays_file: Optional[Path] = None) -> date:
+def get_first_workday_of_month(
+    reference_date: Optional[date] = None, holidays_file: Optional[Path] = None
+) -> date:
     """
     Obtiene el primer día laborable del mes
-    
+
     Args:
         reference_date: Fecha de referencia (si no se proporciona, usa la actual)
         holidays_file: Archivo con días festivos
-        
+
     Returns:
         Fecha del primer día laborable del mes
     """
     if reference_date is None:
         reference_date = date.today()
-    
+
     # Obtener el primer día del mes
     first_day = reference_date.replace(day=1)
-    
+
     # Buscar el primer día laborable desde el primer día del mes
     candidate_date = first_day
     max_attempts = 31  # Máximo un mes de búsqueda
     attempts = 0
-    
+
     while attempts < max_attempts:
         if is_workday(candidate_date, holidays_file):
             return candidate_date
-        
+
         candidate_date += timedelta(days=1)
         attempts += 1
-    
+
     # Si no encontramos un día laborable en el mes, devolver el primer día
     return first_day
 
 
-def should_execute_weekly_task(db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None) -> bool:
+def should_execute_weekly_task(
+    db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None
+) -> bool:
     """
     Determina si se debe ejecutar una tarea semanal en el primer día laborable de la semana
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
         holidays_file: Archivo con días festivos
         logger: Logger para registrar eventos (opcional)
-        
+
     Returns:
         True si se debe ejecutar la tarea
     """
     try:
         today = date.today()
         last_execution = get_last_task_execution_date(db_connection, task_name)
-        
+
         if logger:
-            logger.info(f"Verificando tarea semanal {task_name} - Última ejecución: {last_execution}")
-        
+            logger.info(
+                f"Verificando tarea semanal {task_name} - Última ejecución: "
+                f"{last_execution}"
+            )
+
         # Obtener el primer día laborable de esta semana
         first_workday_this_week = get_first_workday_of_week(today, holidays_file)
-        
+
         if logger:
-            logger.info(f"Primer día laborable de esta semana: {first_workday_this_week}")
-        
+            logger.info(
+                f"Primer día laborable de esta semana: {first_workday_this_week}"
+            )
+
         # Si hoy no es el primer día laborable de la semana, no ejecutar
         if today != first_workday_this_week:
             if logger:
-                logger.info(f"Hoy ({today}) no es el primer día laborable de la semana ({first_workday_this_week})")
+                logger.info(
+                    f"Hoy ({today}) no es el primer día laborable de la semana "
+                    f"({first_workday_this_week})"
+                )
             return False
-        
+
         # Si no hay registro previo, ejecutar
         if last_execution is None:
             if logger:
-                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+                logger.info(
+                    f"No hay registro previo de tarea {task_name}, se requiere ejecutar"
+                )
             return True
-        
-        # Si hoy es el primer día laborable de la semana y han pasado al menos 7 días desde la última ejecución
+
+        # Si hoy es el primer día laborable de la semana y han pasado al menos 7 días
+        # desde la última ejecución
         days_since_last = (today - last_execution).days
         should_execute = days_since_last >= 7  # Mínimo una semana
-        
+
         if logger:
-            logger.info(f"Hoy es el primer día laborable de la semana. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
-        
+            logger.info(
+                f"Hoy es el primer día laborable de la semana. Días desde última "
+                f"ejecución: {days_since_last}, requiere: {should_execute}"
+            )
+
         return should_execute
-        
+
     except Exception as e:
         if logger:
-            logger.error(f"Error determinando si requiere tarea semanal {task_name}: {e}")
+            logger.error(
+                f"Error determinando si requiere tarea semanal {task_name}: {e}"
+            )
         else:
-            logging.error(f"Error determinando si requiere tarea semanal {task_name}: {e}")
+            logging.error(
+                f"Error determinando si requiere tarea semanal {task_name}: {e}"
+            )
         return True
 
 
-def should_execute_monthly_task(db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None) -> bool:
+def should_execute_monthly_task(
+    db_connection, task_name: str, holidays_file: Optional[Path] = None, logger=None
+) -> bool:
     """
     Determina si se debe ejecutar una tarea mensual en el primer día laborable del mes
-    
+
     Args:
         db_connection: Conexión a la base de datos de tareas
         task_name: Nombre de la tarea
         holidays_file: Archivo con días festivos
         logger: Logger para registrar eventos (opcional)
-        
+
     Returns:
         True si se debe ejecutar la tarea
     """
     try:
         today = date.today()
         last_execution = get_last_task_execution_date(db_connection, task_name)
-        
+
         if logger:
-            logger.info(f"Verificando tarea mensual {task_name} - Última ejecución: {last_execution}")
-        
+            logger.info(
+                f"Verificando tarea mensual {task_name} - Última ejecución: "
+                f"{last_execution}"
+            )
+
         # Obtener el primer día laborable de este mes
         first_workday_this_month = get_first_workday_of_month(today, holidays_file)
-        
+
         if logger:
             logger.info(f"Primer día laborable de este mes: {first_workday_this_month}")
-        
+
         # Si hoy no es el primer día laborable del mes, no ejecutar
         if today != first_workday_this_month:
             if logger:
-                logger.info(f"Hoy ({today}) no es el primer día laborable del mes ({first_workday_this_month})")
+                logger.info(
+                    f"Hoy ({today}) no es el primer día laborable del mes "
+                    f"({first_workday_this_month})"
+                )
             return False
-        
+
         # Si no hay registro previo, ejecutar
         if last_execution is None:
             if logger:
-                logger.info(f"No hay registro previo de tarea {task_name}, se requiere ejecutar")
+                logger.info(
+                    f"No hay registro previo de tarea {task_name}, se requiere ejecutar"
+                )
             return True
-        
-        # Si hoy es el primer día laborable del mes y han pasado al menos 30 días desde la última ejecución
+
+        # Si hoy es el primer día laborable del mes y han pasado al menos 30 días
+        # desde la última ejecución
         days_since_last = (today - last_execution).days
         should_execute = days_since_last >= 30  # Mínimo un mes
-        
+
         if logger:
-            logger.info(f"Hoy es el primer día laborable del mes. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
-        
+            logger.info(
+                f"Hoy es el primer día laborable del mes. Días desde última ejecución: "
+                f"{days_since_last}, requiere: {should_execute}"
+            )
+
         return should_execute
-        
+
     except Exception as e:
         if logger:
-            logger.error(f"Error determinando si requiere tarea mensual {task_name}: {e}")
+            logger.error(
+                f"Error determinando si requiere tarea mensual {task_name}: {e}"
+            )
         else:
-            logging.error(f"Error determinando si requiere tarea mensual {task_name}: {e}")
+            logging.error(
+                f"Error determinando si requiere tarea mensual {task_name}: {e}"
+            )
         return True
 
 
-def should_execute_quality_task(db_connection, task_name: str, preferred_weekday: int = 0, 
-                               holidays_file: Optional[Path] = None, logger=None) -> bool:
-    """
-    Determina si se debe ejecutar una tarea de calidad basándose en el día de la semana preferido
-    y considerando días festivos
-    
-    Args:
-        db_connection: Conexión a la base de datos de tareas
-        task_name: Nombre de la tarea
-        preferred_weekday: Día de la semana preferido (0=lunes, 1=martes, ..., 6=domingo)
-        holidays_file: Archivo con días festivos
-        logger: Logger para registrar eventos (opcional)
-        
-    Returns:
-        True si se debe ejecutar la tarea
+def should_execute_quality_task(
+    db_connection,
+    task_name: str,
+    preferred_weekday: int = 0,
+    holidays_file: Optional[Path] = None,
+    logger=None,
+) -> bool:
+    """Determina si se debe ejecutar una tarea de calidad semanal en el día laborable preferido.
+
+    Reglas (según tests):
+    - Si no hay ejecución previa y hoy es el día laborable preferido -> True
+    - Si hoy NO es el día laborable preferido -> False (aunque haya pasado el intervalo)
+    - Si existe ejecución previa, se ejecuta cuando han pasado >=7 días y hoy es el
+      día laborable preferido.
     """
     try:
         today = date.today()
+        # Hallar el próximo día laborable que cae en el preferred_weekday (esta semana)
+        # Si hoy es ese día laborable preferido, candidate = today
+        # De lo contrario, no es día de ejecución
+        if today.weekday() != preferred_weekday or not is_workday(
+            today, holidays_file
+        ):
+            return False
+
         last_execution = get_last_task_execution_date(db_connection, task_name)
-        
-        if logger:
-            logger.info(f"Verificando tarea de calidad {task_name} - Última ejecución: {last_execution}")
-        
-        # Si no hay registro previo, verificar si hoy es un día laborable válido
         if last_execution is None:
-            if is_workday(today, holidays_file):
-                if logger:
-                    logger.info(f"No hay registro previo de tarea {task_name} y hoy es laborable, se requiere ejecutar")
-                return True
-            else:
-                if logger:
-                    logger.info(f"No hay registro previo de tarea {task_name} pero hoy no es laborable")
-                return False
-        
-        # Obtener el próximo día laborable desde el día preferido de esta semana
-        next_workday = get_next_workday_from_preferred(preferred_weekday, holidays_file)
-        
+            return True
+        days_since = (today - last_execution).days
+        return days_since >= 7
+    except Exception as e:  # pragma: no cover
         if logger:
-            logger.info(f"Próximo día laborable desde día preferido ({preferred_weekday}): {next_workday}")
-        
-        # Si hoy es el próximo día laborable y han pasado al menos 7 días desde la última ejecución
-        if today == next_workday:
-            days_since_last = (today - last_execution).days
-            should_execute = days_since_last >= 7  # Mínimo una semana
-            
-            if logger:
-                logger.info(f"Hoy es el día laborable objetivo. Días desde última ejecución: {days_since_last}, requiere: {should_execute}")
-            
-            return should_execute
-        
-        # Si no es el día objetivo, no ejecutar
-        if logger:
-            logger.info(f"Hoy ({today}) no es el día laborable objetivo ({next_workday})")
-        
-        return False
-        
-    except Exception as e:
-        if logger:
-            logger.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
+            logger.error(
+                f"Error determinando si requiere tarea calidad {task_name}: {e}"
+            )
         else:
-            logging.error(f"Error determinando si requiere tarea de calidad {task_name}: {e}")
+            logging.error(
+                f"Error determinando si requiere tarea calidad {task_name}: {e}"
+            )
         return True

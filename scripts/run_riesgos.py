@@ -16,26 +16,37 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SRC_DIR = _PROJECT_ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
-from common.utils import ensure_project_root_in_path  # type: ignore
-ensure_project_root_in_path()
 
-from common.utils import execute_task_with_standard_boilerplate  # type: ignore
 from common.config import config  # type: ignore
+from common.utils import ensure_project_root_in_path, execute_task_with_standard_boilerplate  # type: ignore
 from riesgos.riesgos_manager import RiesgosManager  # type: ignore
+
+ensure_project_root_in_path()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Tareas de gestión de riesgos")
-    parser.add_argument("--force-technical", action="store_true", help="Forzar tarea técnica")
-    parser.add_argument("--force-quality", action="store_true", help="Forzar tarea de calidad")
-    parser.add_argument("--force-monthly", action="store_true", help="Forzar tarea mensual")
-    parser.add_argument("--dry-run", action="store_true", help="Simula sin registrar/envíar correos")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Logging detallado")
+    parser.add_argument(
+        "--force-technical", action="store_true", help="Forzar tarea técnica"
+    )
+    parser.add_argument(
+        "--force-quality", action="store_true", help="Forzar tarea de calidad"
+    )
+    parser.add_argument(
+        "--force-monthly", action="store_true", help="Forzar tarea mensual"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simula sin registrar/envíar correos"
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Logging detallado"
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None):  # pragma: no cover
     args = parse_args(argv)
+
     def _logic(logger):
         if args.verbose:
             logger.setLevel(logging.DEBUG)
@@ -63,9 +74,8 @@ def main(argv: list[str] | None = None):  # pragma: no cover
             return ok
         finally:
             manager.disconnect_from_database()
-    exit_code = execute_task_with_standard_boilerplate(
-        "RIESGOS", custom_logic=_logic
-    )
+
+    exit_code = execute_task_with_standard_boilerplate("RIESGOS", custom_logic=_logic)
     sys.exit(exit_code)
 
 

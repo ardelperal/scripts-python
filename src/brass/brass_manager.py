@@ -9,12 +9,11 @@ Esas responsabilidades se delegan a capas superiores (task / orchestrator).
 """
 from __future__ import annotations
 
-from datetime import datetime, date
-from typing import List, Dict, Any
 import logging
+from typing import Any
 
-from common.reporting.table_builder import build_table_html
 from common.html_report_generator import HTMLReportGenerator
+from common.reporting.table_builder import build_table_html
 
 
 class BrassManager:
@@ -27,7 +26,7 @@ class BrassManager:
         self.html_generator = HTMLReportGenerator()
 
     # ---------------------------- Datos ---------------------------------
-    def get_equipment_out_of_calibration(self) -> List[Dict[str, Any]]:
+    def get_equipment_out_of_calibration(self) -> list[dict[str, Any]]:
         """Devuelve equipos activos cuya última calibración está vencida o inexistente.
 
         Implementación optimizada: una sola consulta con subconsulta (MAX fecha fin).
@@ -55,7 +54,7 @@ class BrassManager:
             rows = self.db_brass.execute_query(query)
             self.logger.info(
                 "Equipos fuera de calibración obtenidos",
-                extra={'event': 'brass_out_of_calibration', 'count': len(rows)}
+                extra={"event": "brass_out_of_calibration", "count": len(rows)},
             )
             return rows or []
         except Exception as e:  # pragma: no cover - defensivo
@@ -72,27 +71,31 @@ class BrassManager:
         if not data:
             self.logger.info(
                 "Sin equipos fuera de calibración",
-                extra={'event': 'brass_report_empty'}
+                extra={"event": "brass_report_empty"},
             )
             return ""
         header = self.html_generator.generar_header_moderno(
             "INFORME DE AVISOS DE EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN"
         )
         table_html = build_table_html(
-            "Equipos de Medida Fuera de Calibración",
-            data,
-            sort_headers=True
+            "Equipos de Medida Fuera de Calibración", data, sort_headers=True
         )
         footer = self.html_generator.generar_footer_moderno()
         html = header + table_html + footer
         self.logger.info(
             "Informe BRASS generado",
-            extra={'event': 'brass_report_generated', 'rows': len(data), 'length': len(html)}
+            extra={
+                "event": "brass_report_generated",
+                "rows": len(data),
+                "length": len(html),
+            },
         )
         return html
 
     # Backwards compatibility: mantener nombre anterior en tests si existiera
-    def generate_html_report(self, equipment_list: List[Dict[str, Any]] | None = None) -> str:  # pragma: no cover (compat)
+    def generate_html_report(
+        self, equipment_list: list[dict[str, Any]] | None = None
+    ) -> str:  # pragma: no cover (compat)
         if equipment_list is not None:
             # Si se pasa lista, replicar antiguo comportamiento filtrando sólo si lista no vacía.
             if not equipment_list:
@@ -102,7 +105,9 @@ class BrassManager:
                 "INFORME DE AVISOS DE EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN"
             )
             table_html = build_table_html(
-                "Equipos de Medida Fuera de Calibración", equipment_list, sort_headers=True
+                "Equipos de Medida Fuera de Calibración",
+                equipment_list,
+                sort_headers=True,
             )
             return header + table_html + self.html_generator.generar_footer_moderno()
         return self.generate_brass_report_html()

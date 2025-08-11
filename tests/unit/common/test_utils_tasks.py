@@ -1,22 +1,20 @@
-import types
-import logging
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from common.utils import execute_task_with_standard_boilerplate
 
 
 class DummyTask:
     """Mock sencillo de una Task con interfaz mínima utilizada por el helper."""
+
     def __init__(self):
         self.debe_ejecutarse = MagicMock(return_value=True)
         self.execute_specific_logic = MagicMock(return_value=True)
         self.marcar_como_completada = MagicMock()
         # Soporta context manager
+
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc, tb):
         return False
 

@@ -1,6 +1,7 @@
-version: '3.8'
+# La línea 'version' ha sido eliminada por ser obsoleta.
 
 services:
+  # --- SERVICIOS DE MONITOREO ---
   loki:
     image: grafana/loki:latest
     container_name: loki
@@ -9,7 +10,6 @@ services:
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
-    # --- LÍNEA MODIFICADA ---
     command: -config.file=/etc/loki/local-config.yaml -validation.allow-structured-metadata=false
     restart: unless-stopped
     networks:
@@ -22,7 +22,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=Arm1833a
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
@@ -32,9 +32,53 @@ services:
     networks:
       - monitoring
 
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./logs:/var/log/app
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # --- SERVICIOS DE ANÁLISIS DE CÓDIGO ---
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  code-analyzer:
+    build:
+      context: .
+      dockerfile: analysis/Dockerfile
+    container_name: code-analyzer
+    depends_on:
+      - sonarqube
+    volumes:
+      - .:/usr/src
+    networks:
+      - monitoring
+    environment:
+      - SONAR_TOKEN=${SONAR_TOKEN}
+
 volumes:
   loki_data:
   grafana_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
 
 networks:
   monitoring:

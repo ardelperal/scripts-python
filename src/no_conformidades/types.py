@@ -6,28 +6,28 @@ enabling static analysis.
 """
 from __future__ import annotations
 
-from typing import TypedDict, Optional
 from datetime import date, datetime
+from typing import TypedDict
 
 
 class ARTecnicaRecord(TypedDict, total=False):
     CodigoNoConformidad: str
     IDAccionRealizada: int
-    AccionCorrectiva: Optional[str]
-    AccionRealizada: Optional[str]
-    FechaInicio: Optional[date | datetime]
-    FechaFinPrevista: Optional[date | datetime]
-    Nombre: Optional[str]
-    DiasParaCaducar: Optional[int]
-    CorreoCalidad: Optional[str]
-    Nemotecnico: Optional[str]
+    AccionCorrectiva: str | None
+    AccionRealizada: str | None
+    FechaInicio: date | datetime | None
+    FechaFinPrevista: date | datetime | None
+    Nombre: str | None
+    DiasParaCaducar: int | None
+    CorreoCalidad: str | None
+    Nemotecnico: str | None
 
 
 class ARCalidadProximaRecord(TypedDict, total=False):
-    DiasParaCierre: Optional[int]
+    DiasParaCierre: int | None
     CodigoNoConformidad: str
-    Nemotecnico: Optional[str]
-    DESCRIPCION: Optional[str]
-    RESPONSABLECALIDAD: Optional[str]
-    FECHAAPERTURA: Optional[date | datetime]
-    FPREVCIERRE: Optional[date | datetime]
+    Nemotecnico: str | None
+    DESCRIPCION: str | None
+    RESPONSABLECALIDAD: str | None
+    FECHAAPERTURA: date | datetime | None
+    FPREVCIERRE: date | datetime | None

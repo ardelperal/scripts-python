@@ -1,6 +1,7 @@
 import pytest
 
-from common.config import Config, config as global_config
+from common.config import Config
+from common.config import config as global_config
 
 
 @pytest.mark.parametrize(
@@ -39,7 +40,15 @@ def test_global_config_instance_alias_equivalence():
     """Verifica también contra la instancia global por si se usa en producción directamente."""
     # Asegurar que la instancia global se comporta igual al crear otra nueva
     fresh = Config()
-    assert global_config.get_db_brass_connection_string() == fresh.get_db_brass_connection_string()
-    assert global_config.get_db_connection_string('brass') == fresh.get_db_connection_string('brass')
+    assert (
+        global_config.get_db_brass_connection_string()
+        == fresh.get_db_brass_connection_string()
+    )
+    assert global_config.get_db_connection_string(
+        "brass"
+    ) == fresh.get_db_connection_string("brass")
     # Consistencia cruzada alias vs genérico en la instancia global
-    assert global_config.get_db_brass_connection_string() == global_config.get_db_connection_string('brass')
+    assert (
+        global_config.get_db_brass_connection_string()
+        == global_config.get_db_connection_string("brass")
+    )

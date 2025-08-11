@@ -1,6 +1,8 @@
 """Tests unitarios para BrassManager refactorizado"""
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from brass.brass_manager import BrassManager
 
 
@@ -20,8 +22,22 @@ def manager(mock_dbs):
 def test_get_equipment_out_of_calibration_returns_rows(manager, mock_dbs):
     db_brass, _ = mock_dbs
     sample = [
-        {'IDEquipoMedida': 1, 'NOMBRE': 'Equipo1', 'NS': 'NS1', 'PN': 'PN1', 'MARCA': 'Marca', 'MODELO': 'M1'},
-        {'IDEquipoMedida': 2, 'NOMBRE': 'Equipo2', 'NS': 'NS2', 'PN': 'PN2', 'MARCA': 'Marca', 'MODELO': 'M2'}
+        {
+            "IDEquipoMedida": 1,
+            "NOMBRE": "Equipo1",
+            "NS": "NS1",
+            "PN": "PN1",
+            "MARCA": "Marca",
+            "MODELO": "M1",
+        },
+        {
+            "IDEquipoMedida": 2,
+            "NOMBRE": "Equipo2",
+            "NS": "NS2",
+            "PN": "PN2",
+            "MARCA": "Marca",
+            "MODELO": "M2",
+        },
     ]
     db_brass.execute_query.return_value = sample
     rows = manager.get_equipment_out_of_calibration()
@@ -37,28 +53,42 @@ def test_get_equipment_out_of_calibration_exception(manager, mock_dbs):
 
 
 def test_generate_brass_report_html_empty(manager):
-    with patch.object(manager, 'get_equipment_out_of_calibration', return_value=[]):
+    with patch.object(manager, "get_equipment_out_of_calibration", return_value=[]):
         html = manager.generate_brass_report_html()
         assert html == ""
 
 
 def test_generate_brass_report_html_with_data(manager):
     sample = [
-        {'IDEquipoMedida': 1, 'NOMBRE': 'Equipo1', 'NS': 'NS1', 'PN': 'PN1', 'MARCA': 'Marca', 'MODELO': 'M1'}
+        {
+            "IDEquipoMedida": 1,
+            "NOMBRE": "Equipo1",
+            "NS": "NS1",
+            "PN": "PN1",
+            "MARCA": "Marca",
+            "MODELO": "M1",
+        }
     ]
-    with patch.object(manager, 'get_equipment_out_of_calibration', return_value=sample):
+    with patch.object(manager, "get_equipment_out_of_calibration", return_value=sample):
         html = manager.generate_brass_report_html()
-    assert 'INFORME DE AVISOS DE EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN' in html
-    assert 'Equipo1' in html
-    assert '<table' in html
+    assert "INFORME DE AVISOS DE EQUIPOS DE MEDIDA FUERA DE CALIBRACIÓN" in html
+    assert "Equipo1" in html
+    assert "<table" in html
 
 
 def test_backward_compat_generate_html_report_with_list(manager):
     sample = [
-        {'IDEquipoMedida': 1, 'NOMBRE': 'Equipo1', 'NS': 'NS1', 'PN': 'PN1', 'MARCA': 'Marca', 'MODELO': 'M1'}
+        {
+            "IDEquipoMedida": 1,
+            "NOMBRE": "Equipo1",
+            "NS": "NS1",
+            "PN": "PN1",
+            "MARCA": "Marca",
+            "MODELO": "M1",
+        }
     ]
     html = manager.generate_html_report(sample)
-    assert 'Equipo1' in html
+    assert "Equipo1" in html
 
 
 def test_backward_compat_generate_html_report_empty(manager):

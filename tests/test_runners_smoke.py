@@ -4,9 +4,10 @@ Objetivo: detectar errores de sintaxis, imports o configuración temprana antes 
 """
 from __future__ import annotations
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
+
 import pytest
 
 # Descubrir scripts run_*.py (excluyendo run_master.py) dentro de la carpeta scripts/
@@ -17,6 +18,7 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 RUNNER_SCRIPTS = sorted(
     [p for p in SCRIPTS_DIR.glob("run_*.py") if p.name != "run_master.py"]
 )
+
 
 @pytest.mark.parametrize("script_path", RUNNER_SCRIPTS, ids=lambda p: p.name)
 def test_runner_help(script_path: Path):
@@ -33,8 +35,10 @@ def test_runner_help(script_path: Path):
         f"STDOUT:\n{result.stdout[:500]}\n---\nSTDERR:\n{result.stderr[:500]}"
     )
 
+
 # Si no se encontraron scripts, marcamos el test como fallido explícitamente para visibilidad.
 # (En circunstancias normales siempre habrá al menos uno.)
 if not RUNNER_SCRIPTS:  # pragma: no cover
+
     def test_no_runners_found():  # type: ignore
         pytest.fail("No se encontraron scripts run_*.py en la carpeta scripts/")

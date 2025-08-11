@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml --tb=short"
@@ -21,7 +25,6 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
 ]
 
-# Configuración de cobertura
 [tool.coverage.run]
 source = ["src"]
 omit = [
@@ -36,3 +39,24 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "UP", # pyupgrade
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+]
+ignore = [
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

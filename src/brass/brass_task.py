@@ -1,12 +1,13 @@
 """Tarea BRASS orquestadora siguiendo patrón ExpedientesTask."""
-import logging
 import os
+
+from common.access_connection_pool import get_brass_connection_pool
 from common.base_task import TareaDiaria
 from common.database import AccessDatabase
-from common.access_connection_pool import get_brass_connection_pool
 from common.email.recipients_service import EmailRecipientsService
 from common.email.registration_service import register_standard_report
 from common.utils import get_admin_emails_string
+
 from .brass_manager import BrassManager
 
 
@@ -18,7 +19,7 @@ class BrassTask(TareaDiaria):
             name="BRASS",
             script_filename="run_brass.py",
             task_names=["BRASSDiario"],
-            frequency_days=int(os.getenv('BRASS_FRECUENCIA_DIAS', '1') or 1)
+            frequency_days=int(os.getenv("BRASS_FRECUENCIA_DIAS", "1") or 1),
         )
         # Permite inyección en tests o futuras extensiones (DI)
         self.recipients_service_class = recipients_service_class
@@ -35,7 +36,7 @@ class BrassTask(TareaDiaria):
         """Genera informe y registra correo si hay equipos fuera de calibración."""
         self.logger.info(
             "Inicio lógica específica BRASS",
-            extra={'event': 'brass_task_logic_start', 'app': 'BRASS'}
+            extra={"event": "brass_task_logic_start", "app": "BRASS"},
         )
         try:
             if not self.db_brass:
@@ -50,10 +51,15 @@ class BrassTask(TareaDiaria):
 
             # Recipients service con fallback
             try:
-                recipients_service = self.recipients_service_class(self.db_tareas, self.config, self.logger)
+                recipients_service = self.recipients_service_class(
+                    self.db_tareas, self.config, self.logger
+                )
                 recipients = recipients_service.get_admin_emails_string() or "ADMIN"
             except Exception:  # pragma: no cover
-                recipients = get_admin_emails_string(self.db_tareas, self.config, self.logger) or "ADMIN"
+                recipients = (
+                    get_admin_emails_string(self.db_tareas, self.config, self.logger)
+                    or "ADMIN"
+                )
 
             subject = "Informe Equipos de Medida fuera de calibración (BRASS)"
             ok = register_standard_report(
@@ -63,20 +69,27 @@ class BrassTask(TareaDiaria):
                 body_html=html,
                 recipients=recipients,
                 admin_emails="",
-                logger=self.logger
+                logger=self.logger,
             )
             self.logger.info(
                 "Fin lógica específica BRASS",
-                extra={'event': 'brass_task_logic_end', 'success': bool(ok), 'app': 'BRASS'}
+                extra={
+                    "event": "brass_task_logic_end",
+                    "success": bool(ok),
+                    "app": "BRASS",
+                },
             )
             return bool(ok)
         except Exception as e:
-            self.logger.error(f"Error en execute_specific_logic BRASS: {e}", extra={'context': 'execute_specific_logic_brass'})
+            self.logger.error(
+                f"Error en execute_specific_logic BRASS: {e}",
+                extra={"context": "execute_specific_logic_brass"},
+            )
             return False
 
     def close_connections(self):
         try:
-            if getattr(self, 'db_brass', None):
+            if getattr(self, "db_brass", None):
                 try:
                     self.db_brass.disconnect()
                 except Exception as e:  # pragma: no cover

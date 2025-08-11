@@ -7,30 +7,34 @@ Responsabilidad:
 """
 from __future__ import annotations
 
-import sys
-import logging
 import argparse
+import sys
 from pathlib import Path
 
-# Bootstrap mínimo para poder importar common.utils
+# Bootstrap mínimo para poder importar módulos del proyecto antes de importarlos
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SRC_DIR = _PROJECT_ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
-from common.utils import ensure_project_root_in_path  # type: ignore
-ensure_project_root_in_path()
 
+from common.utils import ensure_project_root_in_path, execute_task_with_standard_boilerplate  # type: ignore
 from brass.brass_task import BrassTask  # type: ignore
-from common.utils import execute_task_with_standard_boilerplate  # type: ignore
+
+ensure_project_root_in_path()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ejecuta la tarea BRASS")
     parser.add_argument(
-        "--force", "-f", action="store_true", help="Fuerza la ejecución ignorando planificación",
+        "--force",
+        "-f",
+        action="store_true",
+        help="Fuerza la ejecución ignorando planificación",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="Simula la ejecución sin marcar ni registrar.",
+        "--dry-run",
+        action="store_true",
+        help="Simula la ejecución sin marcar ni registrar.",
     )
     return parser.parse_args(argv)
 
