@@ -19,23 +19,27 @@ class TestNoConformidadesTask(unittest.TestCase):
         self.assertEqual(self.task.frequency_days, 1)
 
     @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")
-    @patch("no_conformidades.no_conformidades_task.register_standard_report")
-    def test_execute_specific_logic_success(self, mock_register, mock_mgr_cls):
+    def test_execute_specific_logic_success(self, mock_mgr_cls):
         mock_mgr = MagicMock()
-        mock_mgr.generate_nc_report_html.return_value = "<html>x</html>"
+        mock_mgr._generar_correo_calidad.return_value = None
+        mock_mgr._generar_correos_tecnicos.return_value = None
         mock_mgr_cls.return_value = mock_mgr
-        mock_register.return_value = True
-        result = self.task.execute_specific_logic()
+        # Forzar decisiones verdaderas
+        with patch.object(self.task, "debe_ejecutar_tarea_calidad", return_value=True), patch.object(
+            self.task, "debe_ejecutar_tarea_tecnica", return_value=True
+        ):
+            result = self.task.execute_specific_logic()
         self.assertTrue(result)
-        mock_mgr.generate_nc_report_html.assert_called()
-        mock_register.assert_called_once()
+        mock_mgr._generar_correo_calidad.assert_called_once()
+        mock_mgr._generar_correos_tecnicos.assert_called_once()
 
     @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")
-    def test_execute_specific_logic_empty_report(self, mock_mgr_cls):
-        mock_mgr = MagicMock()
-        mock_mgr.generate_nc_report_html.return_value = ""
-        mock_mgr_cls.return_value = mock_mgr
-        result = self.task.execute_specific_logic()
+    def test_execute_specific_logic_no_subtasks(self, mock_mgr_cls):
+        mock_mgr_cls.return_value = MagicMock()
+        with patch.object(self.task, "debe_ejecutar_tarea_calidad", return_value=False), patch.object(
+            self.task, "debe_ejecutar_tarea_tecnica", return_value=False
+        ):
+            result = self.task.execute_specific_logic()
         self.assertTrue(result)
 
     @patch("no_conformidades.no_conformidades_task.NoConformidadesManager")

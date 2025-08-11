@@ -40,9 +40,6 @@ class TestNoConformidadesManager(unittest.TestCase):
     def test_init(self):
         """Test de inicialización del manager"""
         self.assertEqual(self.manager.name, "NoConformidades")
-        self.assertEqual(self.manager.script_filename, "run_no_conformidades.py")
-        self.assertEqual(self.manager.task_names, ["NCTecnico", "NCCalidad"])
-        self.assertEqual(self.manager.frequency_days, 1)
         self.assertIsNotNone(self.manager.css_content)
 
     def test_load_css_content_success(self):
@@ -321,33 +318,22 @@ class TestNoConformidadesManager(unittest.TestCase):
             q, params = fake.non_query_calls[0]
             self.assertIn("UPDATE TbNCARAvisos SET", q)
             self.assertEqual(params[1], 123)
-
     def test_close_connections(self):
         """Test de cierre de conexiones"""
         mock_db_nc = Mock()
         self.manager.db_nc = mock_db_nc
-
-        with patch(
-            "no_conformidades.no_conformidades_manager.TareaDiaria.close_connections"
-        ) as mock_super:
-            self.manager.close_connections()
-
-            mock_super.assert_called_once()
-            mock_db_nc.disconnect.assert_called_once()
-            self.assertIsNone(self.manager.db_nc)
+        self.manager.close_connections()
+        mock_db_nc.disconnect.assert_called_once()
+        self.assertIsNone(self.manager.db_nc)
 
     def test_close_connections_error(self):
         """Test de manejo de error al cerrar conexiones"""
         mock_db_nc = Mock()
         mock_db_nc.disconnect.side_effect = Exception("Close error")
         self.manager.db_nc = mock_db_nc
-
-        with patch(
-            "no_conformidades.no_conformidades_manager.TareaDiaria.close_connections"
-        ):
-            # No debe lanzar excepción
-            self.manager.close_connections()
-            self.assertIsNone(self.manager.db_nc)
+        # No debe lanzar excepción
+        self.manager.close_connections()
+        self.assertIsNone(self.manager.db_nc)
 
 
 if __name__ == "__main__":

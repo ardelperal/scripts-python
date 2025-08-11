@@ -138,17 +138,14 @@ class TestNoConformidadesIntegration(unittest.TestCase):
 
     def test_generar_correo_calidad_real(self):
         """Test de generación de correo de calidad con datos reales"""
-        # Mockear el registrador para evitar envíos reales
-        with patch("no_conformidades.no_conformidades_manager.enviar_notificacion_calidad") as mock_enviar:
+        with patch.object(self.manager, "enviar_notificacion_calidad") as mock_enviar:
             self.manager._generar_correo_calidad()
             mock_enviar.assert_called_once()
 
     def test_generar_correos_tecnicos_real(self):
         """Test de generación de correos de técnicos con datos reales"""
-        # Mockear el registrador para evitar envíos reales
-        with patch("no_conformidades.no_conformidades_manager.enviar_notificacion_tecnico_individual") as mock_enviar:
+        with patch.object(self.manager, "enviar_notificacion_tecnico_individual") as mock_enviar:
             self.manager._generar_correos_tecnicos()
-            # Verificar que se llamó al menos una vez si hay técnicos
             tecnicos = self.manager.get_tecnicos_con_nc_activas()
             if tecnicos:
                 mock_enviar.assert_called()

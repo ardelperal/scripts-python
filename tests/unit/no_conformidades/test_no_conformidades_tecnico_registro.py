@@ -28,10 +28,7 @@ class TestNotificacionTecnicaIndividual(unittest.TestCase):
             self.manager, "get_ars_tecnico_por_vencer", side_effect=[ars_15, ars_7]
         ), patch.object(
             self.manager, "get_ars_tecnico_vencidas", return_value=ars_0
-        ), patch(
-            "no_conformidades.no_conformidades_manager.enviar_notificacion_tecnico_individual",
-            return_value=True,
-        ) as mock_envio:
+        ), patch.object(self.manager, "enviar_notificacion_tecnico_individual", return_value=True) as mock_envio:
             self.manager._generar_correo_tecnico_individual(tecnico)
             mock_envio.assert_called_once()
             args = mock_envio.call_args[0]

@@ -22,15 +22,10 @@ src_dir = os.path.dirname(current_dir)
 if src_dir not in os.sys.path:
     os.sys.path.insert(0, src_dir)
 
-from common.base_task import TareaDiaria
 from common.config import config
 from common.database import AccessDatabase
 from common.html_report_generator import HTMLReportGenerator
 from common.user_adapter import get_users_with_fallback
-# Las funciones de registro de reportes (enviar_notificacion_calidad / enviar_notificacion_tecnico_individual)
-# se han integrado dentro de este manager para simplificar la estructura del módulo.
-# Se mantienen wrappers ligeros más abajo para compatibilidad retro con tests que importaban
-# no_conformidades.report_registrar. 
 # --- TypedDicts integrados (antes en types.py) ---
 class ARTecnicaRecord(TypedDict, total=False):
     CodigoNoConformidad: str
@@ -62,17 +57,29 @@ AVISO_7_DIAS = "IDCorreo7"
 AVISO_15_DIAS = "IDCorreo15"
 
 
-class NoConformidadesManager(TareaDiaria):
-    """Manager de No Conformidades usando la nueva arquitectura"""
+class NoConformidadesManager:
+    """Manager puro de No Conformidades.
 
-    def __init__(self):
-        """Inicializa el manager incluyendo atributos legacy usados por tests antiguos."""
-        super().__init__(
-            name="NoConformidades",
-            script_filename="run_no_conformidades.py",
-            task_names=["NCTecnico", "NCCalidad"],
-            frequency_days=int(os.getenv("NC_FRECUENCIA_DIAS", "1")),
-        )
+    Mantiene la lógica de consultas, generación de HTML y registro de correos.
+    La tarea (NoConformidadesTask) orquesta ejecución y planificación.
+    """
+
+    def __init__(self, logger: logging.Logger | None = None):
+        # Nombre esperado por tests de migración
+        self.name = "NoConformidades"
+        # Logger independiente (no Task.*) para distinguir en logs
+        self.logger = logger or logging.getLogger("Manager.NoConformidades")
+        # Conexión BD tareas (legacy: algunos métodos registran correos directamente)
+        self.db_tareas = None
+        try:  # Inicialización ligera; si falla se deja en None y métodos manejarán
+            from common.access_connection_pool import get_tareas_connection_pool
+            from common.config import Config
+            cfg = Config()
+            conn_str = cfg.get_db_tareas_connection_string()
+            pool = get_tareas_connection_pool(conn_str)
+            self.db_tareas = AccessDatabase(conn_str, pool=pool)
+        except Exception as e:  # pragma: no cover
+            self.logger.debug(f"No se pudo inicializar conexión tareas (lazy): {e}")
         # Configuración específica
         self.dias_alerta_arapc = int(os.getenv("NC_DIAS_ALERTA_ARAPC", "15"))
         self.dias_alerta_nc = int(os.getenv("NC_DIAS_ALERTA_NC", "16"))
@@ -108,7 +115,6 @@ class NoConformidadesManager(TareaDiaria):
 
     def _get_tareas_connection(self) -> AccessDatabase:
         """Obtiene la conexión a la base de datos de Tareas"""
-        # Usar la conexión ya inicializada en BaseTask
         return self.db_tareas
 
     def ejecutar_consulta(
@@ -160,12 +166,11 @@ class NoConformidadesManager(TareaDiaria):
             return False
 
     def close_connections(self):
-        """Cierra conexiones abiertas del manager."""
-        super().close_connections()
+        """Cierra conexiones propias (no cierra db_tareas que puede compartir la Task)."""
         if self.db_nc:
             try:
                 self.db_nc.disconnect()
-            except Exception as e:  # Mantener genérica aquí; cierre no crítico
+            except Exception as e:  # pragma: no cover
                 self.logger.warning(f"Error cerrando conexión NC: {e}")
             finally:
                 self.db_nc = None
@@ -184,7 +189,7 @@ class NoConformidadesManager(TareaDiaria):
         Devuelve el IDCorreo o None en caso de error.
         """
         try:
-            db = self.db_tareas  # Ya abierta en BaseTask
+            db = self.db_tareas  # Conexión inicializada perezosamente en el manager
             next_id = db.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
             fecha_actual = datetime.now()
             insert_query = (
@@ -847,53 +852,7 @@ class NoConformidadesManager(TareaDiaria):
             self.logger.error(f"Error obteniendo usuarios administradores: {e}")
             return []
 
-    def should_execute_technical_task(self) -> bool:
-        try:
-            from common.utils import should_execute_task
-            return should_execute_task(
-                self.db_tareas, "NoConformidadesTecnica", 1, self.logger
-            )
-        except Exception as e:
-            self.logger.error(f"Error verificando si ejecutar tarea técnica: {e}")
-            return False
-
-    def should_execute_quality_task(self) -> bool:
-        try:
-            from common.utils import should_execute_weekly_task
-            return should_execute_weekly_task(
-                self.db_tareas, "NoConformidadesCalidad", logger=self.logger
-            )
-        except Exception as e:
-            self.logger.error(f"Error verificando si ejecutar tarea de calidad: {e}")
-            return False
-
-    def run(self) -> bool:
-        try:
-            self.logger.info("Ejecutando tarea de No Conformidades")
-            if not self.debe_ejecutarse():
-                self.logger.info("La tarea de No Conformidades no debe ejecutarse hoy")
-                return True
-            success = self.ejecutar_logica_especifica()
-            if success:
-                self.marcar_como_completada()
-                self.logger.info("Tarea de No Conformidades completada exitosamente")
-            return success
-        except Exception as e:
-            self.logger.error(f"Error ejecutando tarea de No Conformidades: {e}")
-            return False
-
-    def ejecutar_logica_especifica(self) -> bool:
-        try:
-            self.logger.info("Ejecutando lógica específica de No Conformidades")
-            self._generar_correo_calidad()
-            self._generar_correos_tecnicos()
-            self.logger.info(
-                "Lógica específica de No Conformidades ejecutada correctamente"
-            )
-            return True
-        except Exception as e:
-            self.logger.error(f"Error en lógica específica de No Conformidades: {e}")
-            return False
+    # Métodos de planificación / ejecución eliminados; responsabilidad de la Task
 
     def _generar_correo_calidad(self):
         try:
@@ -918,9 +877,8 @@ class NoConformidadesManager(TareaDiaria):
             )
             if html_preview.strip():
                 self._guardar_html_debug(html_preview, "correo_calidad.html")
-            # Usar wrapper de módulo para permitir patch en tests
-            from no_conformidades import no_conformidades_manager as mod
-            ok = mod.enviar_notificacion_calidad(datos_calidad)
+            # Llamar directamente al método de instancia (antes usaba shim global)
+            ok = self.enviar_notificacion_calidad(datos_calidad)
             if ok:
                 self.logger.info(
                     "Notificación de Calidad registrada",
@@ -1005,15 +963,8 @@ class NoConformidadesManager(TareaDiaria):
                 "ars_7_dias": ars_7_dias,
                 "ars_vencidas": ars_vencidas,
             }
-            # Permitir que tests intercepten la función global enviar_notificacion_tecnico_individual
-            try:
-                import no_conformidades.no_conformidades_manager as mod  # type: ignore
-                if hasattr(mod, "enviar_notificacion_tecnico_individual"):
-                    ok = mod.enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)  # type: ignore
-                else:
-                    ok = self.enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
-            except Exception:
-                ok = self.enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
+            # Llamada directa al método (el shim global ha sido eliminado)
+            ok = self.enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
             if ok:
                 self.logger.info(
                     f"Notificación técnica registrada para {tecnico}",
@@ -1062,184 +1013,14 @@ class NoConformidadesManager(TareaDiaria):
         except Exception as e:  # pragma: no cover
             self.logger.error(f"Error guardando HTML debug: {e}")
 
-# ---- Shims de compatibilidad legacy para tests ----
-# Algunos tests (test_report_registrar.py y test_no_conformidades_tecnico_registro.py)
-# parchean símbolos a nivel de módulo no_conformidades.no_conformidades_manager
-# como enviar_notificacion_calidad / enviar_notificacion_tecnico_individual en vez de
-# usar métodos de instancia. Conservamos funciones delegadas que crean un manager
-# temporal, de forma análoga a los wrappers en report_registrar.
-
-def enviar_notificacion_calidad(datos_calidad: dict[str, Any]) -> bool:  # pragma: no cover - compatibilidad tests
-    mgr = NoConformidadesManager()
-    try:
-        return mgr.enviar_notificacion_calidad(datos_calidad)
-    finally:
-        mgr.close_connections()
-
-
-def enviar_notificacion_tecnico_individual(tecnico: str, datos_tecnico: dict[str, Any]) -> bool:  # pragma: no cover
-    mgr = NoConformidadesManager()
-    try:
-        # Delegar al método de instancia; _obtener_email_tecnico puede parchearse vía shim separado
-        return mgr.enviar_notificacion_tecnico_individual(tecnico, datos_tecnico)
-    finally:
-        mgr.close_connections()
-
-
-def _register_email_nc(**kwargs) -> Optional[int]:  # pragma: no cover - shim para tests
-    # Intento directo usando AccessDatabase (permite patch en tests)
-    try:
-        db = AccessDatabase("dummy")  # En tests será objeto fake con get_max_id
-        next_id = db.get_max_id("TbCorreosEnviados", "IDCorreo") + 1
-        fecha_actual = datetime.now()
-        insert_query = (
-            "INSERT INTO TbCorreosEnviados (IDCorreo, Aplicacion, Asunto, Cuerpo, Destinatarios, DestinatariosConCopia, DestinatariosConCopiaOculta, FechaGrabacion) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        )
-        with db.get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                insert_query,
-                [
-                    next_id,
-                    kwargs["application"],
-                    kwargs["subject"],
-                    kwargs["body"].strip(),
-                    kwargs["recipients"],
-                    kwargs.get("admin_emails", ""),
-                    "",
-                    fecha_actual,
-                ],
-            )
-            conn.commit()
-        return next_id
-    except Exception:
-        mgr = NoConformidadesManager()
+    def ejecutar_logica_especifica(self) -> bool:
+        """Ejecuta la lógica principal (antes en Task / método heredado)."""
         try:
-            return mgr._register_email_nc(**kwargs)
-        finally:
-            mgr.close_connections()
+            self._generar_correo_calidad()
+            self._generar_correos_tecnicos()
+            return True
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"Error en ejecutar_logica_especifica: {e}")
+            return False
 
-
-def _register_arapc_notification(*args) -> bool:  # pragma: no cover - shim para tests
-    try:
-        db = AccessDatabase("dummy")
-        with db.get_connection() as conn:
-            cur = conn.cursor()
-
-            def get_next_id():
-                try:
-                    cur.execute("SELECT Max(TbNCARAvisos.ID) AS Maximo FROM TbNCARAvisos")
-                    r = cur.fetchone()
-                    return (r[0] + 1) if r and r[0] is not None else 1
-                except Exception:
-                    return 1
-
-            id_correo, arapcs_15, arapcs_7, arapcs_0 = args[0], args[1], args[2], args[3]
-            for acc in arapcs_15:
-                cur.execute(
-                    "INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo15, Fecha) VALUES (?, ?, ?, ?)",
-                    [get_next_id(), acc, id_correo, datetime.now()],
-                )
-            for acc in arapcs_7:
-                cur.execute(
-                    "INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo7, Fecha) VALUES (?, ?, ?, ?)",
-                    [get_next_id(), acc, id_correo, datetime.now()],
-                )
-            for acc in arapcs_0:
-                cur.execute(
-                    "INSERT INTO TbNCARAvisos (ID, IDAR, IDCorreo0, Fecha) VALUES (?, ?, ?, ?)",
-                    [get_next_id(), acc, id_correo, datetime.now()],
-                )
-            conn.commit()
-        return True
-    except Exception:
-        mgr = NoConformidadesManager()
-        try:
-            return mgr._register_arapc_notification(*args)
-        finally:
-            mgr.close_connections()
-
-
-def _obtener_email_tecnico(tecnico: str) -> Optional[str]:  # pragma: no cover - shim tests
-    mgr = NoConformidadesManager()
-    try:
-        return mgr._obtener_email_tecnico(tecnico)
-    finally:
-        mgr.close_connections()
-
-def main():  # pragma: no cover (entry point manual)
-    """
-    Función principal para ejecutar el manager directamente con argumentos
-    """
-    import argparse
-    import sys
-
-    # Logging global ya debe estar configurado por el proceso maestro.
-    logger = logging.getLogger(__name__)
-
-    # Configurar argumentos
-    parser = argparse.ArgumentParser(description="Manager de No Conformidades")
-    parser.add_argument(
-        "--force-calidad",
-        action="store_true",
-        help="Forzar generación del correo de calidad",
-    )
-    parser.add_argument(
-        "--force-tecnicos",
-        action="store_true",
-        help="Forzar generación de correos de técnicos",
-    )
-    parser.add_argument("--debug", action="store_true", help="Activar modo debug")
-
-    args = parser.parse_args()
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-
-    # Configurar nivel de logging si debug está activado
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    manager = None
-    try:
-        logger.info("=== INICIANDO MANAGER NO CONFORMIDADES ===")
-
-        # Crear el manager
-        manager = NoConformidadesManager()
-
-        if args.force_calidad:
-            logger.info("Ejecutando generación forzada del correo de calidad...")
-            manager._generar_correo_calidad()
-
-        if args.force_tecnicos:
-            logger.info("Ejecutando generación forzada de correos de técnicos...")
-            manager._generar_correos_tecnicos()
-
-        if not args.force_calidad and not args.force_tecnicos:
-            logger.info("Ejecutando lógica completa...")
-            success = manager.ejecutar_logica_especifica()
-            if not success:
-                logger.error("Error en la ejecución de la lógica específica")
-                return 1
-
-        logger.info("=== MANAGER NO CONFORMIDADES COMPLETADO EXITOSAMENTE ===")
-        return 0
-
-    except Exception as e:
-        logger.error(f"Error crítico en el manager: {e}")
-        return 1
-    finally:
-        # Cerrar conexiones
-        if manager:
-            try:
-                manager.close_connections()
-                logger.info("Conexiones cerradas correctamente")
-            except Exception as e:
-                logger.warning(f"Error cerrando conexiones: {e}")
-
-
-if __name__ == "__main__":
-    import sys
-
-    exit_code = main()
-    sys.exit(exit_code)
+# (Eliminados alias module-level de compatibilidad; los tests ahora usan la instancia directamente.)

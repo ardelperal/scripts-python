@@ -18,8 +18,6 @@ class TestNoConformidadesManagerModern(unittest.TestCase):
 
     def test_initialization_core_fields(self):
         self.assertEqual(self.manager.name, "NoConformidades")
-        self.assertIn("NCTecnico", self.manager.task_names)
-        self.assertIn("NCCalidad", self.manager.task_names)
         self.assertIsInstance(self.manager.css_content, str)
 
     def test_modern_technical_report_html(self):

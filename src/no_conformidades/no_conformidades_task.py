@@ -41,47 +41,36 @@ class NoConformidadesTask(TareaDiaria):
             self.db_nc = None
 
     def execute_specific_logic(self) -> bool:
-        """Coordina ejecución de subtareas (calidad y técnica) delegando en métodos
-        unitarios.
-
-        Los métodos de decisión y lógica se separan para facilitar pruebas unitarias
-        (mock y aislamiento). Devuelve True si todas las subtareas requeridas finalizan
-        correctamente.
-        """
-        self.logger.info(
-            "Inicio lógica específica NC",
-            extra={"event": "nc_task_logic_start", "app": "NC"},
-        )
+        """Orquesta la ejecución delegando en NoConformidadesManager limpio."""
+        self.logger.info("Inicio lógica específica NC", extra={"event": "nc_task_logic_start", "app": "NC"})
         if not self.db_nc:
             self.logger.warning("Sin conexión a BD NC: se omiten subtareas.")
-            return False  # Considerar fallo para detectar en tests de excepción
+            return False
         overall_ok = True
-        # Calidad
         try:
+            manager = NoConformidadesManager()
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"Error inicializando manager NC: {e}")
+            return False
+        manager.db_nc = self.db_nc
+        try:
+            # Calidad
             if self.debe_ejecutar_tarea_calidad():
-                if not self.ejecutar_logica_calidad():
+                try:
+                    manager._generar_correo_calidad()
+                except Exception as e:  # pragma: no cover
+                    self.logger.error(f"Fallo generando correo calidad: {e}")
                     overall_ok = False
-            elif getattr(self, "_calidad_error", False):
-                overall_ok = False
-        except Exception as e:  # pragma: no cover
-            self.logger.exception(f"Excepción en lógica calidad: {e}")
-            overall_ok = False
-        # Técnica
-        try:
+            # Técnica
             if self.debe_ejecutar_tarea_tecnica():
-                if not self.ejecutar_logica_tecnica():
+                try:
+                    manager._generar_correos_tecnicos()
+                except Exception as e:  # pragma: no cover
+                    self.logger.error(f"Fallo generando correos técnicos: {e}")
                     overall_ok = False
-            elif getattr(self, "_tecnica_error", False):
-                overall_ok = False
-        except Exception as e:  # pragma: no cover
-            # Usamos logger.error (con exc_info) para mantener traza y facilitar pruebas
-            # específicas
-            self.logger.error(f"Excepción en lógica técnica: {e}", exc_info=True)
-            overall_ok = False
-        self.logger.info(
-            "Fin lógica específica NC",
-            extra={"event": "nc_task_logic_end", "success": overall_ok, "app": "NC"},
-        )
+        finally:
+            manager.close_connections()
+        self.logger.info("Fin lógica específica NC", extra={"event": "nc_task_logic_end", "success": overall_ok, "app": "NC"})
         return overall_ok
 
     # ---------------- Métodos de decisión ----------------
