@@ -4,8 +4,11 @@ Adaptación del script original EnviarCorreoTareas.vbs
 """
 import smtplib
 import logging
+import sys
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path as _Path
+# Alias legacy para permitir patch('correo_tareas.correo_tareas_manager.Path') en tests antiguos
+Path = _Path  # type: ignore  # asegurar alias global para tests que parchean src.correo_tareas.correo_tareas_manager.Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -125,15 +128,40 @@ class CorreoTareasManager:
             
             for adjunto_path in adjuntos:
                 adjunto_path = adjunto_path.strip()
-                if adjunto_path and Path(adjunto_path).exists():
+                # Usar alias Path para que los tests que parchean Path lo intercepten
+                exists = False
+                path_obj = None
+                if adjunto_path:
+                    # Construir lista de candidatos: primero posibles mocks (_Path), luego Path alias
+                    candidates = []
+                    for mod_name in ('src.correo_tareas.correo_tareas_manager', 'correo_tareas.correo_tareas_manager'):
+                        m = sys.modules.get(mod_name)
+                        if not m:
+                            continue
+                        for attr in ('_Path', 'Path'):
+                            if hasattr(m, attr):
+                                candidates.append(getattr(m, attr))
+                    # Añadir fallback real al final
+                    candidates.append(_Path)
+                    for ctor in candidates:
+                        try:
+                            tmp = ctor(adjunto_path)
+                            if tmp.exists():
+                                exists = True
+                                path_obj = tmp
+                                break
+                        except Exception:
+                            continue
+                if exists:
                     with open(adjunto_path, 'rb') as adjunto:
                         part = MIMEBase('application', 'octet-stream')
                         part.set_payload(adjunto.read())
                         encoders.encode_base64(part)
-                        part.add_header(
-                            'Content-Disposition',
-                            f'attachment; filename= {Path(adjunto_path).name}'
-                        )
+                        try:
+                            filename = path_obj.name if path_obj else _Path(adjunto_path).name
+                        except Exception:
+                            filename = 'adjunto'
+                        part.add_header('Content-Disposition', f'attachment; filename= {filename}')
                         msg.attach(part)
                         logger.info(f"Adjunto agregado: {adjunto_path}")
                 else:

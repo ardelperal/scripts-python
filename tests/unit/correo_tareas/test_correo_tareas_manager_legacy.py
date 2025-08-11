@@ -97,7 +97,7 @@ class TestCorreoTareasManager:
         assert args[0][1]["FechaEnvio"] == fecha_envio
         assert args[0][2] == "IDCorreo = 1"
     
-    @patch('src.correo_tareas.correo_tareas_manager.smtplib.SMTP')
+    @patch('correo_tareas.correo_tareas_manager.smtplib.SMTP')
     def test_enviar_smtp_success(self, mock_smtp, correo_tareas_manager):
         """Test envío SMTP exitoso"""
         # Arrange
@@ -115,7 +115,7 @@ class TestCorreoTareasManager:
             correo_tareas_manager.smtp_user, destinatarios, msg.as_string()
         )
     
-    @patch('src.correo_tareas.correo_tareas_manager.smtplib.SMTP')
+    @patch('correo_tareas.correo_tareas_manager.smtplib.SMTP')
     def test_enviar_smtp_error(self, mock_smtp, correo_tareas_manager):
         """Test envío SMTP con error"""
         # Arrange
@@ -129,7 +129,7 @@ class TestCorreoTareasManager:
         # Assert
         assert result is False
     
-    @patch('src.correo_tareas.correo_tareas_manager.Path')
+    @patch('correo_tareas.correo_tareas_manager.Path')
     def test_agregar_adjuntos_single_file(self, mock_path, correo_tareas_manager):
         """Test agregar un solo adjunto"""
         # Arrange

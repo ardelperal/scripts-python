@@ -107,7 +107,7 @@ def test_generate_technical_user_report_html_with_data(manager, monkeypatch):
     monkeypatch.setattr(gen, 'generar_footer_moderno', Mock(wraps=gen.generar_footer_moderno))
 
     # Patch build_table_html en el módulo objetivo
-    import src.agedys.agedys_manager as mod
+    import agedys.agedys_manager as mod
     spy_build = Mock(return_value='<table/>')
     monkeypatch.setattr(mod, 'build_table_html', spy_build)
 
@@ -129,7 +129,7 @@ def test_generate_quality_report_html_empty(manager, monkeypatch):
 
 def test_generate_quality_report_html_with_data(manager, monkeypatch):
     monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_agrupado', Mock(return_value=[{'CODPROYECTOS': 'D1'}]))
-    import src.agedys.agedys_manager as mod
+    import agedys.agedys_manager as mod
     spy_build = Mock(return_value='<table/>')
     monkeypatch.setattr(mod, 'build_table_html', spy_build)
     html = manager.generate_quality_report_html()
@@ -151,7 +151,7 @@ def test_generate_economy_report_html_some(manager, monkeypatch):
     monkeypatch.setattr(manager, 'get_dpds_sin_pedido_agrupado', Mock(return_value=[]))
     monkeypatch.setattr(manager, 'get_facturas_rechazadas_agrupado', Mock(return_value=[{'NFactura': 'F1'}]))
     monkeypatch.setattr(manager, 'get_facturas_visadas_pendientes_op_agrupado', Mock(return_value=[]))
-    import src.agedys.agedys_manager as mod
+    import agedys.agedys_manager as mod
     spy_build = Mock(return_value='<table/>')
     monkeypatch.setattr(mod, 'build_table_html', spy_build)
     html = manager.generate_economy_report_html()
@@ -166,7 +166,7 @@ def test_generate_technical_user_report_html_multiple_sections(manager, monkeypa
     monkeypatch.setattr(manager, 'get_dpds_sin_visado_calidad_por_tecnico', Mock(return_value=[{'CODPROYECTOS': 'C'}]))
     monkeypatch.setattr(manager, 'get_dpds_rechazados_calidad_por_tecnico', Mock(return_value=[]))
     monkeypatch.setattr(manager, 'get_facturas_pendientes_por_tecnico', Mock(return_value=[]))
-    import src.agedys.agedys_manager as mod
+    import agedys.agedys_manager as mod
     calls = {}
     def side(title, rows, **kw):
         calls[title] = len(rows)

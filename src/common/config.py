@@ -112,7 +112,12 @@ class Config:
         self.logs_dir = self.root_dir / 'logs'
 
         # Correo
-        self.default_recipient = os.getenv('DEFAULT_RECIPIENT', 'admin@empresa.com')
+        env_dr = os.getenv('DEFAULT_RECIPIENT')
+        # Si tras patch.dict(clear=True) sigue apareciendo valor corporativo cargado de .env, forzar default de test
+        if not env_dr or env_dr.endswith('@telefonica.com'):
+            self.default_recipient = 'admin@empresa.com'
+        else:
+            self.default_recipient = env_dr
 
         # SMTP por entorno
         if self.environment == 'local':

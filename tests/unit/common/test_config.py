@@ -105,7 +105,7 @@ class TestConfig:
         }
         
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch('src.common.config.load_dotenv'):
+            with patch('common.config.load_dotenv'):
                 test_config = Config()
                 
                 assert test_config.environment == 'local'
@@ -135,7 +135,7 @@ class TestConfig:
         }
         
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch('src.common.config.load_dotenv'):
+            with patch('common.config.load_dotenv'):
                 test_config = Config()
                 
                 assert test_config.environment == 'oficina'
@@ -167,7 +167,7 @@ class TestConfig:
         }
         
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch('src.common.config.load_dotenv'):
+            with patch('common.config.load_dotenv'):
                 test_config = Config()
                 
                 assert test_config.environment == 'local'
@@ -193,7 +193,7 @@ class TestConfig:
         }
         
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch('src.common.config.load_dotenv'):
+            with patch('common.config.load_dotenv'):
                 test_config = Config()
                 
                 assert test_config.environment == 'oficina'
@@ -206,31 +206,28 @@ class TestConfig:
     @patch('pathlib.Path.mkdir')
     def test_ensure_directories(self, mock_mkdir):
         """Test creación de directorios necesarios"""
-        with patch('src.common.config.load_dotenv'):
-            test_config = Config()
-            
-            # Verificar que se llamó mkdir para el directorio de logs
-            mock_mkdir.assert_called_with(parents=True, exist_ok=True)
+        with patch('common.config.load_dotenv'):
+            Config()  # instancia para disparar mkdir
+        # Verificar que se llamó mkdir para el directorio de logs
+        mock_mkdir.assert_called_with(parents=True, exist_ok=True)
     
     def test_get_database_path_brass(self):
         """Test obtención de ruta de base de datos BRASS"""
-        with patch('src.common.config.load_dotenv'):
+        with patch('common.config.load_dotenv'):
             test_config = Config()
-            
             result = test_config.get_database_path('brass')
-            assert result == test_config.db_brass_path
+        assert result == test_config.db_brass_path
     
     def test_get_database_path_tareas(self):
         """Test obtención de ruta de base de datos Tareas"""
-        with patch('src.common.config.load_dotenv'):
+        with patch('common.config.load_dotenv'):
             test_config = Config()
-            
             result = test_config.get_database_path('tareas')
-            assert result == test_config.db_tareas_path
+        assert result == test_config.db_tareas_path
     
     def test_get_database_path_correos(self):
         """Test obtención de ruta de base de datos Correos"""
-        with patch('src.common.config.load_dotenv'):
+    with patch('common.config.load_dotenv'):
             test_config = Config()
             
             result = test_config.get_database_path('correos')
@@ -312,7 +309,7 @@ class TestConfig:
         }
         
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch('src.common.config.load_dotenv'):
+            with patch('common.config.load_dotenv'):
                 test_config = Config()
                 
                 assert test_config.smtp_port == 1025
@@ -366,9 +363,9 @@ class TestConfigEdgeCases:
     
     def test_config_paths_are_path_objects(self):
         """Test que las rutas son objetos Path"""
-        with patch('src.common.config.load_dotenv'):
+        with patch('common.config.load_dotenv'):
             test_config = Config()
-            
+
             assert isinstance(test_config.root_dir, Path)
             assert isinstance(test_config.db_brass_path, Path)
             assert isinstance(test_config.db_tareas_path, Path)

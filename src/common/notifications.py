@@ -17,19 +17,21 @@ logger = logging.getLogger(__name__)
 
 class NotificationManager:
     """Gestor de notificaciones del sistema."""
-    
+
     def __init__(self):
         """Inicializar el gestor de notificaciones."""
         # Configuración desde variables de entorno
         self.smtp_server = os.getenv('SMTP_SERVER', 'localhost')
         self.smtp_port = int(os.getenv('SMTP_PORT', '1025'))
         self.smtp_from = os.getenv('SMTP_FROM', 'noreply@example.com')
+        # Valor por defecto alineado con los tests unitarios
         self.default_recipient = os.getenv('DEFAULT_RECIPIENT', 'admin@example.com')
-        
+
         # Configuración opcional de autenticación
         self.smtp_username = os.getenv('SMTP_USERNAME')
         self.smtp_password = os.getenv('SMTP_PASSWORD')
         self.use_tls = os.getenv('SMTP_USE_TLS', 'false').lower() == 'true'
+
     
     def send_email(self, 
                    to: List[str], 

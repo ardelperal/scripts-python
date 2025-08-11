@@ -872,24 +872,27 @@ class RiesgosManager:
         """
         try:
             self.logger.info("Iniciando tarea de calidad semanal")
-            # Generar base del informe (tests fuerzan excepción aquí para ruta de error)
+            # Generar base del informe (tests pueden forzar excepción)
             try:
                 base_report_html = self._generate_quality_report_html()
             except Exception:
                 return False
+
+            from common import utils as utils_mod  # asegurar patch
             quality_users = get_quality_users("5", self.config, self.logger)
             if not quality_users:
                 admin_emails = get_admin_emails_string(self.db_tareas, self.config, self.logger)
                 if admin_emails:
-                    html_content = base_report_html
                     subject = "Informe Tareas Calidad (Gestión de Riesgos)"
-                    utils.register_email_in_database('CALIDAD', 'ADMIN', subject, html_content, 'text/html')
+                    utils_mod.register_email_in_database('CALIDAD', 'ADMIN', subject, base_report_html, 'text/html')
                     register_task_completion(self.db_tareas, "RiesgosDiariosCalidad")
                 return True
+
             quality_sections = {}
             for user in quality_users:
                 user_name = user.get('Nombre', 'Usuario desconocido')
                 quality_sections[user_name] = self._generate_quality_member_section_html(user_name)
+
             for user in quality_users:
                 user_name = user.get('Nombre', 'Usuario desconocido')
                 user_email = user.get('CorreoUsuario', '')
@@ -899,7 +902,7 @@ class RiesgosManager:
                 html_content = self._generate_personalized_quality_report_html(user_name, quality_sections)
                 if html_content:
                     subject = "Informe Tareas Calidad (Gestión de Riesgos)"
-                    utils.register_email_in_database('CALIDAD', user_name, subject, html_content, 'text/html')
+                    utils_mod.register_email_in_database('CALIDAD', user_name, subject, html_content, 'text/html')
                     self.logger.info(f"Informe de calidad semanal generado para {user_name}")
             register_task_completion(self.db_tareas, "RiesgosDiariosCalidad")
             return True
@@ -921,18 +924,19 @@ class RiesgosManager:
             self.logger.info("Iniciando tarea de calidad mensual")
             html_content = self._generate_monthly_quality_report_html()
             if html_content:
+                from common import utils as utils_mod  # asegurar patch
                 quality_users = get_quality_users("5", self.config, self.logger)
                 if quality_users:
                     quality_emails = get_quality_emails_string("5", self.config, self.logger, self.db_tareas)
                     if quality_emails:
                         subject = "Informe Mensual Calidad (Gestión de Riesgos)"
-                        utils.register_email_in_database('MENSUAL', 'CALIDAD', subject, html_content, 'text/html')
+                        utils_mod.register_email_in_database('MENSUAL', 'CALIDAD', subject, html_content, 'text/html')
                         self.logger.info("Informe de calidad mensual generado")
                 else:
                     admin_emails = get_admin_emails_string(self.db_tareas, self.config, self.logger)
                     if admin_emails:
                         subject = "Informe Mensual Calidad (Gestión de Riesgos)"
-                        utils.register_email_in_database('MENSUAL', 'CALIDAD', subject, html_content, 'text/html')
+                        utils_mod.register_email_in_database('MENSUAL', 'CALIDAD', subject, html_content, 'text/html')
                         self.logger.info("Informe de calidad mensual generado (fallback admin)")
             utils.register_task_completion(self.db_tareas, "RiesgosMensualesCalidad")
             return True
@@ -1462,7 +1466,15 @@ class RiesgosManager:
                 try:
                     admin_emails = get_admin_emails_string()
                     if admin_emails:
-                        utils.register_email_in_database('TECNICA', 'ADMIN', 'Resumen Diario Riesgos', '<html>Resumen Diario</html>', 'text/html')
+                        try:
+                            from common.utils import register_email_in_database as _reg  # type: ignore
+                        except Exception:
+                            try:
+                                from src.common.utils import register_email_in_database as _reg  # type: ignore
+                            except Exception:
+                                _reg = None  # type: ignore
+                        if _reg:
+                            _reg('TECNICA', 'ADMIN', 'Resumen Diario Riesgos', '<html>Resumen Diario</html>', 'text/html')
                 except Exception:
                     pass
             return ran
@@ -1477,9 +1489,17 @@ class RiesgosManager:
             for user_id, (user_name, _email) in users.items():
                 html = self._generate_technical_report_html(user_id, user_name)
                 try:
-                    utils.register_email_in_database('TECNICA', user_id, f"Informe técnico {user_name}", html, 'text/html')
+                    from common.utils import register_email_in_database as _reg  # type: ignore
                 except Exception:
-                    pass
+                    try:
+                        from src.common.utils import register_email_in_database as _reg  # type: ignore
+                    except Exception:  # pragma: no cover
+                        _reg = None  # type: ignore
+                if _reg:
+                    try:
+                        _reg('TECNICA', user_id, f"Informe técnico {user_name}", html, 'text/html')
+                    except Exception:
+                        pass
             return True
         except Exception:
             return False
