@@ -1,83 +1,219 @@
-# Sistema de Gestión de Tareas Empresariales
+# Plataforma de Automatización de Tareas Empresariales
 
 [![CI](https://github.com/ardelperal/scripts-python/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/ardelperal/scripts-python/actions/workflows/python-ci.yml)
 [![Coverage](https://codecov.io/gh/ardelperal/scripts-python/branch/main/graph/badge.svg)](https://codecov.io/gh/ardelperal/scripts-python)
 
-Sistema de **monitoreo continuo** para la gestión automatizada de tareas empresariales desarrollado en Python. El objetivo principal es ejecutar el script maestro `run_master.py` que funciona como un **daemon de producción** que monitorea y ejecuta automáticamente todos los módulos del sistema según horarios específicos.
+Sistema en Python para orquestar y ejecutar tareas empresariales (diarias y continuas) bajo un único proceso maestro (`run_master.py`). Se centra en:
+- Ejecución controlada por calendario laboral (Madrid) con soporte de festivos y fallback local.
+- Ciclo continuo con tareas recurrentes (correo, mantenimiento, monitorización).
+- Registro estructurado de logs y facilidad de supervisión (Loki/Grafana opcional).
+- Extensibilidad mediante definición de nuevas tareas.
 
-## 🎯 Objetivo Principal
+---
+## 1. Visión General
 
-El **script maestro (`run_master.py`)** es el corazón del sistema y reemplaza al script original `script-continuo.vbs`. Funciona como un **servicio continuo** que:
+El proceso principal se lanza mediante `scripts/run_master.py` y puede trabajar en dos modos:
+1. Modo continuo (por defecto): bucle infinito que ejecuta tareas según ventanas horarias y tipo de día.
+2. Modo simple (`--simple`): ejecuta una sola pasada (útil para cron, pruebas o diagnósticos rápidos).
 
-- 🔄 **Monitorea continuamente** todos los sistemas involucrados
-- ⏰ **Ejecuta tareas diarias** una vez por día laborable (después de las 7 AM)
-- 📧 **Ejecuta tareas continuas** (correos y tareas) en cada ciclo
-- 📅 **Respeta días festivos** y horarios laborables
-- ⚙️ **Ajusta tiempos de ciclo** según horario y tipo de día
-- 📊 **Genera logs detallados** y archivos de estado
-- 🛡️ **Manejo robusto de errores** y recuperación automática
-- 🔍 **Modo verbose** para debugging y monitoreo detallado
+Tipos de tareas:
+- Tareas diarias: se ejecutan una vez por día laborable (tras la hora configurada interna, por defecto >= 07:00).
+- Tareas continuas: se ejecutan en cada ciclo (por ejemplo, envío de correos pendientes).
 
-### 📋 Módulos Integrados en el Script Maestro
+---
+## 2. Estructura Principal del Repositorio
 
-#### Tareas Diarias (ejecutadas una vez por día laborable):
-1. **AGEDYS** (`run_agedys.py`): Sistema de gestión de facturas y visados técnicos
-2. **BRASS** (`run_brass.py`): Sistema de gestión de tareas BRASS  
-3. **Expedientes** (`run_expedientes.py`): Gestión de expedientes y documentación
-4. **No Conformidades** (`run_no_conformidades.py`): Gestión de no conformidades
-5. **Riesgos** (`run_riesgos.py`): Gestión de riesgos empresariales
-
-#### Tareas Continuas (ejecutadas en cada ciclo):
-6. **Email Services** (`run_email_services.py`): Servicio unificado de envío de correos (fusiona antiguos módulos `correos` y `correo_tareas`)
-
-### 🆕 Cambios Arquitectónicos Recientes (Refactor 2025)
-
-Refactor integral para simplificar arquitectura, mejorar testabilidad y eliminar código legacy.
-
-Principales mejoras:
-1. Capa de datos unificada:
-   - Eliminados `AccessAdapter` y `DemoDatabase`.
-   - Nueva clase única `AccessDatabase` con soporte opcional de pool.
-   - Introducido `AccessConnectionPool` (gestiona instancias reutilizables por cadena de conexión).
-2. Gestión de tareas:
-   - Reemplazo de funciones globales por clase `TaskRegistry` (extensible, inyectable, test-friendly).
-   - API: `get_daily_tasks()`, `get_continuous_tasks()`, `get_all_tasks()`, `summary()`, filtros y extensión por parámetros `extra_daily/extra_continuous`.
-   - Backwards compatibility: funciones wrapper conservadas para código legado.
-3. Script maestro (`run_master.py`):
-   - Consolidado antiguo `run_master_new.py` (eliminado).
-   - Añadido modo `--simple` sobre `TaskRegistry` con resumen estructurado.
-   - Fast-path en tests (`MASTER_DRY_SUBPROCESS=1`) evitando importaciones pesadas.
-4. Riesgos y No Conformidades: parametrización explícita de frecuencias vía variables de entorno para subtareas.
-5. Limpieza y cobertura:
-   - Eliminado definitivamente archivo legacy `database_adapter.py` y su test.
-   - Stub ligero de `RiesgosTask` para unit tests cuando el módulo completo no es necesario.
-6. Documentación actualizada: ejemplos de extensión de tareas, uso de pools y guía de migración.
-
-Pendiente futuro (no implementado aún):
-- Sistema de plugins de tareas (descubrimiento dinámico).
-- Persistencia de métricas de ejecución (duración/estado) para observabilidad.
-- Reducción selectiva de coste de importación en módulos grandes (lazy loading adicional).
-
-### Uso de TaskRegistry
-
-```python
-from common.task_registry import TaskRegistry
-
-registry = TaskRegistry()
-for task in registry.get_daily_tasks():
-   if task.debe_ejecutarse():
-      task.ejecutar()
-      task.marcar_como_completada()
+```
+scripts/            Scripts ejecutables (incluye run_master.py)
+src/common/         Utilidades, configuración, lógica compartida
+dbs-locales/        Bases de datos Access (entorno local / demo)
+hERRAMIENTAS/       Recursos auxiliares (CSS, Festivos.txt, etc.)
+tests/              Tests unitarios e integración (pytest)
+docs/               Documentación funcional y técnica adicional
 ```
 
-Extender con tareas personalizadas:
+---
+## 3. Preparación del Entorno (Desarrollo / Local)
+
+Requisitos mínimos:
+- Python 3.11+ (Windows preferente por dependencias de Access)
+- Controlador ODBC para Access (Microsoft Access Database Engine 2016 o similar)
+- Git
+
+Pasos recomendados:
+
+```powershell
+git clone https://github.com/ardelperal/scripts-python.git
+cd scripts-python
+python -m venv venv
+./venv/Scripts/Activate.ps1
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Solo si vas a desarrollar / testear
+```
+
+Variables de entorno opcionales (crear `.env` en raíz si se desea ajustar):
+
+```
+ENVIRONMENT=local              # o 'office'
+DEFAULT_RECIPIENT=admin@empresa.com
+LOCAL_DB_AGEDYS=dbs-locales/AGEDYS_DATOS.accdb
+LOCAL_DB_BRASS=dbs-locales/Gestion_Brass_Gestion_Datos.accdb
+# ... resto ver config.py
+```
+
+Para SMTP local de pruebas puedes usar un servidor dummy (por ejemplo MailHog, smtp4dev o Python `smtpd`).
+
+---
+## 4. Ejecución del Proceso Maestro
+
+Desde la raíz del proyecto (con el entorno activado):
+
+```powershell
+python scripts/run_master.py              # Modo continuo
+python scripts/run_master.py -v           # Modo continuo con más detalle
+python scripts/run_master.py --simple     # Ejecución única (diarias + continuas)
+python scripts/run_master.py --simple -v  # Ejecución única verbose
+python scripts/run_master.py --list-tasks # Listar tareas y su estado previsto
+```
+
+Salida clave registrada en `logs/app.log`.
+
+Finalización limpia: CTRL+C (manejo de señal implementado) o detener el servicio (ver sección despliegue).
+
+---
+## 5. Calendario Laboral y Festivos
+
+La función `es_laborable` combina:
+1. Librería `holidays` (España, Comunidad de Madrid).
+2. Archivo de respaldo `herramientas/Festivos.txt` (formato: `DD/MM/YYYY` por línea) en caso de falta de librería o conectividad.
+
+Si necesitas añadir festivos personalizados: edita el archivo `herramientas/Festivos.txt` (un festivo por línea).
+
+---
+## 6. Definición y Extensión de Tareas
+
+Las tareas se gestionan mediante un registro interno. Para agregar una nueva tarea:
+1. Crear módulo de tarea en `src/` (ej. `src/agedys/nueva_tarea.py`).
+2. Implementar una clase que exponga al menos:
+   - `name` (str)
+   - `debe_ejecutarse()` -> bool
+   - `ejecutar()` -> bool (True si éxito)
+   - `marcar_como_completada()` (si aplica)
+3. Registrar la tarea (según mecanismo del registro existente). Revisa ejemplos en tareas actuales.
+
+Ejemplo simplificado de patrón:
 
 ```python
-from common.base_task import TareaDiaria
-from common.task_registry import TaskRegistry
+class MiTarea:
+   name = "mi_tarea_demo"
 
-class MiTarea(TareaDiaria):
-   def __init__(self):
+   def debe_ejecutarse(self) -> bool:
+      return True
+
+   def ejecutar(self) -> bool:
+      # Lógica principal
+      return True
+
+   def marcar_como_completada(self):
+      pass
+```
+
+---
+## 7. Logs y Observabilidad
+
+- Archivo principal: `logs/app.log`.
+- Rotación/handlers adicionales configurables en `common.utils.setup_logging` si se emplea en otras partes.
+- Integración opcional con Loki / Promtail (ver carpetas `loki/`, `promtail/`, `grafana/`).
+
+---
+## 8. Testing
+
+Ejecutar test suite completa:
+
+```powershell
+pytest
+```
+
+Cobertura HTML: abrir `htmlcov/index.html` tras una ejecución con cobertura (por defecto ya configurada en `pyproject.toml`).
+
+Tests relevantes para calendario laboral: `tests/unit/common/test_utils.py` (función `es_laborable`).
+
+---
+## 9. Despliegue / Operación (IT)
+
+Escenarios típicos:
+
+1. Servicio Windows (sugerido): crear un servicio que invoque el intérprete Python con `scripts/run_master.py`. Herramientas posibles: NSSM (Non-Sucking Service Manager) o `sc.exe create` envolviendo un `.bat` que active el entorno y lance el script.
+2. Tarea Programada (solo modo simple): programar ejecución diaria en modo `--simple` si se prefiere orquestación externa (no continuo).
+
+Ejemplo de script launcher (`run_master.bat`):
+
+```bat
+@echo off
+cd /d C:\ruta\scripts-python
+call venv\Scripts\activate.bat
+python scripts\run_master.py -v
+```
+
+Supervisión:
+- Revisar `logs/app.log`.
+- Validar que el proceso (o servicio) permanece activo.
+- Integrar Promtail si se desea centralizar logs.
+
+Actualización:
+```powershell
+git pull
+pip install -r requirements.txt --upgrade
+```
+
+---
+## 10. Variables y Personalización Clave
+
+| Variable | Uso | Ejemplo |
+|----------|-----|---------|
+| ENVIRONMENT | Selección de rutas (local/office) | local |
+| DEFAULT_RECIPIENT | Email destino por defecto | admin@empresa.com |
+| LOCAL_DB_AGEDYS | Ruta BD local | dbs-locales/AGEDYS_DATOS.accdb |
+| MASTER_LOG_LEVEL | Nivel de log del maestro | INFO |
+| SMTP_OVERRIDE_* | Forzar servidor SMTP alternativo | ver config.py |
+
+Consulta `src/common/config.py` para el listado completo.
+
+---
+## 11. Seguridad y Buenas Prácticas
+
+- No commitear `.env` con credenciales reales.
+- Asegurar acceso restringido a las bases `.accdb` en producción.
+- Configurar backups regulares de las bases Access en entorno corporativo.
+- Monitorizar tamaño de logs y aplicar rotación si se prolonga el uso intensivo.
+
+---
+## 12. Roadmap Técnico (alto nivel)
+
+- Métricas de ejecución (duración, estado) exportables.
+- Health endpoint ligero (modo HTTP opcional).
+- Plugins de tareas dinámicos.
+
+---
+## 13. Soporte Rápido
+
+| Qué | Dónde mirar |
+|-----|-------------|
+| Error de BD | Rutas en `.env` / permisos de red |
+| No ejecuta tareas diarias | Ver `es_laborable`, hora del sistema |
+| Emails no salen | Config SMTP en `.env` / logs de correo |
+| Festivo no detectado | Formato en `herramientas/Festivos.txt` |
+
+---
+## 14. Licencia
+
+Proyecto interno. Uso restringido al ámbito corporativo.
+
+---
+## 15. Contacto
+
+Equipo de Automatización / IT Interno.
+
       super().__init__(name="MiTarea", script_filename="run_mi_tarea.py", task_names=["MiTareaDiaria"], frequency_days=1)
    def debe_ejecutarse(self):
       return True
