@@ -33,34 +33,91 @@ Todos los logs se escriben en la consola y en un único archivo (logs/app.log), 
 La estructura de carpetas sigue un patrón estándar para facilitar la navegación:
 
 .
-├── .github/workflows/     # Flujos de CI/CD (Linter, CodeQL)
-├── analysis/              # Dockerfile y scripts para análisis de código local
-├── dbs-locales/           # Bases de datos Access para el entorno local
-├── docs/                  # Documentación del proyecto (como este archivo)
-├── logs/                  # Archivos de log generados por la aplicación
-├── scripts/               # Scripts ejecutables (runners)
-│   ├── run_master.py      # Orquestador principal
-│   └── run_*.py           # Runners individuales para cada módulo
-├── src/                   # Código fuente de la aplicación
-│   ├── common/            # Módulos y utilidades compartidas
-│   │   ├── db/            # Lógica de conexión a BD y pools
-│   │   ├── reporting/     # Generación de informes y configuración de tablas
+├── .github/workflows/         # Flujos de CI/CD (Linter, CodeQL)
+├── analysis/                  # Dockerfile y scripts para análisis de código local
+├── dbs-locales/               # Bases de datos Access para el entorno local
+├── docs/                      # Documentación del proyecto (como este archivo)
+├── examples/                  # Ejemplos de uso y conectividad
+├── grafana/                   # Configuración de dashboards y datasources de Grafana
+│   └── provisioning/
+├── herramientas/              # Recursos auxiliares (festivos, CSS, etc.)
+├── htmlcov/                   # Reportes de cobertura HTML generados automáticamente
+├── logs/                      # Archivos de log generados por la aplicación
+├── loki/                      # Configuración de Loki (monitorización de logs)
+├── promtail/                  # Configuración de Promtail (recolección de logs)
+├── scripts/                   # Scripts ejecutables (runners)
+│   ├── run_master.py          # Orquestador principal
+│   ├── run_agedys.py          # Runner AGEDYS
+│   ├── run_brass.py           # Runner BRASS
+│   ├── run_expedientes.py     # Runner EXPEDIENTES
+│   ├── run_no_conformidades.py# Runner NO CONFORMIDADES
+│   ├── run_riesgos.py         # Runner RIESGOS
+│   └── run_email_services.py  # Runner para servicios de correo
+├── src/                       # Código fuente de la aplicación
+│   ├── common/                # Módulos y utilidades compartidas
+│   │   ├── db/                # Lógica de conexión a BD y pools
+│   │   ├── reporting/         # Generación de informes y configuración de tablas
 │   │   ├── __init__.py
 │   │   ├── base_task.py
 │   │   ├── config.py
 │   │   ├── logger.py
 │   │   ├── task_registry.py
+│   │   ├── user_adapter.py
 │   │   └── utils.py
-│   ├── agedys/            # Módulo de negocio AGEDYS
-│   ├── brass/             # Módulo de negocio BRASS
-│   ├── email_services/    # Módulo para el envío de correos
-│   └── ...                # Otros módulos de negocio
-├── tests/                 # Tests unitarios y de integración
-│   ├── unit/
-│   └── integration/
-├── .env                   # Archivo de configuración de entorno
-├── docker-compose.yml     # Orquestación de servicios (Loki, Grafana, SonarQube)
-└── requirements.txt       # Dependencias de Python
+│   ├── agedys/                # Módulo de negocio AGEDYS
+│   │   ├── agedys_manager.py
+│   │   ├── agedys_task.py
+│   │   └── ...
+│   ├── brass/                 # Módulo de negocio BRASS
+│   │   ├── brass_manager.py
+│   │   ├── brass_task.py
+│   │   └── run_brass.py
+│   ├── email_services/        # Módulo para el envío de correos
+│   │   ├── email_manager.py
+│   │   └── ...
+│   ├── expedientes/           # Módulo de negocio EXPEDIENTES
+│   │   ├── expedientes_manager.py
+│   │   ├── expedientes_task.py
+│   │   └── ...
+│   ├── no_conformidades/      # Módulo de negocio NO CONFORMIDADES
+│   │   ├── no_conformidades_manager.py
+│   │   ├── no_conformidades_task.py
+│   │   ├── report_registrar.py
+│   │   └── ...
+│   ├── riesgos/               # Módulo de negocio RIESGOS
+│   │   ├── riesgos_manager.py
+│   │   ├── riesgos_task.py
+│   │   └── ...
+│   └── ...                    # Otros módulos de negocio
+├── tests/                     # Tests unitarios y de integración
+│   ├── integration/           # Tests de integración por módulo
+│   │   ├── agedys/
+│   │   ├── brass/
+│   │   ├── database/
+│   │   ├── expedientes/
+│   │   ├── no_conformidades/
+│   │   └── riesgos/
+│   ├── unit/                  # Tests unitarios por módulo
+│   │   ├── agedys/
+│   │   ├── brass/
+│   │   ├── common/
+│   │   ├── expedientes/
+│   │   ├── master/
+│   │   ├── no_conformidades/
+│   │   ├── riesgos/
+│   │   └── ...
+│   └── ...
+├── tools/                     # Scripts utilitarios y de mantenimiento
+├── .env                       # Archivo de configuración de entorno
+├── docker-compose.yml         # Orquestación de servicios (Loki, Grafana, SonarQube)
+├── pyproject.toml             # Configuración de herramientas de desarrollo (black, pytest, etc.)
+├── pytest.ini                 # Configuración de pytest
+├── README.md                  # Documentación principal del proyecto
+├── requirements-dev.txt       # Dependencias de desarrollo
+├── requirements.txt           # Dependencias de Python
+├── scripts_config.json        # Configuración de runners y mapeo de tareas
+├── sonar-project.properties   # Configuración de SonarQube
+└── ARCHITECTURE.md            # Blueprint y arquitectura del proyecto
 
 4. Anatomía de un Módulo de Negocio (Ej: src/brass/)
 Cada módulo que implementa una lógica de negocio específica debe seguir esta estructura:
