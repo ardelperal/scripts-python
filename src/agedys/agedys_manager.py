@@ -919,11 +919,3 @@ class AgedysManager:
         except Exception as e:  # pragma: no cover
             self.logger.error(f"Error en run() legacy simplificado: {e}")
             return False
-
-    # Método esperado por pruebas de integración (interfaz tipo Task)
-    def execute_task(
-        self,
-        force: bool = False,
-        dry_run: bool = True,
-    ) -> bool:  # pragma: no cover - stub
-        return self.run(dry_run=dry_run)
