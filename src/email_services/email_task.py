@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 class EmailServicesTask(TareaContinua):
     """Tarea continua para unificar el procesamiento de correos."""
 
-    def __init__(self, name: str = "EmailServicesTask", script_filename: str = "email_services_task.py"):
+    def __init__(self, name: str = "EmailServicesTask", script_filename: str = "run_email_services.py"):
+        # Usar el nombre real del runner para que BaseTask valide correctamente la ruta
         super().__init__(name=name, script_filename=script_filename)
         self._manager_correos: Optional[EmailManager] = None
         self._manager_tareas: Optional[EmailManager] = None
