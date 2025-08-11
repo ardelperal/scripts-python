@@ -203,12 +203,22 @@ class EmailServicesRegistryTask(TareaContinua):
     # Aquí podríamos, en el futuro, instanciar y ejecutar EmailServicesTask directamente
     # si migramos completamente al modelo TaskRegistry para continuas.
     def execute_specific_logic(self) -> bool:  # pragma: no cover - mínima
-        try:
-            from email_services.email_task import EmailServicesTask  # import local para evitar ciclos
-            task = EmailServicesTask()
-            return task.execute_specific_logic()
-        except Exception:
-            return False
+        """Ejecuta la lógica de email unificado.
+
+        Si la variable de entorno EMAIL_SERVICES_REGISTRY_MODE == 'direct', instancia y
+        ejecuta el EmailServicesTask directamente (útil en modo simple / tests).
+        En otro caso devuelve True (no-op) dejando que el runner continuo lo gestione.
+        """
+        import os
+        mode = os.getenv('EMAIL_SERVICES_REGISTRY_MODE', 'delegate').lower()
+        if mode == 'direct':
+            try:
+                from email_services.email_task import EmailServicesTask  # import local para evitar ciclos
+                task = EmailServicesTask()
+                return task.execute_specific_logic()
+            except Exception:
+                return False
+        return True
 
 
 class TaskRegistry:
