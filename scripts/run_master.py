@@ -14,6 +14,12 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+# Asegura que 'src' esté en sys.path cuando se ejecuta directamente este script
+project_root = Path(__file__).parent.parent
+src_path = project_root / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
 from common.logger import setup_global_logging
 
 setup_global_logging(os.getenv("MASTER_LOG_LEVEL", "INFO"))
