@@ -47,6 +47,7 @@ La estructura de carpetas sigue un patrón estándar para facilitar la navegaci�
 ├── promtail/                  # Configuración de Promtail (recolección de logs)
 ├── scripts/                   # Scripts ejecutables (runners)
 │   ├── run_master.py          # Orquestador principal
+│   ├── migrations/            # Utilidades/migraciones específicas de scripts
 │   ├── run_agedys.py          # Runner AGEDYS
 │   ├── run_brass.py           # Runner BRASS
 │   ├── run_expedientes.py     # Runner EXPEDIENTES
@@ -71,9 +72,10 @@ La estructura de carpetas sigue un patrón estándar para facilitar la navegaci�
 │   ├── brass/                 # Módulo de negocio BRASS
 │   │   ├── brass_manager.py
 │   │   ├── brass_task.py
-│   │   └── run_brass.py
+│   │   └── ...
 │   ├── email_services/        # Módulo para el envío de correos
 │   │   ├── email_manager.py
+│   │   ├── email_task.py
 │   │   └── ...
 │   ├── expedientes/           # Módulo de negocio EXPEDIENTES
 │   │   ├── expedientes_manager.py
