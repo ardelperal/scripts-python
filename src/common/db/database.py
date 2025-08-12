@@ -37,6 +37,8 @@ class AccessDatabase:
     def __init__(
         self, connection_string: Union[str, Path], pool: Optional[AccessConnectionPool] = None
     ):
+        # Logger por instancia para facilitar trazabilidad en tests y producción
+        self.logger = logging.getLogger(f"{__name__}.AccessDatabase")
         # Aceptar Path directo para compatibilidad con tests que pasan ruta en lugar de connection string
         if isinstance(connection_string, Path):
             # Construir cadena estándar sin password (tests locales)
@@ -127,6 +129,8 @@ class AccessDatabase:
         self, query: str, params: Optional[tuple] = None
     ) -> list[dict[str, Any]]:
         if self.pool:
+            # Log de depuración antes de delegar al pool
+            self.logger.debug(f"Executing SQL: {query} | Params: {params}")
             return self.pool.execute_query(query, params)
         if not self._connection:
             try:
@@ -140,6 +144,8 @@ class AccessDatabase:
                 raise
         try:
             cursor = self._connection.cursor()
+            # Log de depuración justo antes de ejecutar la consulta real
+            self.logger.debug(f"Executing SQL: {query} | Params: {params}")
             if params:
                 cursor.execute(query, params)
             else:
