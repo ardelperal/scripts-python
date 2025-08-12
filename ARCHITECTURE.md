@@ -190,3 +190,14 @@ Abre src/common/reporting/table_configurations.py.
 Añade un nuevo diccionario INVENTARIO_TABLE_CONFIGURATIONS con la definición de las tablas para el informe de inventario.
 
 Haz que InventarioManager importe y use esta configuración.
+
+6. Modelo de Ejecución del Orquestador (run_master.py)
+
+- Entrada única: `scripts/run_master.py` es el punto de entrada para ejecución programada y manual.
+- Descubrimiento de tareas: usa `common.task_registry.TaskRegistry` para obtener instancias de tareas diarias y continuas.
+- Ejecución secuencial: tanto las tareas diarias como las continuas se ejecutan una a una (sin hilos). Esto facilita el razonamiento, evita condiciones de carrera y simplifica el logging y el control de errores.
+	- Diarias: se comprueba `debe_ejecutarse()` antes de `ejecutar()`; si tiene éxito, se marca con `marcar_como_completada()`.
+	- Continuas: se invoca `ejecutar()` directamente (sin comprobación previa), registrando éxito/fracaso por tarea.
+- Registro y sumario: cada ciclo registra un resumen con contadores de éxito/fallo y detalles por tarea.
+- Configuración: `scripts_config.json` define scripts disponibles (p. ej., `brass`, `riesgos`) y tipos (diaria/continua). El orquestador carga esta configuración al inicio y la expone en los logs.
+- Modo dry-run para tests: cuando `MASTER_DRY_SUBPROCESS=1` y se usa modo de ciclo único, el orquestador recorre un camino rápido (fast-path) que imprime claves de scripts y un mini-resumen, y termina enseguida. Este camino existe solo para pruebas, no debe usarse en producción.
